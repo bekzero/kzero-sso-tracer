@@ -1,0 +1,42 @@
+{
+  "tabId": 44,
+  "active": false,
+  "rawEvents": [],
+  "normalizedEvents": [
+    {
+      "id": "s1",
+      "tabId": 44,
+      "timestamp": 1710000010000,
+      "protocol": "SAML",
+      "kind": "saml-request",
+      "url": "https://ca.auth.kzero.com/realms/ACME/protocol/saml",
+      "host": "ca.auth.kzero.com",
+      "binding": "redirect",
+      "artifacts": {},
+      "rawRef": "s1",
+      "samlRequest": {
+        "encoded": "mock",
+        "issuer": "https://sp.vendor.example.com/saml"
+      }
+    },
+    {
+      "id": "s2",
+      "tabId": 44,
+      "timestamp": 1710000011200,
+      "protocol": "SAML",
+      "kind": "saml-response",
+      "url": "https://vendor.example.com/sso/acs",
+      "host": "vendor.example.com",
+      "binding": "post",
+      "artifacts": {},
+      "rawRef": "s2",
+      "samlResponse": {
+        "encoded": "mock",
+        "audience": "https://wrong.vendor.example.com/saml",
+        "recipient": "https://vendor.example.com/sso/acs",
+        "nameId": "user@example.com"
+      }
+    }
+  ],
+  "findings": []
+}

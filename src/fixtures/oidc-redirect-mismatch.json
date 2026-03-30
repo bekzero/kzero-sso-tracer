@@ -1,0 +1,37 @@
+{
+  "tabId": 22,
+  "active": false,
+  "rawEvents": [],
+  "normalizedEvents": [
+    {
+      "id": "e1",
+      "tabId": 22,
+      "timestamp": 1710000000000,
+      "protocol": "OIDC",
+      "kind": "authorize",
+      "url": "https://ca.auth.kzero.com/realms/ACME/protocol/openid-connect/auth?client_id=portal&redirect_uri=https%3A%2F%2Fvendor.example.com%2Fcallback&response_type=code&scope=openid%20profile&state=abc",
+      "host": "ca.auth.kzero.com",
+      "artifacts": {},
+      "rawRef": "e1",
+      "clientId": "portal",
+      "redirectUri": "https://vendor.example.com/callback",
+      "responseType": "code",
+      "scope": "openid profile",
+      "state": "abc"
+    },
+    {
+      "id": "e2",
+      "tabId": 22,
+      "timestamp": 1710000001200,
+      "protocol": "OIDC",
+      "kind": "callback",
+      "url": "https://vendor.example.com/oidc/callback?code=XYZ&state=abc",
+      "host": "vendor.example.com",
+      "artifacts": {},
+      "rawRef": "e2",
+      "state": "abc",
+      "code": "XYZ"
+    }
+  ],
+  "findings": []
+}

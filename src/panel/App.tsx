@@ -1,0 +1,1200 @@
+import { useEffect, useMemo, useState } from "react";
+import { buildSanitizedExport } from "../export/sanitizedExport";
+import type {
+  CaptureHistoryItem,
+  CaptureSession,
+  Finding,
+  NormalizedEvent,
+  NormalizedOidcEvent,
+  NormalizedSamlEvent,
+  Owner,
+  Severity
+} from "../shared/models";
+import { mask, redactRecord } from "../shared/redaction";
+import { RULE_CATALOG, getRuleDoc } from "../shared/ruleCatalog";
+import { buildTraceContext } from "../recipes/context";
+import { buildFixRecipe } from "../recipes/buildRecipe";
+import type { FixRecipe } from "../recipes/types";
+import { labelVariants } from "../mappings/uiLabelAliases";
+import { KZeroWordmark } from "./KZeroLogo";
+
+interface AppProps {
+  mode?: "devtools" | "sidepanel";
+}
+
+type TargetTab = { id: number; title?: string; url?: string };
+
+const getTabId = (mode: "devtools" | "sidepanel"): number => {
+  if (mode === "sidepanel") return -1;
+  try {
+    return chrome.devtools.inspectedWindow.tabId;
+  } catch {
+    const tabParam = new URLSearchParams(location.search).get("tabId");
+    return Number(tabParam ?? -1);
+  }
+};
+
+const severityWeight = (s: Severity): number => (s === "error" ? 3 : s === "warning" ? 2 : 1);
+
+const formatTime = (ts: number): string => new Date(ts).toLocaleTimeString();
+const formatDate = (ts?: number): string => (ts ? new Date(ts).toLocaleString() : "-");
+
+const copyText = async (value: string): Promise<void> => navigator.clipboard.writeText(value);
+
+type UiFieldScanValue = { found: boolean; value?: string; kind?: string };
+
+const isSensitiveField = (label: string): boolean =>
+  /secret|token|authorization code|code verifier|private key/i.test(label);
+
+const displayValue = (value: string, raw: boolean, sensitive: boolean): string => {
+  if (raw) return value;
+  if (sensitive) return mask(value, 2, 2);
+  return value;
+};
+
+const classNames = (...parts: Array<string | false | undefined>): string => parts.filter(Boolean).join(" ");
+
+const Pill = ({ tone, children }: { tone: string; children: string }): JSX.Element => (
+  <span className={classNames("pill", `pill-${tone}`)}>{children}</span>
+);
+
+const SeverityPill = ({ severity }: { severity: Severity }): JSX.Element => {
+  const label = severity === "error" ? "Problem" : severity === "warning" ? "Warning" : "Notice";
+  return <Pill tone={severity}>{label}</Pill>;
+};
+
+const OwnerPill = ({ owner }: { owner: Owner }): JSX.Element => {
+  const tone = owner === "KZero" ? "kzero" : owner === "vendor SP" ? "vendor" : owner;
+  return <Pill tone={tone.replace(/\s/g, "-")}>{owner}</Pill>;
+};
+
+const ProtocolPill = ({ protocol }: { protocol: string }): JSX.Element => <Pill tone="protocol">{protocol}</Pill>;
+
+const commonPrefixLen = (a: string, b: string): number => {
+  const max = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < max && a[i] === b[i]) i++;
+  return i;
+};
+
+const commonSuffixLen = (a: string, b: string, prefixLen: number): number => {
+  const max = Math.min(a.length, b.length) - prefixLen;
+  let i = 0;
+  while (i < max && a[a.length - 1 - i] === b[b.length - 1 - i]) i++;
+  return i;
+};
+
+const DiffLine = ({ label, observed, expected }: { label: string; observed: string; expected: string }): JSX.Element => {
+  const prefix = commonPrefixLen(observed, expected);
+  const suffix = commonSuffixLen(observed, expected, prefix);
+  const oMid = observed.slice(prefix, observed.length - suffix);
+  const eMid = expected.slice(prefix, expected.length - suffix);
+  const pre = observed.slice(0, prefix);
+  const suf = observed.slice(observed.length - suffix);
+  const preE = expected.slice(0, prefix);
+  const sufE = expected.slice(expected.length - suffix);
+
+  return (
+    <div className="diff">
+      <div className="diff-label">{label}</div>
+      <div className="diff-rows">
+        <div className="diff-row">
+          <span className="diff-tag">Observed</span>
+          <code>
+            {pre}
+            {oMid ? <mark className="diff-mark">{oMid}</mark> : null}
+            {suf}
+          </code>
+        </div>
+        <div className="diff-row">
+          <span className="diff-tag">Expected</span>
+          <code>
+            {preE}
+            {eMid ? <mark className="diff-mark">{eMid}</mark> : null}
+            {sufE}
+          </code>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PreFlightChecklist = ({ recipe }: { recipe: FixRecipe }): JSX.Element => {
+  const items = [
+    ...recipe.sections
+      .filter((s) => s.owner === "KZero" && s.kzeroFields?.length)
+      .flatMap((s) => s.kzeroFields.map((f) => ({ label: f, source: "KZero" as const }))),
+    ...recipe.sections
+      .filter((s) => s.owner === "vendor SP" && s.vendorFields?.length)
+      .flatMap((s) => s.vendorFields.map((f) => ({ label: f, source: "Vendor" as const })))
+  ];
+
+  if (items.length === 0) return <></>;
+
+  return (
+    <div className="preflight">
+      <div className="preflight-head">
+        <span className="preflight-icon">✅</span>
+        Quick checklist — verify these fields
+      </div>
+      <ul className="preflight-list">
+        {items.map((item) => (
+          <li key={item.label} className="preflight-item">
+            <div className={classNames("preflight-dot", item.source === "KZero" ? "kzero" : "vendor")} />
+            <span className="preflight-label">{item.label}</span>
+            <span className="preflight-source">{item.source === "KZero" ? "KZero" : "Vendor"}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
+  const [session, setSession] = useState<CaptureSession | null>(null);
+  const [tabId, setTabId] = useState<number>(() => getTabId(mode));
+  const [messagingTabId, setMessagingTabId] = useState<number>(() => getTabId(mode));
+  const [targetTab, setTargetTab] = useState<TargetTab | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  const [leftTab, setLeftTab] = useState<"timeline" | "history" | "findings" | "detail">("findings");
+  const [detailTab, setDetailTab] = useState<"fix" | "happened" | "evidence" | "artifacts" | "xml">("happened");
+  const [search, setSearch] = useState("");
+  const [ruleFilter, setRuleFilter] = useState("");
+  const [showRaw, setShowRaw] = useState(false);
+  const [history, setHistory] = useState<CaptureHistoryItem[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [isPopup, setIsPopup] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
+  const [uiScan, setUiScan] = useState<{ results: Record<string, UiFieldScanValue> }>({ results: {} });
+  const [onboardingDone, setOnboardingDone] = useState(false);
+
+  const narrowTab = leftTab;
+  const openPopup = (): void => {
+    chrome.windows.create({
+      url: chrome.runtime.getURL("panel.html"),
+      type: "popup",
+      width: 1100,
+      height: 800
+    });
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsPopup(params.get("popup") === "1");
+    const saved = sessionStorage.getItem("onboardingDone");
+    setOnboardingDone(saved === "1");
+  }, []);
+
+  useEffect(() => {
+    const checkWidth = (): void => setIsNarrow(window.innerWidth < 900);
+    checkWidth();
+    window.addEventListener("resize", checkWidth);
+    return () => window.removeEventListener("resize", checkWidth);
+  }, []);
+
+  useEffect(() => {
+    if (mode === "sidepanel" && tabId === -1) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          const realTabId = tabs[0].id;
+          setMessagingTabId(realTabId);
+          setTabId(realTabId);
+          setTargetTab({ id: realTabId, title: tabs[0].title, url: tabs[0].url });
+        }
+      });
+    }
+  }, [mode, tabId]);
+
+  useEffect(() => {
+    if (messagingTabId < 0 || !chrome.runtime?.id) return;
+
+    const handler = (msg: unknown): void => {
+      const message = msg as Record<string, unknown>;
+      if (message.type === "SESSION_UPDATE") {
+        setSession(message.session as CaptureSession);
+      }
+      if (message.type === "UI_SCAN_RESULT") {
+        setUiScan({ results: (message.results as Record<string, UiFieldScanValue>) ?? {} });
+      }
+      if (message.type === "TAB_UPDATE") {
+        setTargetTab(message.tab as TargetTab);
+      }
+    };
+
+    const port = chrome.runtime.connect({ name: "kzero-panel" });
+    port.postMessage({ type: "PANEL_INIT", tabId: messagingTabId });
+    port.onMessage.addListener(handler);
+    port.onDisconnect.addListener(() => {
+      port.onMessage.removeListener(handler);
+    });
+
+    const rc = (msg: unknown): void => {
+      const message = msg as Record<string, unknown>;
+      if (message.type === "SESSION_UPDATE") {
+        setSession(message.session as CaptureSession);
+      }
+      if (message.type === "UI_SCAN_RESULT") {
+        setUiScan({ results: (message.results as Record<string, UiFieldScanValue>) ?? {} });
+      }
+    };
+    chrome.runtime.onMessage.addListener(rc);
+
+    return () => {
+      port.onMessage.removeListener(handler);
+      chrome.runtime.onMessage.removeListener(rc);
+      port.disconnect();
+    };
+  }, [messagingTabId]);
+
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: "GET_HISTORY" }, (resp) => {
+      if (resp?.history) setHistory(resp.history as CaptureHistoryItem[]);
+    });
+  }, []);
+
+  const loadHistory = (id: string): void => {
+    chrome.runtime.sendMessage({ type: "LOAD_HISTORY_ITEM", itemId: id }, (resp) => {
+      if (resp?.session) {
+        setSession(resp.session as CaptureSession);
+        setSelectedHistoryId(id);
+      }
+    });
+  };
+
+  const startCapture = (): void => {
+    setSession(null);
+    setSelectedEventId(null);
+    setSelectedFindingId(null);
+    setUiScan({ results: {} });
+    chrome.runtime.sendMessage({ type: "START_CAPTURE", tabId: messagingTabId });
+  };
+
+  const stopCapture = (): void => {
+    setSession((prev) => (prev ? { ...prev, active: false } : null));
+    chrome.runtime.sendMessage({ type: "STOP_CAPTURE", tabId: messagingTabId });
+  };
+
+  const exportSession = (): void => {
+    if (!session) return;
+    const data = buildSanitizedExport(session);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kzero-trace-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearSession = (): void => {
+    setSession(null);
+    setSelectedEventId(null);
+    setSelectedFindingId(null);
+    chrome.runtime.sendMessage({ type: "CLEAR_SESSION", tabId: messagingTabId });
+  };
+
+  const requestUiScan = (labels: string[]): void => {
+    if (messagingTabId < 0) return;
+    chrome.runtime.sendMessage({ type: "REQUEST_UI_SCAN", tabId: messagingTabId, labels });
+  };
+
+  const requestUiHighlight = (labels: string[]): void => {
+    if (messagingTabId < 0) return;
+    chrome.runtime.sendMessage({ type: "REQUEST_UI_HIGHLIGHT", tabId: messagingTabId, labels });
+  };
+
+  const dismissOnboarding = (): void => {
+    setOnboardingDone(true);
+    sessionStorage.setItem("onboardingDone", "1");
+  };
+
+  const filteredEvents = useMemo(() => {
+    if (!session) return [];
+    let events = [...session.normalizedEvents].reverse();
+    if (search) {
+      const q = search.toLowerCase();
+      events = events.filter(
+        (e) =>
+          e.kind.toLowerCase().includes(q) ||
+          e.host.toLowerCase().includes(q) ||
+          e.url.toLowerCase().includes(q) ||
+          JSON.stringify(e.artifacts).toLowerCase().includes(q)
+      );
+    }
+    return events;
+  }, [session, search]);
+
+  const filteredFindings = useMemo(() => {
+    if (!session) return [];
+    let findings = [...session.findings];
+    if (ruleFilter) findings = findings.filter((f) => f.ruleId === ruleFilter);
+    if (search) {
+      const q = search.toLowerCase();
+      findings = findings.filter(
+        (f) =>
+          f.title.toLowerCase().includes(q) ||
+          f.explanation.toLowerCase().includes(q) ||
+          f.evidence.some((e) => e.toLowerCase().includes(q))
+      );
+    }
+    return findings.sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity));
+  }, [session, ruleFilter, search]);
+
+  const topDiagnosis = useMemo(() => {
+    if (!session?.findings.length) return null;
+    return session.findings.reduce((worst, f) =>
+      severityWeight(f.severity) > severityWeight(worst.severity) ? f : worst
+    );
+  }, [session]);
+
+  const selectedEvent = useMemo(
+    () => filteredEvents.find((e) => e.id === selectedEventId) ?? null,
+    [filteredEvents, selectedEventId]
+  );
+
+  const selectedFinding = useMemo(
+    () => filteredFindings.find((f) => f.id === selectedFindingId) ?? null,
+    [filteredFindings, selectedFindingId]
+  );
+
+  const selectedEventForFinding = useMemo((): NormalizedEvent | null => {
+    if (!selectedFinding?.eventId || !session) return null;
+    return session.normalizedEvents.find((e) => e.id === selectedFinding.eventId) ?? null;
+  }, [selectedFinding, session]);
+
+  const traceContext = useMemo(
+    () => buildTraceContext(session),
+    [session]
+  );
+
+  const recipe = useMemo(
+    () => (selectedFinding ? buildFixRecipe(selectedFinding, traceContext) : null),
+    [selectedFinding, traceContext]
+  );
+
+  const ruleDoc = useMemo(
+    () => (selectedFinding ? getRuleDoc(selectedFinding.ruleId) : null),
+    [selectedFinding]
+  );
+
+  const getKeyFields = (event: NormalizedEvent | null): Array<{ k: string; v: string }> => {
+    if (!event) return [];
+    const a = event.artifacts;
+    if (event.protocol === "SAML") {
+      const e = a as NormalizedSamlEvent["artifacts"];
+      return [
+        e.SAMLRequest && { k: "SAMLRequest", v: e.SAMLRequest },
+        e.SAMLResponse && { k: "SAMLResponse", v: e.SAMLResponse },
+        e.RelayState && { k: "RelayState", v: e.RelayState },
+        e.Issuer && { k: "Issuer", v: e.Issuer },
+        e.Destination && { k: "Destination", v: e.Destination },
+        e.AssertionConsumerServiceURL && { k: "ACS URL", v: e.AssertionConsumerServiceURL },
+        e.Audience && { k: "Audience", v: e.Audience },
+        e.NameID && { k: "NameID", v: e.NameID },
+        e.InResponseTo && { k: "InResponseTo", v: e.InResponseTo },
+      ].filter(Boolean) as Array<{ k: string; v: string }>;
+    }
+    if (event.protocol === "OIDC") {
+      const e = a as NormalizedOidcEvent["artifacts"];
+      return [
+        e.code && { k: "code", v: e.code },
+        e.state && { k: "state", v: e.state },
+        e.nonce && { k: "nonce", v: e.nonce },
+        e.access_token && { k: "access_token", v: e.access_token },
+        e.id_token && { k: "id_token", v: e.id_token },
+        e.iss && { k: "iss", v: e.iss },
+        e.aud && { k: "aud", v: e.aud },
+        e.client_id && { k: "client_id", v: e.client_id },
+        e.redirect_uri && { k: "redirect_uri", v: e.redirect_uri },
+      ].filter(Boolean) as Array<{ k: string; v: string }>;
+    }
+    return Object.entries(a).slice(0, 10).map(([k, v]) => ({ k, v: String(v) }));
+  };
+
+  const xmlRows = useMemo((): Array<{ id: string; path: string; value: string; highlight?: boolean }> => {
+    if (!selectedEvent || selectedEvent.protocol !== "SAML") return [];
+    const a = (selectedEvent as NormalizedSamlEvent).artifacts;
+    const xml = a.decodedXml;
+    if (!xml) return [];
+    const rows: Array<{ id: string; path: string; value: string; highlight?: boolean }> = [];
+    const importantPaths = [
+      { path: "//saml:Issuer/text()", label: "Issuer" },
+      { path: "//saml:Subject/saml:NameID/text()", label: "NameID" },
+      { path: "//saml:Conditions/@Audience", label: "Audience" },
+      { path: "//saml:Conditions/@NotBefore", label: "NotBefore" },
+      { path: "//saml:Conditions/@NotOnOrAfter", label: "NotOnOrAfter" },
+      { path: "//saml:AuthnStatement/@SessionIndex", label: "SessionIndex" },
+      { path: "//saml:AttributeStatement/saml:Attribute[@Name='email']/saml:AttributeValue/text()", label: "email" },
+      { path: "//saml:Assertion/saml:Signature/signedInfo", label: "Signed" },
+      { path: "//samlp:StatusCode/@Value", label: "StatusCode" },
+    ];
+    const highlights = selectedFinding?.ruleId === "SAML_ISSUER_MISMATCH"
+      ? ["Issuer"]
+      : selectedFinding?.ruleId === "SAML_AUDIENCE_MISMATCH"
+      ? ["Audience"]
+      : selectedFinding?.ruleId === "SAML_NAMEID_MISMATCH"
+      ? ["NameID"]
+      : [];
+
+    const nsMap: Record<string, string> = {
+      saml: "urn:oasis:names:tc:SAML:2.0:assertion",
+      samlp: "urn:oasis:names:tc:SAML:2.0:protocol",
+      ds: "http://www.w3.org/2000/09/xmldsig#"
+    };
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, "text/xml");
+      const resolver = {
+        lookupNamespaceURI: (prefix: string) => nsMap[prefix] ?? null
+      };
+
+      importantPaths.forEach(({ path, label }) => {
+        try {
+          const result = doc.evaluate(path, doc, resolver as (prefix: string) => string | null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+          for (let i = 0; i < result.snapshotLength; i++) {
+            const node = result.snapshotItem(i);
+            if (node) {
+              rows.push({
+                id: `${label}-${i}`,
+                path,
+                value: node.textContent ?? "",
+                highlight: highlights.includes(label)
+              });
+            }
+          }
+        } catch { /* skip failed xpath */ }
+      });
+    } catch { /* xml parse error */ }
+
+    return rows;
+  }, [selectedEvent, selectedFinding]);
+
+  const tabTitle = targetTab?.title ?? (tabId >= 0 ? `Tab ${tabId}` : "No tab selected");
+
+  if (!onboardingDone) {
+    return (
+      <div className="onboarding">
+        <KZeroWordmark />
+        <h1>SSO Tracer</h1>
+        <p>A diagnostic tool for KZero Passwordless SSO. Captures and decodes SAML and OIDC traffic to help you identify and fix authentication issues.</p>
+        <div className="steps-list">
+          <div className="step">
+            <span className="step-num">1</span>
+            <div>
+              <strong>Open the login page</strong>
+              <p>Navigate to your vendor's login page in this tab. Click <strong>Use current tab</strong> to target it.</p>
+            </div>
+          </div>
+          <div className="step">
+            <span className="step-num">2</span>
+            <div>
+              <strong>Start capture</strong>
+              <p>Click <strong>Start</strong> to begin recording. Then initiate the login flow.</p>
+            </div>
+          </div>
+          <div className="step">
+            <span className="step-num">3</span>
+            <div>
+              <strong>Review findings</strong>
+              <p>Each finding includes a plain-English explanation, evidence, and step-by-step fix steps.</p>
+            </div>
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
+      </div>
+    );
+  }
+
+  const wideLayout = (
+    <>
+      <div className="layout-3pane">
+        <section className="pane pane-nav">
+          <div className="pane-head">
+            <div className="tab-row">
+              <button className={classNames("tab", leftTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
+              <button className={classNames("tab", leftTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+            </div>
+          </div>
+          {leftTab === "timeline" ? (
+            <ul className="list">
+              {filteredEvents.map((event) => (
+                <li key={event.id} className={classNames("row", `row-protocol-${event.protocol.toLowerCase()}`, selectedEvent?.id === event.id && "active")} onClick={() => setSelectedEventId(event.id)}>
+                  <div className="row-main">
+                    <div className="row-title">
+                      <ProtocolPill protocol={event.protocol} />
+                      <span className="mono">{event.kind}</span>
+                    </div>
+                    <div className="row-sub mono">{event.host}</div>
+                  </div>
+                  <div className="row-meta mono">
+                    <span>{formatTime(event.timestamp)}</span>
+                    <span className={classNames("http", (event.statusCode ?? 0) >= 400 && "http-bad")}>{event.statusCode ?? "-"}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul className="list">
+              {history.map((item) => (
+                <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
+                  <div className="row-main">
+                    <div className="row-title"><span className="mono">{formatDate(item.startedAt)}</span></div>
+                    <div className="row-sub">
+                      <span className="mono">{item.protocolHints.join("/") || "-"}</span>
+                      <span className="dot" />
+                      <span className="mono">{item.findingCount} findings</span>
+                    </div>
+                  </div>
+                  <div className="row-meta mono">Tab {item.tabId}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="pane pane-findings">
+          <div className="pane-head">
+            <h2>Findings</h2>
+            {session?.active && (
+              <div className="live-badge">
+                <span className="live-dot" />
+                LIVE
+              </div>
+            )}
+          </div>
+          {session?.findings.length === 0 && !session.active && (
+            <div className="empty">Start capture, run a login, and stop to see findings here.</div>
+          )}
+          {session?.findings.length === 0 && session.active && (
+            <div className="empty">Capturing... run the login flow now.</div>
+          )}
+          {session?.findings.length === 0 && !session && (
+            <div className="empty">Click Start to begin capturing.</div>
+          )}
+          {session?.findings && session.findings.length > 0 && (
+            <>
+              {topDiagnosis ? (
+                <div style={{ padding: "0 12px 8px" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Most critical</div>
+                  <div className="top-card" onClick={() => { setSelectedFindingId(topDiagnosis.id); setDetailTab("happened"); }}>
+                    <div className="top-title">
+                      <SeverityPill severity={topDiagnosis.severity} />
+                      <OwnerPill owner={topDiagnosis.likelyOwner} />
+                      <span className="top-text">{topDiagnosis.title}</span>
+                    </div>
+                    <div className="top-sub">{topDiagnosis.explanation}</div>
+                  </div>
+                </div>
+              ) : null}
+              {session.findings.length > 1 && (
+                <div className="severity-legend" style={{ margin: "0 12px 8px" }}>
+                  <span><span style={{ color: "var(--err)" }}>●</span> <strong>Problem</strong> — needs fixing</span>
+                  <span><span style={{ color: "var(--warn)" }}>●</span> <strong>Warning</strong> — may cause issues</span>
+                  <span><span style={{ color: "var(--info)" }}>●</span> <strong>Notice</strong> — FYI only</span>
+                </div>
+              )}
+              <ul className="list">
+                {filteredFindings.map((finding) => (
+                  <li key={finding.id} className={classNames("row", `finding-${finding.severity}`, selectedFinding?.id === finding.id && "active")}
+                    onClick={() => { setSelectedFindingId(finding.id); setDetailTab("happened"); }}>
+                    <div className="row-main">
+                      <div className="row-title">
+                        <SeverityPill severity={finding.severity} />
+                        <OwnerPill owner={finding.likelyOwner} />
+                        <span className="row-text">{finding.title}</span>
+                      </div>
+                      <div className="row-sub">{finding.explanation.slice(0, 65)}{finding.explanation.length > 65 ? "..." : ""}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        <section className="pane pane-detail">
+          <div className="pane-head">
+            <h2>Detail</h2>
+            <div className="tab-row">
+              <button className={classNames("tab", detailTab === "fix" && "active")} onClick={() => setDetailTab("fix")}>Fix steps</button>
+              <button className={classNames("tab", detailTab === "happened" && "active")} onClick={() => setDetailTab("happened")}>What happened</button>
+              <button className={classNames("tab", detailTab === "evidence" && "active")} onClick={() => setDetailTab("evidence")}>Evidence</button>
+              <button className={classNames("tab", detailTab === "artifacts" && "active")} onClick={() => setDetailTab("artifacts")}>Artifacts</button>
+              <button className={classNames("tab", detailTab === "xml" && "active")} onClick={() => setDetailTab("xml")}>SAML XML</button>
+            </div>
+          </div>
+          <div className="detail">
+            {selectedFinding ? (
+              <>
+                <div className="detail-head">
+                  <div className="detail-title">
+                    <SeverityPill severity={selectedFinding.severity} />
+                    <OwnerPill owner={selectedFinding.likelyOwner} />
+                    <span>{selectedFinding.title}</span>
+                  </div>
+                  <div className="detail-meta mono">
+                    {selectedFinding.protocol !== "unknown" ? selectedFinding.protocol : ""}{selectedFinding.protocol !== "unknown" ? " · " : ""}{selectedFinding.likelyOwner}
+                  </div>
+                </div>
+
+                {detailTab === "fix" ? (
+                  recipe ? (
+                    <>
+                      <PreFlightChecklist recipe={recipe} />
+                      <div className="sections">
+                        {recipe.sections.map((section) => (
+                          <div key={section.title} className="section">
+                            <div className="section-title">
+                              <OwnerPill owner={section.owner} />
+                              <span>{section.title}</span>
+                            </div>
+                            {section.kzeroFields?.length ? (
+                              <div className="fields mono">KZero fields: {section.kzeroFields.join(", ")}</div>
+                            ) : null}
+                            {section.vendorFields?.length ? (
+                              <div className="fields mono">Vendor fields: {section.vendorFields.join(", ")}</div>
+                            ) : null}
+                            <ol className="steps">
+                              {section.bullets.map((b, idx) => (
+                                <li key={`${section.title}-${idx}`}>{b}</li>
+                              ))}
+                            </ol>
+                            {mode === "devtools" && tabId >= 0 && section.kzeroFields?.length ? (
+                              <div className="field-check">
+                                <div className="field-check-head">
+                                  <span className="mono">Check these fields on the current page</span>
+                                  <button className="btn btn-ghost" onClick={() => {
+                                    const labels = [...new Set([...(section.kzeroFields ?? []), ...(section.fieldExpectations?.map((e) => e.field) ?? [])])];
+                                    requestUiScan(labels);
+                                  }}>Check fields</button>
+                                </div>
+                                <table className="check-table">
+                                  <thead><tr><th>Field</th><th>Expected</th><th>Current</th><th></th></tr></thead>
+                                  <tbody>
+                                    {[...new Set([...(section.kzeroFields ?? []), ...(section.fieldExpectations?.map((e) => e.field) ?? [])])].map((field) => {
+                                      const expected = section.fieldExpectations?.find((e) => e.field === field)?.expected;
+                                      const variants = labelVariants(field);
+                                      const firstFound = variants.find((v) => uiScan.results[v]?.found);
+                                      const result = firstFound ? uiScan.results[firstFound] : uiScan.results[field];
+                                      const sensitive = Boolean(section.fieldExpectations?.find((e) => e.field === field)?.sensitive) || isSensitiveField(field);
+                                      const rawCurrent = result?.found ? result.value ?? "" : "";
+                                      const current = result ? result.found ? displayValue(rawCurrent, showRaw, sensitive) : "(not found)" : "(not checked)";
+                                      const expectedShown = expected ? displayValue(expected, showRaw, sensitive) : "-";
+                                      const match = expected && result?.found ? (result.value ?? "") === expected : undefined;
+                                      return (
+                                        <tr key={`${section.title}-${field}`}>
+                                          <td className="mono">{field}</td>
+                                          <td className="mono">{expectedShown}</td>
+                                          <td className={classNames("mono", match === false && "bad")}>{current}</td>
+                                          <td><button className="mini" onClick={() => requestUiHighlight(variants)}>Locate</button></td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                                <div className="note">Tip: open the KZero Passwordless admin screen for this tenant in this same tab, then click <span className="mono">Check fields</span>.</div>
+                              </div>
+                            ) : null}
+                            {section.copySnippets?.length ? (
+                              <div className="copy-row">
+                                {section.copySnippets.map((snip) => (
+                                  <button key={snip.label} className="btn btn-ghost" onClick={() => copyText(showRaw ? snip.value : snip.sensitive ? "***" : snip.value)}
+                                    title={snip.sensitive && !showRaw ? "Enable Raw values to copy" : "Copy"}>Copy: {snip.label}</button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="verify">VERIFY</Pill>
+                          <span>Verify</span>
+                        </div>
+                        <ol className="steps">
+                          {recipe.verify.map((b, idx) => (
+                            <li key={`verify-${idx}`}>{b}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="empty">
+                      <div className="note">No step-by-step guide available for this finding yet.</div>
+                      <div className="note">Try the <strong>What Happened</strong> tab for a plain-English explanation.</div>
+                      <div className="note">Try the <strong>Evidence</strong> tab to see the raw data.</div>
+                    </div>
+                  )
+                ) : null}
+
+                {detailTab === "happened" ? (
+                  <>
+                    {recipe ? <PreFlightChecklist recipe={recipe} /> : null}
+                    <div className="sections">
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="note">WHAT HAPPENED</Pill>
+                          <span>Explanation</span>
+                        </div>
+                        <div className="note" style={{ fontSize: 13, lineHeight: 1.6 }}>{selectedFinding.explanation}</div>
+                        {ruleDoc ? (
+                          <div className="note mono" style={{ marginTop: 8 }}>Why it matters: {ruleDoc.why}</div>
+                        ) : null}
+                      </div>
+                      {selectedFinding.observed && selectedFinding.expected ? (
+                        <div className="section">
+                          <div className="section-title">
+                            <Pill tone="evidence">COMPARISON</Pill>
+                            <span>Expected vs observed</span>
+                          </div>
+                          <DiffLine label="Mismatch" observed={selectedFinding.observed} expected={selectedFinding.expected} />
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+
+                {detailTab === "evidence" ? (
+                  <div className="sections">
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="evidence">EVIDENCE</Pill>
+                        <span>Evidence</span>
+                      </div>
+                      <ul className="evidence">
+                        {selectedFinding.evidence.map((e, idx) => (
+                          <li key={`e-${idx}`} className="mono">{e}</li>
+                        ))}
+                      </ul>
+                      <div className="copy-row">
+                        <button className="btn btn-ghost" onClick={() => copyText(JSON.stringify(selectedFinding, null, 2))}>Copy finding as JSON</button>
+                      </div>
+                    </div>
+                    {recipe ? (
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="next">NEXT</Pill>
+                          <span>If still failing, capture this</span>
+                        </div>
+                        <ul className="evidence">
+                          {recipe.nextEvidence.map((e, idx) => (
+                            <li key={`n-${idx}`}>{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {detailTab === "artifacts" ? (
+                  <div className="sections">
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="artifact">ARTIFACTS</Pill>
+                        <span>Key fields</span>
+                      </div>
+                      <table className="kv">
+                        <tbody>
+                          {getKeyFields(selectedEventForFinding).map(({ k, v }) => (
+                            <tr key={k}>
+                              <td className="kv-k mono">{k}</td>
+                              <td className="kv-v mono">
+                                <span>{v}</span>
+                                <button className="mini" onClick={() => copyText(v)} title="Copy">Copy</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="raw">RAW</Pill>
+                        <span>Normalized artifacts (redacted by default)</span>
+                      </div>
+                      <pre className="pre">
+                        {JSON.stringify(selectedEventForFinding ? (showRaw ? selectedEventForFinding.artifacts : redactRecord(selectedEventForFinding.artifacts)) : {}, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ) : null}
+
+                {detailTab === "xml" ? (
+                  <div className="sections">
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="xml">XML</Pill>
+                        <span>SAML XPath inspector</span>
+                      </div>
+                      {xmlRows.length ? (
+                        <div className="xpath">
+                          {xmlRows.map((row) => (
+                            <div key={row.id} className={classNames("xpath-row", row.highlight && "xpath-highlight")}>
+                              <code className="mono">{row.path}</code>
+                              <span className="mono">{showRaw ? row.value : String(redactRecord({ value: row.value }).value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="empty">No decoded SAML XML available for the selected event.</div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="empty">Select a finding from the list to see details.</div>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+
+  const narrowLayout = (
+    <>
+      <div className="narrow-tabs">
+        <button className={classNames("tab", narrowTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
+        <button className={classNames("tab", narrowTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+        <button className={classNames("tab", narrowTab === "findings" && "active")} onClick={() => setLeftTab("findings")}>Findings</button>
+        <button className={classNames("tab", narrowTab === "detail" && "active")} onClick={() => setLeftTab("detail")}>Detail</button>
+      </div>
+
+      {narrowTab === "timeline" || narrowTab === "history" ? (
+        <section className="pane pane-fill">
+          <div className="pane-head">
+            <div className="tab-row">
+              <button className={classNames("tab", leftTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
+              <button className={classNames("tab", leftTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+            </div>
+          </div>
+          {leftTab === "timeline" ? (
+            <ul className="list">
+              {filteredEvents.map((event) => (
+                <li key={event.id} className={classNames("row", `row-protocol-${event.protocol.toLowerCase()}`, selectedEvent?.id === event.id && "active")} onClick={() => setSelectedEventId(event.id)}>
+                  <div className="row-main">
+                    <div className="row-title">
+                      <ProtocolPill protocol={event.protocol} />
+                      <span className="mono">{event.kind}</span>
+                    </div>
+                    <div className="row-sub mono">{event.host}</div>
+                  </div>
+                  <div className="row-meta mono">
+                    <span>{formatTime(event.timestamp)}</span>
+                    <span className={classNames("http", (event.statusCode ?? 0) >= 400 && "http-bad")}>{event.statusCode ?? "-"}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul className="list">
+              {history.map((item) => (
+                <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
+                  <div className="row-main">
+                    <div className="row-title"><span className="mono">{formatDate(item.startedAt)}</span></div>
+                    <div className="row-sub">
+                      <span className="mono">{item.protocolHints.join("/") || "-"}</span>
+                      <span className="dot" />
+                      <span className="mono">{item.findingCount} findings</span>
+                    </div>
+                  </div>
+                  <div className="row-meta mono">Tab {item.tabId}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {narrowTab === "findings" ? (
+        <section className="pane pane-fill">
+          <div className="pane-head"><h2>Findings</h2>{session?.active && <div className="live-badge"><span className="live-dot" />LIVE</div>}</div>
+          {session?.findings.length === 0 && !session.active && <div className="empty">Start capture, run a login, and stop to see findings here.</div>}
+          {session?.findings && session.findings.length > 0 && (
+            <>
+              {topDiagnosis ? (
+                <div style={{ padding: "0 12px 8px" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Most critical</div>
+                  <div className="top-card" onClick={() => { setSelectedFindingId(topDiagnosis.id); setLeftTab("detail"); }}>
+                    <div className="top-title">
+                      <SeverityPill severity={topDiagnosis.severity} />
+                      <OwnerPill owner={topDiagnosis.likelyOwner} />
+                      <span className="top-text">{topDiagnosis.title}</span>
+                    </div>
+                    <div className="top-sub">{topDiagnosis.explanation}</div>
+                  </div>
+                </div>
+              ) : null}
+              {session.findings.length > 1 && (
+                <div className="severity-legend" style={{ margin: "0 12px 8px" }}>
+                  <span><span style={{ color: "var(--err)" }}>●</span> <strong>Problem</strong></span>
+                  <span><span style={{ color: "var(--warn)" }}>●</span> <strong>Warning</strong></span>
+                  <span><span style={{ color: "var(--info)" }}>●</span> <strong>Notice</strong></span>
+                </div>
+              )}
+              <ul className="list">
+                {filteredFindings.map((finding) => (
+                  <li key={finding.id} className={classNames("row", `finding-${finding.severity}`, selectedFinding?.id === finding.id && "active")}
+                    onClick={() => { setSelectedFindingId(finding.id); setLeftTab("detail"); }}>
+                    <div className="row-main">
+                      <div className="row-title">
+                        <SeverityPill severity={finding.severity} />
+                        <OwnerPill owner={finding.likelyOwner} />
+                        <span className="row-text">{finding.title}</span>
+                      </div>
+                      <div className="row-sub">{finding.explanation.slice(0, 65)}{finding.explanation.length > 65 ? "..." : ""}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {narrowTab === "detail" ? (
+        <section className="pane pane-fill">
+          <div className="pane-head">
+            <h2>Detail</h2>
+            <div className="tab-row">
+              <button className={classNames("tab", detailTab === "fix" && "active")} onClick={() => setDetailTab("fix")}>Fix steps</button>
+              <button className={classNames("tab", detailTab === "happened" && "active")} onClick={() => setDetailTab("happened")}>What happened</button>
+              <button className={classNames("tab", detailTab === "evidence" && "active")} onClick={() => setDetailTab("evidence")}>Evidence</button>
+              <button className={classNames("tab", detailTab === "artifacts" && "active")} onClick={() => setDetailTab("artifacts")}>Artifacts</button>
+            </div>
+          </div>
+          <div className="detail">
+            {selectedFinding ? (
+              <>
+                <div className="detail-head">
+                  <div className="detail-title">
+                    <SeverityPill severity={selectedFinding.severity} />
+                    <OwnerPill owner={selectedFinding.likelyOwner} />
+                    <span>{selectedFinding.title}</span>
+                  </div>
+                </div>
+
+                {detailTab === "fix" ? (
+                  recipe ? (
+                    <>
+                      <PreFlightChecklist recipe={recipe} />
+                      <div className="sections">
+                        {recipe.sections.map((section) => (
+                          <div key={section.title} className="section">
+                            <div className="section-title">
+                              <OwnerPill owner={section.owner} />
+                              <span>{section.title}</span>
+                            </div>
+                            {section.kzeroFields?.length ? (
+                              <div className="fields mono">KZero fields: {section.kzeroFields.join(", ")}</div>
+                            ) : null}
+                            {section.vendorFields?.length ? (
+                              <div className="fields mono">Vendor fields: {section.vendorFields.join(", ")}</div>
+                            ) : null}
+                            <ol className="steps">
+                              {section.bullets.map((b, idx) => (
+                                <li key={`${section.title}-${idx}`}>{b}</li>
+                              ))}
+                            </ol>
+                            {section.copySnippets?.length ? (
+                              <div className="copy-row">
+                                {section.copySnippets.map((snip) => (
+                                  <button key={snip.label} className="btn btn-ghost" onClick={() => copyText(showRaw ? snip.value : snip.sensitive ? "***" : snip.value)}>
+                                    Copy: {snip.label}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="verify">VERIFY</Pill>
+                          <span>Verify</span>
+                        </div>
+                        <ol className="steps">
+                          {recipe.verify.map((b, idx) => (
+                            <li key={`verify-${idx}`}>{b}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="empty">
+                      <div className="note">No step-by-step guide available yet.</div>
+                      <div className="note">Try <strong>What Happened</strong> for an explanation.</div>
+                    </div>
+                  )
+                ) : null}
+
+                {detailTab === "happened" ? (
+                  <>
+                    {recipe ? <PreFlightChecklist recipe={recipe} /> : null}
+                    <div className="sections">
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="note">WHAT HAPPENED</Pill>
+                          <span>Explanation</span>
+                        </div>
+                        <div className="note" style={{ fontSize: 13, lineHeight: 1.6 }}>{selectedFinding.explanation}</div>
+                        {ruleDoc ? (
+                          <div className="note mono" style={{ marginTop: 8 }}>Why it matters: {ruleDoc.why}</div>
+                        ) : null}
+                      </div>
+                      {selectedFinding.observed && selectedFinding.expected ? (
+                        <div className="section">
+                          <div className="section-title">
+                            <Pill tone="evidence">COMPARISON</Pill>
+                            <span>Expected vs observed</span>
+                          </div>
+                          <DiffLine label="Mismatch" observed={selectedFinding.observed} expected={selectedFinding.expected} />
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+
+                {detailTab === "evidence" ? (
+                  <div className="sections">
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="evidence">EVIDENCE</Pill>
+                        <span>Evidence</span>
+                      </div>
+                      <ul className="evidence">
+                        {selectedFinding.evidence.map((e, idx) => (
+                          <li key={`e-${idx}`} className="mono">{e}</li>
+                        ))}
+                      </ul>
+                      <div className="copy-row">
+                        <button className="btn btn-ghost" onClick={() => copyText(JSON.stringify(selectedFinding, null, 2))}>Copy finding as JSON</button>
+                      </div>
+                    </div>
+                    {recipe ? (
+                      <div className="section">
+                        <div className="section-title">
+                          <Pill tone="next">NEXT</Pill>
+                          <span>If still failing, capture this</span>
+                        </div>
+                        <ul className="evidence">
+                          {recipe.nextEvidence.map((e, idx) => (
+                            <li key={`n-${idx}`}>{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {detailTab === "artifacts" ? (
+                  <div className="sections">
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="artifact">ARTIFACTS</Pill>
+                        <span>Key fields</span>
+                      </div>
+                      <table className="kv">
+                        <tbody>
+                          {getKeyFields(selectedEventForFinding).map(({ k, v }) => (
+                            <tr key={k}>
+                              <td className="kv-k mono">{k}</td>
+                              <td className="kv-v mono">
+                                <span>{v}</span>
+                                <button className="mini" onClick={() => copyText(v)} title="Copy">Copy</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="section">
+                      <div className="section-title">
+                        <Pill tone="raw">RAW</Pill>
+                        <span>Normalized artifacts (redacted by default)</span>
+                      </div>
+                      <pre className="pre">
+                        {JSON.stringify(selectedEventForFinding ? (showRaw ? selectedEventForFinding.artifacts : redactRecord(selectedEventForFinding.artifacts)) : {}, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="empty">Select a finding from the list to see details.</div>
+            )}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className="app-root">
+      <header className="toolbar">
+        <KZeroWordmark />
+        <div className="toolbar-title">
+          <h1>SSO Tracer</h1>
+          <span className="tab-label">{tabTitle}</span>
+        </div>
+        <div className="toolbar-search">
+          <input
+            className="search"
+            placeholder="Search findings and events..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="toolbar-actions">
+          <button
+            className={classNames("btn", session?.active ? "btn-stop" : "btn-start")}
+            onClick={session?.active ? stopCapture : startCapture}
+            title={session?.active ? "Stop capture" : "Start capture"}
+          >
+            {session?.active ? "Stop" : "Start"}
+          </button>
+          {session && (
+            <button className="btn btn-ghost" onClick={clearSession} title="Clear current session">Clear</button>
+          )}
+          {session && (
+            <button className="btn btn-ghost" onClick={exportSession} title="Export sanitized trace">Export</button>
+          )}
+          {session?.active && (
+            <div className="live-badge">
+              <span className="live-dot" />
+              LIVE
+            </div>
+          )}
+          {isNarrow && (
+            <button className="btn btn-ghost" onClick={openPopup} title="Open in new window">Pop out</button>
+          )}
+        </div>
+      </header>
+
+      <div className="toolbar-secondary">
+        <div className="filter-row">
+          <label className="filter-label">Filter:</label>
+          <select className="filter-select" value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)}>
+            <option value="">All findings</option>
+            {RULE_CATALOG.map((r) => (
+              <option key={r.ruleId} value={r.ruleId}>{r.ruleId}</option>
+            ))}
+          </select>
+          <label className="filter-label">Raw:</label>
+          <input type="checkbox" checked={showRaw} onChange={(e) => setShowRaw(e.target.checked)} />
+        </div>
+        {selectedFinding?.eventId && (
+          <span className="event-badge">
+            Linked event: {selectedFinding.eventId}
+          </span>
+        )}
+      </div>
+
+      <main className={classNames("main", isNarrow ? "main-narrow" : "main-wide")}>
+        {isNarrow ? narrowLayout : wideLayout}
+      </main>
+    </div>
+  );
+};
