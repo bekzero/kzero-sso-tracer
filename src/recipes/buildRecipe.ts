@@ -591,14 +591,37 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in vendor app (SP)",
+            title: "🔧 Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              "Add the openid scope to the authorization request.",
-              "Keep profile/email scopes only if the vendor actually needs them.",
-              "Retry login and confirm authorize request includes scope=openid ..."
+              "The vendor app's SSO configuration is missing the required 'openid' scope",
+              "",
+              "→ Check the vendor's SSO/OAuth configuration",
+              "→ Look for a 'Scopes' or 'Permissions' field",
+              "→ Add 'openid' to the list of requested scopes",
+              "",
+              "What is 'openid'? It's the minimum required scope for OIDC - without it, you won't get an ID token",
+              "",
+              "Common scope combinations:",
+              "  - openid (required)",
+              "  - openid profile (includes name and picture)",
+              "  - openid email (includes email address)",
+              "  - openid profile email (all user info)"
             ],
-            vendorFields: ["Scope"]
+            vendorFields: ["Scope"],
+            tooltip: "The 'openid' scope tells OIDC that this is an authentication request. Without it, the server doesn't know you want to log in - it just gives you an access token."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, authorize request scope includes openid."],
@@ -612,23 +635,50 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in vendor app (SP)",
+            title: "🔧 Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              "Remove scopes not supported by the vendor or not allowed for this client.",
-              "Ensure openid is present.",
-              "If the vendor requires offline_access, confirm it is allowed for the client."
+              "The vendor is requesting a scope that KZero doesn't recognize or allow",
+              "",
+              "→ Check the vendor's SSO/OAuth configuration",
+              "→ Look for 'Scopes' or 'Permissions' settings",
+              "→ Remove any scopes that aren't standard OIDC:",
+              "",
+              "Standard OIDC scopes (usually supported):",
+              "  ✅ openid - Required for OIDC",
+              "  ✅ profile - User's name and picture",
+              "  ✅ email - User's email address",
+              "  ✅ offline_access - Access tokens without user present",
+              "",
+              "Scopes to remove (vendor-specific):",
+              "  ❌ Any custom/vendor-specific scopes not configured in KZero"
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "Scopes control what information you get back from login. Each scope must be both requested AND allowed by KZero. If a scope isn't configured, it will be rejected."
           },
           {
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
               "If KZero is acting as OIDC client to vendor, confirm requested scopes match vendor supported set.",
+              "Check 'Client Scopes' in the advanced console to see which scopes are allowed for this client.",
               "Avoid assuming every vendor supports generic OIDC scopes beyond openid/profile/email."
             ],
-            kzeroFields: ["Client ID"]
+            kzeroFields: ["Client ID", "Client Scopes"],
+            tooltip: "In KZero, you can control which scopes a client can request through 'Client Scopes'. Check if the requested scope is assigned to this client."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Client Configuration](${oidcDocLink})`,
+              `[Client Scopes](${getDocUrl("samlClients")})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, the flow returns no invalid_scope error."],
@@ -642,24 +692,53 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in vendor app (SP)",
+            title: "🔧 Check vendor app (SP) backend",
             owner: "vendor SP",
             bullets: [
-              "Confirm backend is exchanging the code at the Token URL.",
-              "Confirm backend can reach KZero token endpoint (outbound firewall/WAF).",
-              "Confirm client authentication method matches the client type."
+              "The login page loaded, but the vendor's backend couldn't exchange the auth code for tokens",
+              "",
+              "→ Check vendor's backend/server logs for the actual error",
+              "→ Verify the vendor backend can reach KZero's token endpoint:",
+              `   https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/openid-connect/token`,
+              "",
+              "→ Check these common issues:",
+              "   1. Network/Firewall: Can the vendor server reach KZero?",
+              "   2. Client ID/Secret: Do they match exactly?",
+              "   3. PKCE: If KZero requires PKCE, does vendor send code_verifier?",
+              "   4. Redirect URI: Does it match exactly what was used in the auth request?"
             ],
-            vendorFields: ["Token URL", "Client credentials", "Outbound connectivity"]
+            vendorFields: ["Token URL", "Client credentials", "Outbound connectivity"],
+            tooltip: "After login, the vendor's server needs to exchange an 'authorization code' for actual tokens (ID token, access token). If this exchange fails, the user won't be logged in."
           },
           {
-            title: "Fix in KZero",
+            title: "Check KZero configuration",
             owner: "KZero",
             bullets: [
-              "Confirm Token URL is correct for the tenant.",
-              "If \"Use PKCE\" is enabled, ensure vendor supplies code_verifier to token endpoint.",
-              kzeroTenantHint
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your OIDC app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "→ Go to 'Capability Config' section:",
+              "   - Verify 'Client Authentication' is set correctly",
+              "   - If using PKCE, ensure it's configured properly",
+              "",
+              "→ Go to 'Credentials' tab:",
+              "   - Verify Client Secret is correct and hasn't expired"
             ],
-            kzeroFields: ["Token URL", "Use PKCE", "Client authentication"]
+            kzeroFields: ["Token URL", "Use PKCE", "Client authentication", "Client Secret"],
+            tooltip: "The Client ID and Client Secret are like a username and password. If they don't match exactly, KZero will reject the token exchange."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Client Configuration](${oidcDocLink})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, token endpoint call exists and returns HTTP 200."],
@@ -674,22 +753,64 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "Network/TLS checks",
+            title: "🔧 Network connectivity check",
             owner: "network",
             bullets: [
-              "Test the JWKS URL in an incognito browser session and from the vendor backend network if possible.",
-              "Check DNS resolution, TLS chain validity, and any WAF rate limiting or geo-blocking.",
-              "Ensure endpoints are publicly reachable (not private/VPN-only) if the vendor validates tokens server-side."
-            ]
+              "The vendor app couldn't reach KZero's JWKS endpoint to verify tokens",
+              "",
+              "→ Test if KZero is reachable from the vendor's server:",
+              "   1. Open a browser and try:",
+              `      https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/openid-connect/certs`,
+              "   2. If using SAML:",
+              `      https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/saml/descriptor`,
+              "",
+              "→ Check if the URL is blocked by:",
+              "   - Firewall (port 443)",
+              "   - WAF (Web Application Firewall)",
+              "   - VPN (must be public, not private network)",
+              "   - Geo-blocking",
+              "",
+              "→ Verify TLS certificate is valid (no expired certs)"
+            ],
+            tooltip: "JWKS is a set of public keys that vendors use to verify that tokens really came from KZero. If they can't fetch these keys, they can't verify the tokens."
           },
           {
-            title: "KZero checks",
+            title: "Check KZero configuration",
             owner: "KZero",
             bullets: [
-              "Confirm the tenant endpoints are correct and match discovery jwks_uri.",
-              kzeroTenantHint
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Configure → Realm settings → General tab",
+              "Scroll to the 'Endpoints' section at the bottom",
+              "",
+              "Verify these URLs are accessible from the internet:",
+              "   - OpenID Endpoint Configuration",
+              "   - SAML 2.0 Identity Provider Metadata",
+              "",
+              "⚠️ Endpoints must be publicly accessible - not behind a firewall or VPN"
             ],
-            kzeroFields: ["Issuer", "Discovery Endpoint"]
+            kzeroFields: ["Issuer", "Discovery Endpoint"],
+            tooltip: "KZero's endpoints must be publicly accessible for vendors to fetch the public keys needed to verify tokens."
+          },
+          {
+            title: "Check vendor configuration",
+            owner: "vendor SP",
+            bullets: [
+              "Ask the vendor to check their network connectivity to KZero",
+              "Request their server's outbound IPs if you need to whitelist them",
+              "Verify they're using the correct tenant name in the JWKS URL",
+              "",
+              "Expected JWKS URL format:",
+              `   https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/openid-connect/certs`
+            ],
+            vendorFields: ["JWKS URL", "Outbound connectivity"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[Realm Settings](${getDocUrl("realmSettings")})`,
+              `[OIDC Endpoints](${getDocUrl("oidcOverview")})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, JWKS returns HTTP 200 and token validation proceeds."],
