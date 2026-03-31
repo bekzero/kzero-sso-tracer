@@ -38,19 +38,19 @@
   ],
   "commands": {
     "toggle-capture": {
-      "suggested_key": { "default": "S", "mac": "S" },
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "Option+Shift+S" },
       "description": "Start or stop capture"
     },
     "export-session": {
-      "suggested_key": { "default": "Ctrl+Shift+E", "mac": "Command+Shift+E" },
+      "suggested_key": { "default": "Alt+Shift+E", "mac": "Option+Shift+E" },
       "description": "Export current session"
     },
     "focus-search": {
-      "suggested_key": { "default": "Ctrl+Shift+F", "mac": "Command+Shift+F" },
+      "suggested_key": { "default": "Alt+Shift+F", "mac": "Option+Shift+F" },
       "description": "Focus search"
     },
     "open-settings": {
-      "suggested_key": { "default": "Ctrl+Shift+P", "mac": "Command+Shift+P" },
+      "suggested_key": { "default": "Alt+Shift+P", "mac": "Option+Shift+P" },
       "description": "Open settings"
     }
   }

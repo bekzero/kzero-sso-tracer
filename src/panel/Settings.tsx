@@ -119,24 +119,20 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
           <h3>Keyboard Shortcuts</h3>
           <div className="shortcut-list">
             <div className="shortcut-row">
-              <kbd>S</kbd>
+              <kbd>Alt+Shift+S</kbd>
               <span>Start / stop capture</span>
             </div>
             <div className="shortcut-row">
-              <kbd>/</kbd>
-              <span>Focus search</span>
-            </div>
-            <div className="shortcut-row">
-              <kbd>E</kbd>
+              <kbd>Alt+Shift+E</kbd>
               <span>Export session</span>
             </div>
             <div className="shortcut-row">
-              <kbd>Ctrl+Shift+P</kbd>
-              <span>Open settings</span>
+              <kbd>Alt+Shift+F</kbd>
+              <span>Focus search</span>
             </div>
             <div className="shortcut-row">
-              <kbd>?</kbd>
-              <span>Show this help</span>
+              <kbd>Alt+Shift+P</kbd>
+              <span>Open settings</span>
             </div>
           </div>
           <div className="settings-note">

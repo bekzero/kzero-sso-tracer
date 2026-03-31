@@ -1264,7 +1264,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           <button
             className="btn btn-icon"
             onClick={() => setShowSettings(true)}
-            title="Settings (Ctrl+Shift+P)"
+            title="Settings (Alt+Shift+P)"
             aria-label="Settings"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
