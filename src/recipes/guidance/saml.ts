@@ -37,22 +37,15 @@ export function buildAcsUrlFix(observed: string, expected: string, vendorName?: 
       important: true
     },
     {
-      text: "Navigate to the SAML client settings",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
     },
     {
-      text: "Click 'Advanced Console' (on the right side)",
+      text: "Go to 'Access settings' section",
       important: true
     },
     {
-      text: "Select 'Client' and search for your app"
-    },
-    {
-      text: "Scroll down to 'Access settings' section",
-      important: true
-    },
-    {
-      text: "Find the 'Master SAML Processing URL' field",
+      text: "Find 'Master SAML Processing URL' field",
       important: true,
       field: "Master SAML Processing URL"
     },
@@ -71,7 +64,7 @@ export function buildAcsUrlFix(observed: string, expected: string, vendorName?: 
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for exact values`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -92,18 +85,11 @@ export function buildEntityIdFix(observed: string, expected: string, vendorName?
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your SAML app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
     },
     {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
-    },
-    {
-      text: "Check the 'General settings' section for 'Client ID'",
+      text: "Check 'General settings' section for 'Client ID'",
       field: "Client ID"
     },
     {
@@ -121,7 +107,7 @@ export function buildEntityIdFix(observed: string, expected: string, vendorName?
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for exact values`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -167,15 +153,8 @@ export function buildNameIdFix(format: string, vendorName?: string): SsoStep[] {
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your SAML app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'SAML Capabilities' section",
@@ -200,7 +179,7 @@ export function buildNameIdFix(format: string, vendorName?: string): SsoStep[] {
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for required NameID format`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -216,15 +195,8 @@ export function buildSigningFix(action: "enable" | "disable", what: "assertions"
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your SAML app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'Signature & Encryption' section",
@@ -258,7 +230,7 @@ export function buildSigningFix(action: "enable" | "disable", what: "assertions"
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for signing requirements`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -274,15 +246,8 @@ export function buildBindingFix(forcePost: boolean, vendorName?: string): SsoSte
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your SAML app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'SAML Capabilities' section",

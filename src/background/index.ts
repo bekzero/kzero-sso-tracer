@@ -77,6 +77,20 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     return true;
   }
 
+  if (message.type === "SET_TAB") {
+    const tabId = message.tabId;
+    if (typeof tabId === "number") {
+      void chrome.tabs.get(tabId, (tab) => {
+        if (tab?.url) {
+          respond({ ok: true, session: getSession(tabId) });
+        } else {
+          respond({ ok: false, error: "Tab not found" });
+        }
+      });
+    }
+    return true;
+  }
+
   if (message.type === "LOAD_HISTORY_ITEM") {
     void loadHistoryItem(message.itemId).then((item) => {
       if (!item) {

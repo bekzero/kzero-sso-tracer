@@ -9,7 +9,8 @@ const escape = (value: string): string => {
 
 const escapeRow = (values: string[]): string => values.map(escape).join(",");
 
-export const buildFindingsCsv = (session: CaptureSession): string => {
+export const buildFindingsCsv = (session: CaptureSession | null): string => {
+  if (!session) return "";
   const lines: string[] = [];
 
   lines.push(escapeRow([
@@ -43,7 +44,8 @@ export const buildFindingsCsv = (session: CaptureSession): string => {
   return lines.join("\n");
 };
 
-export const downloadFindingsCsv = (session: CaptureSession): void => {
+export const downloadFindingsCsv = (session: CaptureSession | null): void => {
+  if (!session) return;
   const content = buildFindingsCsv(session);
   const blob = new Blob([content], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -54,7 +56,8 @@ export const downloadFindingsCsv = (session: CaptureSession): void => {
   URL.revokeObjectURL(url);
 };
 
-export const buildSummaryCsv = (session: CaptureSession): string => {
+export const buildSummaryCsv = (session: CaptureSession | null): string => {
+  if (!session) return "";
   const lines: string[] = [];
   lines.push("KZero Passwordless SSO Tracer — Session Summary");
   lines.push("");
@@ -73,7 +76,8 @@ export const buildSummaryCsv = (session: CaptureSession): string => {
   return lines.join("\n");
 };
 
-export const downloadSummaryCsv = (session: CaptureSession): void => {
+export const downloadSummaryCsv = (session: CaptureSession | null): void => {
+  if (!session) return;
   const content = buildSummaryCsv(session);
   const blob = new Blob([content], { type: "text/csv" });
   const url = URL.createObjectURL(blob);

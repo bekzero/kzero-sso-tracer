@@ -6,11 +6,14 @@ const sanitizeEvent = (event: NormalizedEvent): NormalizedEvent => ({
   artifacts: redactRecord(event.artifacts)
 });
 
-export const buildSanitizedExport = (session: CaptureSession): SanitizedExportBundle => ({
-  generatedAt: new Date().toISOString(),
-  product: "KZero Passwordless SSO Tracer",
-  notice: "Captured auth data stays local unless explicitly exported.",
-  tabId: session.tabId,
-  events: session.normalizedEvents.map(sanitizeEvent),
-  findings: session.findings
-});
+export const buildSanitizedExport = (session: CaptureSession | null): SanitizedExportBundle | null => {
+  if (!session) return null;
+  return {
+    generatedAt: new Date().toISOString(),
+    product: "KZero Passwordless SSO Tracer",
+    notice: "Captured auth data stays local unless explicitly exported.",
+    tabId: session.tabId,
+    events: session.normalizedEvents.map(sanitizeEvent),
+    findings: session.findings
+  };
+};

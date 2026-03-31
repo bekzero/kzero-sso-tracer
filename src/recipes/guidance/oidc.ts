@@ -21,18 +21,11 @@ export function buildRedirectUriFix(observed: string, expected: string, vendorNa
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
     },
     {
-      text: "Click 'Advanced Console' (on the right side)",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
-    },
-    {
-      text: "Scroll down to 'Access settings' section",
+      text: "Go to 'Access settings' section",
       important: true
     },
     {
@@ -60,7 +53,7 @@ export function buildRedirectUriFix(observed: string, expected: string, vendorNa
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for exact values`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -81,15 +74,8 @@ export function buildClientIdFix(observed: string, expected: string, vendorName?
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Check 'General settings' section for 'Client ID'",
@@ -110,7 +96,7 @@ export function buildClientIdFix(observed: string, expected: string, vendorName?
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for exact values`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -126,15 +112,8 @@ export function buildClientSecretFix(vendorName?: string): OidcStep[] {
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'Credentials' tab",
@@ -155,7 +134,7 @@ export function buildClientSecretFix(vendorName?: string): OidcStep[] {
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for where to enter the secret`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -236,15 +215,8 @@ export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcSt
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'Capability Config' section",
@@ -286,7 +258,7 @@ export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcSt
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for authentication requirements`,
+        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -302,15 +274,8 @@ export function buildPkceFix(required: boolean, vendorName?: string): OidcStep[]
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'Capability Config' section",
@@ -351,15 +316,8 @@ export function buildScopeFix(scopes: string[], vendorName?: string): OidcStep[]
       important: true
     },
     {
-      text: "Navigate to: Integrations → Applications → [Select your OIDC app]",
+      text: "Click 'Advanced Console' → Select 'Clients' → Search for your app",
       important: true
-    },
-    {
-      text: "Click 'Advanced Console'",
-      important: true
-    },
-    {
-      text: "Select 'Client' and search for your app"
     },
     {
       text: "Go to 'Client Scopes' tab",

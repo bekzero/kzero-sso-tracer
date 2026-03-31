@@ -12,15 +12,14 @@ export interface NavigationSection {
 export const kzeroNavigation = {
   clientSettings: {
     protocol: "both" as const,
-    basicPath: "Integrations → Applications → [Select App]",
-    advancedPath: "Integrations → Applications → [Select App] → Advanced Console → Client → [Search App]",
+    basicPath: "Advanced Console → Clients",
+    advancedPath: "Advanced Console → Clients → [Search App]",
     steps: [
       "Go to your KZero dashboard",
       "Select your tenant",
-      "Navigate to: Integrations → Applications",
-      "Find your app in the list and click on it (or create a new one)",
-      "For advanced settings: Click 'Advanced Console' on the right side",
-      "Select 'Client' and search for your app"
+      "Click 'Advanced Console' on the right side",
+      "Select 'Clients'",
+      "Search for and click on your app"
     ],
     sections: {
       general: {
@@ -216,12 +215,12 @@ export function formatNavigationSteps(protocol: "saml" | "oidc", advanced: boole
   const baseSteps = [
     "Go to your KZero dashboard",
     "Select your tenant",
-    "Navigate to: Integrations → Applications"
+    "Click 'Advanced Console' (on the right side)"
   ];
   
   const advancedSteps = advanced ? [
-    "Click 'Advanced Console' (on the right side of the screen)",
-    "Select 'Client' and search for your app"
+    "Select 'Clients'",
+    "Search for and click on your app"
   ] : [];
   
   return [...baseSteps, ...advancedSteps];

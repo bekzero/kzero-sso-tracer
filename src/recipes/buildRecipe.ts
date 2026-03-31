@@ -2,6 +2,7 @@ import type { Finding } from "../shared/models";
 import { getFieldMapping } from "../mappings/fieldMappings";
 import type { TraceContext } from "./context";
 import type { FixRecipe } from "./types";
+import type { FixLink } from "./types";
 import { 
   buildOidcNavigationSteps, 
   buildRedirectUriFix, 
@@ -39,6 +40,15 @@ const formatStep = (step: { text: string; important?: boolean; warning?: boolean
   else if (step.important) prefix = "→ ";
   else if (step.warning) prefix = "⚠️ ";
   return `${prefix}${step.text}`;
+};
+
+const docLinks = {
+  samlClients: { label: "SAML Client Configuration", url: getDocUrl("samlClients") },
+  oidcClients: { label: "OIDC Client Configuration", url: getDocUrl("oidcClients") },
+  samlBindings: { label: "SAML Bindings", url: getDocUrl("samlBindings") },
+  realmSettings: { label: "Realm Settings", url: getDocUrl("realmSettings") },
+  oidcOverview: { label: "OIDC Overview", url: getDocUrl("oidcOverview") },
+  samlOverview: { label: "SAML Overview", url: getDocUrl("samlOverview") },
 };
 
 export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe => {
@@ -118,9 +128,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Client Configuration](${oidcDocLink})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcClients]
           }
         ],
         verify: [
@@ -182,10 +191,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Discovery Document](${getDocUrl("oidcOverview")})`,
-              `[Realm Settings](${getDocUrl("realmSettings")})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcOverview, docLinks.realmSettings]
           }
         ],
         verify: [
@@ -209,9 +216,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your OIDC app]",
-              "Click 'Advanced Console'",
-              "Select 'Client' and search for your app",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Go to 'General settings' section",
               `Confirm 'Client ID' is: ${clientId || finding.expected}`,
               "",
@@ -244,9 +249,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Client Configuration](${oidcDocLink})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, token endpoint returns HTTP 200 and no invalid_client error."],
@@ -298,9 +302,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, assertion Audience matches SP Entity ID exactly."],
@@ -345,9 +348,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, Recipient equals the posted ACS URL."],
@@ -368,9 +370,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your SAML app]",
-              "Click 'Advanced Console'",
-              "Select 'Client' and search for your app",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Go to 'Access settings' section",
               "Find 'Master SAML Processing URL' (ACS URL)",
               "",
@@ -406,10 +406,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`,
-              `[SAML Bindings](${getDocUrl("samlBindings")})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients, docLinks.samlBindings]
           }
         ],
         verify: [...baseVerify, "In the new trace, Destination equals the receiving ACS URL."],
@@ -450,9 +448,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, SAMLResponse contains a populated NameID and vendor accepts it."],
@@ -514,9 +511,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[Realm Settings - Timeouts](${getDocUrl("realmSettings")})`
-            ]
+            bullets: [],
+            links: [docLinks.realmSettings]
           }
         ],
         verify: [...baseVerify, "In the new trace, NotBefore/NotOnOrAfter window covers the current time."],
@@ -574,10 +570,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[Realm Settings](${getDocUrl("realmSettings")})`,
-              `[OIDC Overview](${getDocUrl("oidcOverview")})`
-            ]
+            bullets: [],
+            links: [docLinks.realmSettings, docLinks.oidcOverview]
           }
         ],
         verify: [...baseVerify, "In the new trace, only one tenant value appears and issuer values match exactly."],
@@ -597,7 +591,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "Go to 'Signature & Encryption' section",
@@ -630,9 +624,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, assertion signature is detected if vendor requires it."],
@@ -677,9 +670,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, document signature is detected if required by vendor."],
@@ -743,9 +735,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[Realm Keys](${getDocUrl("realmSettings")})`
-            ]
+            bullets: [],
+            links: [docLinks.realmSettings]
           }
         ],
         verify: [...baseVerify, "In the new trace, certificate validation succeeds."],
@@ -783,7 +774,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "Go to 'SAML Capabilities' section",
@@ -810,9 +801,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Bindings](${getDocUrl("samlBindings")})`
-            ]
+            bullets: [],
+            links: [docLinks.samlBindings]
           }
         ],
         verify: [...baseVerify, "In the new trace, response binding matches vendor requirements."],
@@ -861,9 +851,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcOverview]
           }
         ],
         verify: [...baseVerify, "In the new trace, state parameter matches between authorize and callback."],
@@ -910,9 +899,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcOverview]
           }
         ],
         verify: [...baseVerify, "In the new trace, nonce is present in authorize and matches ID token."],
@@ -946,7 +934,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your OIDC app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "Go to 'Capability Config' section",
@@ -976,9 +964,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Client Configuration](${oidcDocLink})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, PKCE is consistent between authorize and token exchange."],
@@ -1037,9 +1024,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, InResponseTo is present for SP-initiated, or vendor accepts IdP-initiated."],
@@ -1128,7 +1114,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "Go to 'Keys' tab",
@@ -1159,9 +1145,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, assertion encryption matches vendor capabilities."],
@@ -1196,7 +1181,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "Go to 'SAML Capabilities' section",
@@ -1225,9 +1210,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[SAML Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, NameID format and value match vendor expectations."],
@@ -1313,9 +1297,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcOverview]
           }
         ],
         verify: [...baseVerify, "In the new trace, authorize request scope includes openid."],
@@ -1369,10 +1352,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Client Configuration](${oidcDocLink})`,
-              `[Client Scopes](${getDocUrl("samlClients")})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcClients, docLinks.samlClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, the flow returns no invalid_scope error."],
@@ -1409,7 +1390,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             owner: "KZero",
             bullets: [
               "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Integrations → Applications → [Select your OIDC app]",
+              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
               "Click 'Advanced Console' → Select 'Client' → search for app",
               "",
               "→ Go to 'Capability Config' section:",
@@ -1430,9 +1411,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[OIDC Client Configuration](${oidcDocLink})`
-            ]
+            bullets: [],
+            links: [docLinks.oidcClients]
           }
         ],
         verify: [...baseVerify, "In the new trace, token endpoint call exists and returns HTTP 200."],
@@ -1501,10 +1481,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[Realm Settings](${getDocUrl("realmSettings")})`,
-              `[OIDC Endpoints](${getDocUrl("oidcOverview")})`
-            ]
+            bullets: [],
+            links: [docLinks.realmSettings, docLinks.oidcOverview]
           }
         ],
         verify: [...baseVerify, "In the new trace, JWKS returns HTTP 200 and token validation proceeds."],
@@ -1551,9 +1529,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "📚 Documentation",
             owner: "docs",
-            bullets: [
-              `[${isOidcRelated ? "OIDC" : "SAML"} Client Configuration](${docLink})`
-            ]
+            bullets: [],
+            links: [isOidcRelated ? docLinks.oidcClients : docLinks.samlClients]
           }
         ],
         verify: baseVerify,
