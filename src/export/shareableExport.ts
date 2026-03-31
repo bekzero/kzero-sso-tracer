@@ -45,7 +45,8 @@ export const encodeShareableTrace = (trace: ShareableTrace): string => {
 export const buildShareableLink = (session: CaptureSession): string => {
   const trace = buildShareableTrace(session);
   const encoded = encodeShareableTrace(trace);
-  return `https://kzero.app/sso-tracer?trace=${encoded}`;
+  const viewerUrl = chrome.runtime.getURL("viewer.html");
+  return `${viewerUrl}?trace=${encoded}`;
 };
 
 export const downloadShareableTrace = (session: CaptureSession): void => {

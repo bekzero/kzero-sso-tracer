@@ -4,12 +4,35 @@ const SECRET_KEYS = [
   "access_token",
   "id_token",
   "authorization",
+  "authorization",
   "code",
   "samlresponse",
-  "samlrequest"
+  "samlrequest",
+  "assertion",
+  "singedinfo",
+  "private_key",
+  "certificate",
+  "keystore"
 ];
 
-export const isSecretKey = (key: string): boolean => SECRET_KEYS.includes(key.toLowerCase());
+const SECRET_PATTERNS = [
+  /secret/i,
+  /token/i,
+  /password/i,
+  /credential/i,
+  /private/i,
+  /authorization/i,
+  /assertion/i,
+  /certificate/i,
+  /keystore/i
+];
+
+export const isSecretKey = (key: string): boolean => {
+  const lower = key.toLowerCase();
+  if (SECRET_KEYS.includes(lower)) return true;
+  if (SECRET_PATTERNS.some((p) => p.test(key))) return true;
+  return false;
+};
 
 export const mask = (value: string, left = 4, right = 3): string => {
   if (value.length <= left + right) {

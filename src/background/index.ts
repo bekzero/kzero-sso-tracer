@@ -251,6 +251,15 @@ chrome.webRequest.onCompleted.addListener(
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (details.tabId < 0) return;
+    let postBody: string | undefined;
+    if (details.requestBody?.raw?.[0]?.bytes) {
+      const bytes = details.requestBody.raw[0].bytes as ArrayBuffer;
+      if (bytes.byteLength > 100 * 1024) {
+        postBody = "[body truncated — exceeds 100KB]";
+      } else {
+        postBody = String.fromCharCode(...new Uint8Array(bytes));
+      }
+    }
     const event: RawCaptureEvent = {
       id: nowId(),
       tabId: details.tabId,
@@ -258,9 +267,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       timestamp: Date.now(),
       url: details.url,
       method: details.method,
-      postBody: details.requestBody?.raw?.[0]?.bytes
-        ? String.fromCharCode(...new Uint8Array(details.requestBody.raw[0].bytes as ArrayBuffer))
-        : undefined,
+      postBody,
       queryParams: parseQueryString(details.url.split("?")[1] ?? ""),
       host: (() => {
         try {

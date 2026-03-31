@@ -7,6 +7,8 @@ const sessions = new Map<number, CaptureSession>();
 const sessionCache = new Map<number, CaptureSession>();
 const HISTORY_KEY = "history:sessions";
 const HISTORY_MAX = 30;
+const MAX_EVENTS_PER_SESSION = 500;
+const MAX_SESSION_SIZE_BYTES = 512 * 1024;
 
 const storageGet = async <T>(key: string): Promise<T | undefined> => {
   const result = await chrome.storage.local.get(key);
@@ -87,6 +89,12 @@ export const addRawEvent = (tabId: number, raw: RawCaptureEvent): CaptureSession
     session = ensureSession(tabId);
   }
   if (!session.active) return undefined;
+
+  if (session.rawEvents.length >= MAX_EVENTS_PER_SESSION) return session;
+
+  const sessionSize = new Blob([JSON.stringify(session)]).size;
+  const rawSize = new Blob([JSON.stringify(raw)]).size;
+  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return session;
 
   session.rawEvents.push(raw);
   session.normalizedEvents.push(normalizeRawEvent(raw));

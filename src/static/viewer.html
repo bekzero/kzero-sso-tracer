@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KZero SSO Tracer — Shared Trace</title>
+    <style>
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #0a0f18;
+        color: rgba(255,255,255,0.92);
+        padding: 32px;
+        margin: 0;
+      }
+      h1 { color: #f85c3a; font-size: 18px; margin: 0 0 8px; }
+      p { color: rgba(255,255,255,0.6); font-size: 13px; margin: 0 0 24px; }
+      .stat { display: inline-block; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 10px 16px; margin-right: 8px; font-size: 13px; }
+      .stat strong { color: #f85c3a; }
+      .error { color: #ff5a67; background: rgba(255,90,103,0.1); border: 1px solid rgba(255,90,103,0.25); border-radius: 10px; padding: 16px; margin-top: 16px; }
+      .trace { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 16px; margin-top: 16px; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <h1>KZero SSO Tracer</h1>
+    <p id="desc">Loading shared trace...</p>
+    <div id="stats"></div>
+    <div id="error" class="error" style="display:none"></div>
+    <div id="trace" class="trace" style="display:none"></div>
+    <script>
+      (function() {
+        try {
+          var params = new URLSearchParams(location.search);
+          var encoded = params.get("trace");
+          if (!encoded) throw new Error("No trace data in URL.");
+          var json = decodeURIComponent(escape(atob(encoded)));
+          var trace = JSON.parse(json);
+          if (!trace.v) throw new Error("Invalid trace format.");
+          var desc = document.getElementById("desc");
+          desc.textContent = "Tab " + (trace.tabId || "?") + " — " + (trace.startedAt ? new Date(trace.startedAt).toLocaleString() : "unknown date");
+          var stats = document.getElementById("stats");
+          stats.innerHTML =
+            '<span class="stat"><strong>' + trace.summary.eventCount + '</strong> events</span>' +
+            '<span class="stat"><strong>' + trace.summary.findingCount + '</strong> findings</span>' +
+            '<span class="stat"><strong>' + trace.summary.problemCount + '</strong> problems</span>' +
+            '<span class="stat"><strong>' + trace.summary.warningCount + '</strong> warnings</span>';
+          var err = document.getElementById("error");
+          if (trace.findings && trace.findings.length > 0) {
+            err.style.display = "block";
+            err.innerHTML = "<strong>Findings (" + trace.findings.length + "):</strong><br>" +
+              trace.findings.map(function(f) {
+                return (f.severity === "error" ? "[PROBLEM] " : f.severity === "warning" ? "[WARNING] " : "[INFO] ") +
+                  f.title + " (" + f.ruleId + ")";
+              }).join("<br>");
+          }
+          var tr = document.getElementById("trace");
+          tr.style.display = "block";
+          tr.textContent = JSON.stringify(trace, null, 2);
+        } catch (e) {
+          document.getElementById("desc").textContent = "Failed to load trace.";
+          var errEl = document.getElementById("error");
+          errEl.style.display = "block";
+          errEl.textContent = e.toString();
+        }
+      })();
+    </script>
+  </body>
+</html>

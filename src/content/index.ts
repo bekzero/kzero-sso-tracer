@@ -10,9 +10,12 @@ const normalizeLabel = (value: string): string =>
     .trim()
     .toLowerCase();
 
-const readControlValue = (el: Element): UiFieldScanValue => {
+const SENSITIVE_INPUT_TYPES = new Set(["password", "hidden", "secret", "token"]);
+
+const readControlValue = (el: Element): UiFieldScanValue | null => {
   const input = el as HTMLInputElement;
   if (input instanceof HTMLInputElement) {
+    if (SENSITIVE_INPUT_TYPES.has(input.type.toLowerCase())) return null;
     if (input.type === "checkbox") return { found: true, value: input.checked ? "On" : "Off", kind: "checkbox" };
     return { found: true, value: input.value, kind: "input" };
   }
@@ -91,10 +94,15 @@ const scanFields = (labels: string[]): Record<string, UiFieldScanValue> => {
     }
     const control = findControlNearLabel(labelEl);
     if (!control) {
-      results[label] = { found: true, value: (labelEl as HTMLElement).innerText?.trim() ?? "", kind: "label-only" };
+      results[label] = { found: false };
       continue;
     }
-    results[label] = readControlValue(control);
+    const result = readControlValue(control);
+    if (result === null) {
+      results[label] = { found: false };
+      continue;
+    }
+    results[label] = result;
   }
   return results;
 };
