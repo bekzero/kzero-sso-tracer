@@ -2,8 +2,30 @@ import type { Finding } from "../shared/models";
 import { getFieldMapping } from "../mappings/fieldMappings";
 import type { TraceContext } from "./context";
 import type { FixRecipe } from "./types";
+import { 
+  buildOidcNavigationSteps, 
+  buildRedirectUriFix, 
+  buildClientIdFix,
+  buildDiscoveryUrlFix,
+  buildIssuerFix,
+  buildClientAuthFix,
+  detectOidcVendor,
+  getOidcFieldTooltip
+} from "./guidance/oidc";
+import {
+  buildSamlNavigationSteps,
+  buildAcsUrlFix,
+  buildEntityIdFix,
+  buildIssuerFix as buildSamlIssuerFix,
+  buildNameIdFix,
+  buildSigningFix,
+  buildBindingFix,
+  detectSamlVendor,
+  getSamlFieldTooltip
+} from "./guidance/saml";
+import { detectVendor, getDocUrl, formatVendorNotice } from "./guidance";
 
-const urlExactMatchNote = "Exact match matters: scheme, host, path, query (if used), and trailing slash.";
+const urlExactMatchNote = "⚠️ Exact match matters: scheme, host, path, query (if used), and trailing slash.";
 
 const baseVerify = [
   "Start capture, run login once, stop capture.",
@@ -11,32 +33,64 @@ const baseVerify = [
   "Export sanitized trace + attach to ticket if escalation is needed."
 ];
 
+const formatStep = (step: { text: string; important?: boolean; warning?: boolean; field?: string }): string => {
+  let prefix = "";
+  if (step.important && step.warning) prefix = "⚠️ ";
+  else if (step.important) prefix = "→ ";
+  else if (step.warning) prefix = "⚠️ ";
+  return `${prefix}${step.text}`;
+};
+
 export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe => {
   const map = getFieldMapping(finding.ruleId);
   const kzeroTenantHint = ctx.tenants[0] ? `Tenant: ${ctx.tenants[0]} (case-sensitive)` : "Tenant name is case-sensitive";
+
+  const getVendorName = (): string | undefined => {
+    if (ctx.oidc.authorize?.redirectUri) {
+      const detected = detectOidcVendor(ctx.oidc.authorize.redirectUri);
+      if (detected) return detected;
+    }
+    if (ctx.oidc.authorize?.clientId) {
+      const detected = detectOidcVendor(undefined, ctx.oidc.authorize.clientId);
+      if (detected) return detected;
+    }
+    if (ctx.saml?.ssoUrl) {
+      const detected = detectSamlVendor(ctx.saml.ssoUrl);
+      if (detected) return detected;
+    }
+    if (ctx.saml?.issuer) {
+      const detected = detectSamlVendor(ctx.saml.issuer);
+      if (detected) return detected;
+    }
+    return undefined;
+  };
+
+  const vendorName = getVendorName();
+  const vendorNotice = vendorName ? formatVendorNotice(vendorName, "both") : "";
+  const docLink = getDocUrl("samlClients");
+  const oidcDocLink = getDocUrl("oidcClients");
 
   switch (finding.ruleId) {
     case "OIDC_REDIRECT_URI_MISMATCH": {
       const expected = finding.expected;
       const observed = finding.observed;
       const clientId = ctx.oidc.authorize?.clientId ?? ctx.oidc.token?.clientId;
+      const navSteps = buildOidcNavigationSteps(true);
+      const fixSteps = buildRedirectUriFix(observed, expected, vendorName);
+      
       return {
         title: "Redirect URI mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
-            bullets: [
-              `Open the OIDC Identity Provider config used for this integration (${kzeroTenantHint}).`,
-              `Set \"Redirect URL\" to exactly the vendor callback URL. ${urlExactMatchNote}`,
-              clientId ? `Confirm \"Client ID\" is ${clientId}.` : "Confirm \"Client ID\" matches the vendor app.",
-              "If \"Use discovery endpoint\" is enabled, confirm \"Discovery Endpoint\" points to the correct tenant."
-            ],
+            bullets: fixSteps.map(formatStep),
             kzeroFields: map.kzeroFields,
-            fieldExpectations: [{ field: "Redirect URL", expected }],
-            copySnippets: [{ label: "Expected Redirect URL", value: expected }]
+            fieldExpectations: [{ field: "Valid Redirect URIs", expected }],
+            copySnippets: [{ label: "Expected Redirect URL", value: expected }],
+            tooltip: "The Redirect URI (or callback URL) is where the vendor app tells KZero to send the user after login. It must match exactly or the login fails."
           },
           {
             title: "Fix in vendor app (SP)",
@@ -48,12 +102,25 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
               "Retry login after saving changes."
             ],
             vendorFields: map.vendorFields,
-            copySnippets: [{ label: "Vendor Redirect URI", value: expected }]
+            copySnippets: [{ label: "Vendor Redirect URI", value: expected }],
+            tooltip: "The vendor app needs to tell KZero where to send the user after they log in. This must match exactly."
           },
           {
             title: "What we observed",
             owner: "browser",
-            bullets: [`Requested redirect_uri: ${expected}`, `Browser callback reached: ${observed}`]
+            bullets: [`Expected redirect_uri: ${expected}`, `Browser callback reached: ${observed}`]
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Client Configuration](${oidcDocLink})`
+            ]
           }
         ],
         verify: [
@@ -67,44 +134,57 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       const discoveryUrl = ctx.oidc.discovery?.url;
       const issuerObserved = ctx.oidc.discovery?.issuer ?? finding.observed;
       const issuerExpected = finding.expected;
+      const fixSteps = buildDiscoveryUrlFix(issuerExpected);
+      
       return {
         title: "Discovery issuer mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
             bullets: [
-              `Confirm the tenant name is correct and case-sensitive. ${kzeroTenantHint}.`,
-              `If \"Use discovery endpoint\" is enabled, set \"Discovery Endpoint\" to the correct tenant discovery URL.`,
-              `Set \"Issuer\" to exactly: ${issuerExpected}`,
-              "Avoid mixing values across environments (prod vs staging)."
+              ...fixSteps.map(formatStep),
+              "",
+              "⚠️ The issuer URL is CASE SENSITIVE - check for any uppercase/lowercase mismatches",
+              `Tenant name must match exactly: ${kzeroTenantHint}`
             ],
             kzeroFields: map.kzeroFields,
             fieldExpectations: [
-              { field: "Discovery Endpoint", expected: ctx.oidc.discovery?.url ?? "" },
+              { field: "OIDC Discovery URL", expected: ctx.oidc.discovery?.url ?? "" },
               { field: "Issuer", expected: issuerExpected }
             ].filter((e) => e.expected.length > 0),
-            copySnippets: discoveryUrl ? [{ label: "Discovery URL used", value: discoveryUrl }] : undefined
+            copySnippets: discoveryUrl ? [{ label: "Discovery URL used", value: discoveryUrl }] : undefined,
+            tooltip: "The Issuer is the unique identifier for your KZero tenant. Both KZero and the vendor must agree on exactly the same issuer value (case-sensitive)."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Set vendor \"Issuer\" / \"Authority\" to exactly: ${issuerExpected}`,
-              "If vendor uses discovery, configure it to the same Discovery Endpoint you used in KZero."
+              `Set vendor "Issuer" / "Authority" to exactly: ${issuerExpected}`,
+              "If vendor uses discovery, configure it to the same Discovery Endpoint you used in KZero.",
+              "⚠️ Verify the exact casing - 'ABCMSP' is not the same as 'abcmasp'"
             ],
             vendorFields: map.vendorFields,
-            copySnippets: [{ label: "Expected Issuer", value: issuerExpected }]
+            copySnippets: [{ label: "Expected Issuer", value: issuerExpected }],
+            tooltip: "The vendor app needs to know exactly who issued the tokens. The issuer must match exactly (case-sensitive)."
           },
           {
             title: "What we observed",
             owner: "browser",
             bullets: [
               discoveryUrl ? `Discovery URL: ${discoveryUrl}` : "Discovery URL captured",
-              `issuer in discovery: ${issuerObserved}`,
-              `expected issuer: ${issuerExpected}`
+              `Issuer in discovery: ${issuerObserved}`,
+              `Expected issuer: ${issuerExpected}`
+            ]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Discovery Document](${getDocUrl("oidcOverview")})`,
+              `[Realm Settings](${getDocUrl("realmSettings")})`
             ]
           }
         ],
@@ -117,30 +197,56 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     }
     case "OIDC_INVALID_CLIENT": {
       const clientId = ctx.oidc.authorize?.clientId ?? ctx.oidc.token?.clientId;
+      const fixSteps = buildClientIdFix(finding.observed, clientId || finding.expected, vendorName);
+      
       return {
         title: "Client authentication failed (invalid_client)",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
             bullets: [
-              clientId ? `Confirm \"Client ID\" is ${clientId}.` : "Confirm \"Client ID\" matches vendor configuration.",
-              "Re-enter \"Client Secret\" (do not paste leading/trailing spaces).",
-              "Verify \"Client authentication\" matches what the vendor uses (basic vs post vs private_key_jwt)."
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your OIDC app]",
+              "Click 'Advanced Console'",
+              "Select 'Client' and search for your app",
+              "Go to 'General settings' section",
+              `Confirm 'Client ID' is: ${clientId || finding.expected}`,
+              "",
+              "Go to 'Capability Config' section → verify 'Client Authentication' is set correctly",
+              "Go to 'Credentials' tab → check/regenerate 'Client Secret' if needed"
             ],
-            kzeroFields: map.kzeroFields
+            kzeroFields: map.kzeroFields,
+            tooltip: "The Client ID and Client Secret are like a username and password for your app. Both KZero and the vendor must use the same values."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              "Confirm vendor has the same Client ID and Client Secret as configured in KZero.",
-              "Confirm token endpoint auth method matches (client_secret_basic vs client_secret_post).",
-              "If vendor rotates secrets, generate a new secret and update both sides."
+              "Confirm vendor has the same Client ID as configured in KZero",
+              `Expected Client ID: ${clientId || finding.expected}`,
+              "Confirm the Client Secret matches exactly (check for leading/trailing spaces)",
+              "Verify the authentication method matches:",
+              "  - 'Client secret basic' (default) or",
+              "  - 'Client secret post' or",
+              "  - 'None' (for public/SPA clients)"
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "The vendor app needs to authenticate itself to KZero using the same Client ID and Client Secret."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Client Configuration](${oidcDocLink})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, token endpoint returns HTTP 200 and no invalid_client error."],
@@ -148,36 +254,53 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       };
     }
     case "SAML_AUDIENCE_MISMATCH": {
+      const fixSteps = buildEntityIdFix(finding.observed, finding.expected, vendorName);
+      
       return {
         title: "Audience / Entity ID mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Open the SAML Identity Provider / Application SAML settings for this integration.",
-              `Set \"Service provider Entity ID\" to the vendor SP Entity ID / Audience URI expected by the vendor.`,
-              kzeroTenantHint
+              ...fixSteps.map(formatStep),
+              "",
+              "⚠️ The Entity ID must match exactly - this is case-sensitive"
             ],
             kzeroFields: map.kzeroFields,
-            fieldExpectations: [{ field: "Service provider Entity ID", expected: finding.expected }],
-            copySnippets: [{ label: "Expected SP Entity ID", value: finding.expected }]
+            fieldExpectations: [{ field: "Client ID", expected: finding.expected }],
+            copySnippets: [{ label: "Expected SP Entity ID", value: finding.expected }],
+            tooltip: "The Entity ID is like a company name on a business card - both KZero and the vendor app need to agree on exactly who each other are. Case-sensitive!"
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Set vendor \"SP Entity ID\" / \"Audience URI\" to exactly match the value KZero uses.`,
-              "If vendor imported metadata, re-import to avoid truncation or stale values."
+              `Set vendor \"Entity ID\" / \"Audience URI\" / \"SP Entity ID\" to exactly: ${finding.expected}`,
+              "If vendor imported metadata, re-import to avoid truncation or stale values.",
+              "⚠️ Entity IDs are case-sensitive - verify exact casing"
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "The vendor app needs to identify itself with the same Entity ID that KZero expects. Both sides must match exactly."
           },
           {
             title: "What we observed",
             owner: "browser",
-            bullets: [`Observed audience: ${finding.observed}`, `Expected audience: ${finding.expected}`]
+            bullets: [`Observed Entity ID: ${finding.observed}`, `Expected Entity ID: ${finding.expected}`]
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, assertion Audience matches SP Entity ID exactly."],
@@ -186,32 +309,45 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     }
     case "SAML_ACS_RECIPIENT_MISMATCH": {
       const acs = finding.expected;
+      const fixSteps = buildAcsUrlFix(finding.observed, acs, vendorName);
+      
       return {
         title: "ACS / Recipient mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
-            bullets: [
-              "Open the SAML application/client used for this vendor.",
-              `Set \"Assertion Consumer Service URL\" to exactly: ${acs}`, 
-              "If using IdP config screen, confirm \"Single Sign-On service url\" is the correct KZero SSO endpoint."
-            ],
+            bullets: fixSteps.map(formatStep),
             kzeroFields: map.kzeroFields,
-            fieldExpectations: [{ field: "Assertion Consumer Service URL", expected: acs }],
-            copySnippets: [{ label: "Expected ACS URL", value: acs }]
+            fieldExpectations: [{ field: "Master SAML Processing URL", expected: acs }],
+            copySnippets: [{ label: "Expected ACS URL", value: acs }],
+            tooltip: "The ACS URL (Assertion Consumer Service URL) is the 'delivery address' where the vendor app receives the login confirmation from KZero. It must be exact."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Set vendor \"ACS URL\" to exactly: ${acs}`,
+              `Set vendor \"ACS URL\" / \"Assertion Consumer Service URL\" to exactly: ${acs}`,
               urlExactMatchNote,
-              "If vendor has multiple ACS entries, ensure the active/default one matches."
+              "If vendor has multiple ACS entries, ensure the active/default one matches.",
+              "Verify the vendor is using HTTPS (not HTTP) for the ACS URL."
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "The vendor app needs to tell KZero where to send the SAML response. This URL must match exactly on both sides."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, Recipient equals the posted ACS URL."],
@@ -221,35 +357,59 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     case "SAML_DESTINATION_MISMATCH": {
       const destination = finding.observed;
       const postedTo = finding.expected;
+      
       return {
         title: "SAML Destination mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Confirm the vendor ACS URL configured in KZero is correct.",
-              "If this is SP-initiated, ensure vendor metadata is up to date in KZero.",
-              kzeroTenantHint
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console'",
+              "Select 'Client' and search for your app",
+              "Go to 'Access settings' section",
+              "Find 'Master SAML Processing URL' (ACS URL)",
+              "",
+              `Confirm the ACS URL is set to: ${postedTo}`,
+              "⚠️ The URL must match exactly - including https:// and trailing slash"
             ],
-            kzeroFields: map.kzeroFields
+            kzeroFields: map.kzeroFields,
+            tooltip: "The Destination tells the vendor app where the SAML response is being sent. It must match what the vendor expects."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Ensure vendor posts the SAMLResponse to the same URL referenced by Destination (${destination}).`,
-              `If vendor expects a different Destination/ACS URL, update it to: ${postedTo}`
+              `Ensure vendor is configured to receive the SAML response at: ${postedTo}`,
+              `Current vendor destination: ${destination}`,
+              "Check if vendor has multiple ACS URLs and ensure the correct one is active.",
+              "Verify the vendor is using HTTPS (not HTTP) for receiving SAML."
             ],
             vendorFields: map.vendorFields,
-            copySnippets: [{ label: "Posted-to URL", value: postedTo }]
+            copySnippets: [{ label: "Expected ACS URL", value: postedTo }],
+            tooltip: "The vendor app needs to be listening at the same URL where KZero is sending the SAML response."
           },
           {
             title: "What we observed",
             owner: "browser",
             bullets: [`Destination in SAMLResponse: ${destination}`, `Browser posted to: ${postedTo}`]
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`,
+              `[SAML Bindings](${getDocUrl("samlBindings")})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, Destination equals the receiving ACS URL."],
@@ -257,29 +417,42 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       };
     }
     case "SAML_MISSING_NAMEID": {
+      const fixSteps = buildNameIdFix("emailAddress", vendorName);
+      
       return {
         title: "Missing NameID",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
-            bullets: [
-              "Set \"Principal type\" and \"Pass subject\" so a stable identifier is used.",
-              "Set \"NameID Policy Format\" to what the vendor expects (often emailAddress or persistent).",
-              "If the vendor expects email, ensure KZero is sending an email-like principal." 
-            ],
-            kzeroFields: map.kzeroFields
+            bullets: fixSteps.map(formatStep),
+            kzeroFields: map.kzeroFields,
+            tooltip: "The NameID is how KZero identifies the user to the vendor app. It must match what the vendor expects."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              "Configure vendor to use NameID (or a specific attribute) as the user identifier.",
-              "If vendor requires a specific NameID format, set it explicitly."
+              "Check what identifier the vendor expects (usually email or a persistent ID)",
+              "Configure vendor to use the NameID (or specific attribute) as the user identifier",
+              "Common NameID formats: emailAddress, persistent, transient"
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "The vendor app needs to know which field identifies the user. Most vendors expect the user's email as the identifier."
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, SAMLResponse contains a populated NameID and vendor accepts it."],
@@ -295,28 +468,55 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Check KZero time settings",
             owner: "KZero",
             bullets: [
-              "Confirm KZero tenant and browser host system time are correct.",
-              "Adjust \"Allow clock skew\" to tolerate small drift (seconds/minutes, not hours).",
-              "Re-run flow immediately after changing clock skew settings."
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Configure → Realm settings",
+              "Click on 'Tokens' tab",
+              "",
+              "Find 'Allow clock skew' setting",
+              "This allows a time difference between KZero and the vendor servers",
+              "",
+              "Recommended: Set to 30 seconds to 5 minutes to handle minor time drift",
+              "⚠️ Don't set too high (hours) as this is a security risk"
             ],
-            kzeroFields: ["Allow clock skew"]
+            kzeroFields: ["Allow clock skew"],
+            tooltip: "Servers can have slightly different times due to clock drift. The clock skew setting allows a tolerance for this difference. Too much skew is a security risk."
           },
           {
-            title: "Fix in vendor app (SP)",
+            title: "Check server times",
+            owner: "network",
+            bullets: [
+              "Verify KZero server time is accurate (check via 'Realm settings → General')",
+              "Ask vendor to verify their server time is accurate and using NTP",
+              "Time difference between servers can cause 'expired' or 'not yet valid' errors"
+            ]
+          },
+          {
+            title: "Check vendor settings",
             owner: "vendor SP",
             bullets: [
-              "Confirm vendor server time is correct (NTP).",
-              "If vendor has allowed skew setting, increase slightly."
+              "Ask the vendor if they have a clock skew tolerance setting",
+              "If so, increase it slightly to match KZero's 'Allow clock skew'",
+              "Ensure both servers are using NTP for accurate time"
             ],
             vendorFields: ["Allowed clock skew", "System time"]
           },
           {
             title: "What we observed",
             owner: "network",
-            bullets: [`Assertion time value: ${windowValue}`]
+            bullets: [
+              `Assertion time window: ${windowValue}`,
+              "This suggests a time mismatch between KZero and the vendor"
+            ]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[Realm Settings - Timeouts](${getDocUrl("realmSettings")})`
+            ]
           }
         ],
         verify: [...baseVerify, "In the new trace, NotBefore/NotOnOrAfter window covers the current time."],
@@ -325,34 +525,58 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     }
     case "REALM_CASE_MISMATCH": {
       return {
-        title: "Realm casing mismatch",
+        title: "Realm/Tenant casing mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "Fix in KZero",
+            title: "🔧 Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Identify the correct tenant name and exact casing.",
-              "Update \"Discovery Endpoint\" / \"Issuer\" / SAML entity IDs to use the exact same tenant casing.",
-              "Avoid mixing tenant casing between copied URLs."
+              "Go to your KZero dashboard → Select your tenant",
+              "Note the exact casing of your tenant name (e.g., 'ABCMSP' not 'abcmasp')",
+              "",
+              "Navigate to: Configure → Realm settings → General tab",
+              "Scroll to the 'Endpoints' section",
+              "Verify all KZero URLs use the exact same tenant casing",
+              "",
+              "⚠️ IMPORTANT: Tenant names are CASE SENSITIVE",
+              "  - 'ABCMSP' ≠ 'abcmasp'",
+              "  - 'MyCompany' ≠ 'mycompany'"
             ],
-            kzeroFields: map.kzeroFields
+            kzeroFields: map.kzeroFields,
+            tooltip: "The tenant name in your KZero URL must be exactly right. URLs are case-sensitive - 'MyTenant' and 'mytenant' are treated as different tenants."
           },
           {
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              "Update vendor Issuer/Metadata URLs to match the exact tenant casing.",
-              "Re-import metadata if the vendor caches old issuer values."
+              "Check all KZero-related URLs in the vendor configuration:",
+              "  - Discovery/Metadata URL",
+              "  - Issuer URL",
+              "  - SSO/Login URL",
+              "  - Entity ID",
+              "",
+              "⚠️ Ensure the tenant name in vendor config matches exactly:",
+              finding.observed
             ],
-            vendorFields: map.vendorFields
+            vendorFields: map.vendorFields,
+            tooltip: "Every URL that mentions your KZero tenant must have the exact same casing. Mixed casing is a common cause of SSO failures."
           },
           {
             title: "What we observed",
             owner: "browser",
             bullets: [
-              `Realm variants seen: ${finding.observed}`
+              `Different casing variants found: ${finding.observed}`,
+              "One of these is correct, but they must all match exactly"
+            ]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[Realm Settings](${getDocUrl("realmSettings")})`,
+              `[OIDC Overview](${getDocUrl("oidcOverview")})`
             ]
           }
         ],
@@ -475,13 +699,16 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     default: {
       const steps: string[] = [];
       if (map.kzeroFields.length) {
-        steps.push(`Check these KZero Passwordless fields: ${map.kzeroFields.join(", ")}.`);
+        steps.push(`→ Check these KZero Passwordless fields: ${map.kzeroFields.join(", ")}.`);
       }
       if (map.vendorFields.length) {
-        steps.push(`Check these vendor app fields: ${map.vendorFields.join(", ")}.`);
+        steps.push(`→ Check these vendor app fields: ${map.vendorFields.join(", ")}.`);
       }
       steps.push(`Expected: ${finding.expected}.`);
       steps.push(`Observed: ${finding.observed}.`);
+
+      const isOidcRelated = finding.ruleId.startsWith("OIDC_");
+      const docLink = isOidcRelated ? oidcDocLink : docLink;
 
       return {
         title: finding.title,
@@ -491,14 +718,27 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           {
             title: "What happened",
             owner: "browser",
-            bullets: [finding.explanation]
+            bullets: [finding.explanation],
+            tooltip: finding.explanation
           },
           {
-            title: "What to check",
+            title: "🔧 What to check",
             owner: finding.likelyOwner,
             bullets: steps,
             kzeroFields: map.kzeroFields,
             vendorFields: map.vendorFields
+          },
+          ...(vendorNotice ? [{
+            title: "📖 Vendor Guide",
+            owner: "docs",
+            bullets: [vendorNotice]
+          }] : []),
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[${isOidcRelated ? "OIDC" : "SAML"} Client Configuration](${docLink})`
+            ]
           }
         ],
         verify: baseVerify,
