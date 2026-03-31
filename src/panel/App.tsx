@@ -177,7 +177,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -254,8 +253,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           (document.querySelector(".search") as HTMLInputElement)?.focus();
         } else if (cmd === "open-settings") {
           setShowSettings(true);
-        } else if (cmd === "show-help") {
-          setShowHelp(prev => !prev);
         }
       }
     };
@@ -1275,16 +1272,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <path fillRule="evenodd" d="M6.5 1.75a.25.25 0 01.25-.25h2a.25.25 0 01.25.25V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5h1.75V1.5A.25.25 0 0113 1.25h-1.75v1.75H9.5V1.5A.25.25 0 019.25 1.25H7.5v1.75H5.75A.25.25 0 015.5 3v8.25a.25.25 0 01-.25.25h-1.5a.25.25 0 01-.25-.25V3.5h1.75v1.75H2.5A.25.25 0 012.25 5V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5H6.5V1.75zm5.5 4.25a.75.75 0 00-.75-.75h-1.5a.75.75 0 00-.75.75v1.5h3v-1.5zM3.75 10a.75.75 0 00-.75.75v1.5h3v-1.5a.75.75 0 00-.75-.75h-1.5zm1.5-2a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5h-4v-1.5z" clipRule="evenodd"/>
             </svg>
           </button>
-          <button
-            className="btn btn-icon"
-            onClick={() => setShowHelp(true)}
-            title="Keyboard shortcuts (Ctrl+Shift+/)"
-            aria-label="Help"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 12.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11zM7.25 5h1.5v4h-1.5V5zm0 5.5h1.5v1.5h-1.5V10.5z"/>
-            </svg>
-          </button>
           {isNarrow && (
             <button className="btn btn-ghost" onClick={openPopup} title="Open in new window">Pop out</button>
           )}
@@ -1328,24 +1315,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         </div>
       )}
 
-      {showHelp && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowHelp(false); }}>
-          <div className="help-overlay">
-            <div className="help-head">
-              <h2>Keyboard Shortcuts</h2>
-              <button className="btn btn-ghost" onClick={() => setShowHelp(false)}>Close</button>
-            </div>
-            <div className="shortcut-list">
-              <div className="shortcut-row"><kbd>S</kbd><span>Start / stop capture</span></div>
-              <div className="shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
-              <div className="shortcut-row"><kbd>E</kbd><span>Export session</span></div>
-              <div className="shortcut-row"><kbd>Ctrl+Shift+P</kbd><span>Open settings</span></div>
-              <div className="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
-            </div>
-            <div className="settings-note">Customize shortcuts at <code>chrome://extensions/shortcuts</code></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
