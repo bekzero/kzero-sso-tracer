@@ -584,6 +584,700 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         nextEvidence: ["Discovery URL", "Issuer", "SAML IdP Entity ID", "Tenant name casing"]
       };
     }
+
+    // ============ PHASE 3: SIGNATURE/CERTIFICATE ISSUES ============
+    case "SAML_ASSERTION_SIGNATURE_MISSING": {
+      return {
+        title: "Assertion signature not detected",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Check KZero signing settings",
+            owner: "KZero",
+            bullets: [
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "Go to 'Signature & Encryption' section",
+              "",
+              "→ Check 'Sign Assertions':",
+              "   - Turn ON if vendor requires signed assertions",
+              "   - This adds a digital signature to prove KZero sent the assertion",
+              "",
+              "What is assertion signing?",
+              "   Like a wax seal on a letter - proves the assertion really came from KZero",
+              "   Many vendors require this for security"
+            ],
+            kzeroFields: ["Sign Assertions"],
+            tooltip: "Assertion signing proves to the vendor that the assertion really came from KZero and wasn't tampered with."
+          },
+          {
+            title: "Check vendor requirements",
+            owner: "vendor SP",
+            bullets: [
+              "→ Check what the vendor expects:",
+              "   - Some vendors REQUIRE signed assertions",
+              "   - Some vendors don't need signing",
+              "   - Check vendor docs for 'Want Assertions Signed' or similar",
+              "",
+              "→ If vendor requires signing, make sure KZero is configured to sign",
+              "→ If vendor doesn't need signing, you can leave it OFF"
+            ],
+            vendorFields: ["Want Assertions Signed", "Require signed assertions"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, assertion signature is detected if vendor requires it."],
+        nextEvidence: ["Assertion XML signature element", "Vendor signature requirements"]
+      };
+    }
+    case "SAML_DOCUMENT_SIGNATURE_MISSING": {
+      return {
+        title: "Document signature not detected",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding document vs assertion signing",
+            owner: "KZero",
+            bullets: [
+              "There are TWO types of signing in SAML:",
+              "",
+              "1️⃣ Document Signing (Sign Documents):",
+              "   - Signs the entire SAML response envelope",
+              "   - Rarely needed by vendors",
+              "   - Can cause compatibility issues",
+              "",
+              "2️⃣ Assertion Signing (Sign Assertions):",
+              "   - Signs the actual user identity information",
+              "   - What most vendors actually need",
+              "   - Enable this instead"
+            ],
+            kzeroFields: ["Sign Documents", "Sign Assertions"],
+            tooltip: "Document signing is usually unnecessary - assertion signing is what vendors typically require."
+          },
+          {
+            title: "Recommendation",
+            owner: "KZero",
+            bullets: [
+              "→ Keep 'Sign Documents' OFF unless vendor specifically requires it",
+              "→ Enable 'Sign Assertions' ON if vendor requires signed assertions",
+              "",
+              "Most modern vendors only need assertion signing, not document signing"
+            ]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, document signature is detected if required by vendor."],
+        nextEvidence: ["Response XML signature element", "Vendor document signing requirement"]
+      };
+    }
+    case "SAML_CERT_SIGNATURE_VALIDATION_CLUE": {
+      return {
+        title: "Certificate signature validation issue",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Check certificate configuration",
+            owner: "KZero",
+            bullets: [
+              "The certificate used to sign assertions may need attention",
+              "",
+              "→ Go to: Configure → Realm settings",
+              "→ Click on 'Keys' tab",
+              "",
+              "Check the signing keys:",
+              "   - Are there active keys with 'Enabled' status?",
+              "   - Has any key expired?",
+              "   - Has a key been rotated recently?",
+              "",
+              "If key was rotated:",
+              "   - Vendor may have cached old public key",
+              "   - Ask vendor to refresh/re-download metadata"
+            ],
+            kzeroFields: ["Realm Keys"],
+            tooltip: "The signing certificate proves KZero's identity. If it's expired or was recently rotated, vendors need to update their copy."
+          },
+          {
+            title: "For the vendor app",
+            owner: "vendor SP",
+            bullets: [
+              "→ Ask vendor to:",
+              "   1. Refresh/re-download KZero metadata",
+              "   2. Update the IdP certificate if it was changed",
+              "   3. Clear any certificate cache",
+              "",
+              "→ Common certificate issues:",
+              "   - Expired certificate",
+              "   - Certificate was rotated but vendor still has old one",
+              "   - Wrong certificate format (missing BEGIN/END markers)"
+            ],
+            vendorFields: ["IdP Certificate", "Signing Certificate"]
+          },
+          {
+            title: "How to get KZero's certificate",
+            owner: "KZero",
+            bullets: [
+              "→ Go to: Configure → Realm settings → General tab",
+              "→ Scroll to 'Endpoints' section",
+              "→ Click 'SAML 2.0 Identity Provider Metadata'",
+              "→ Download the XML file",
+              "→ Share with vendor to update their configuration"
+            ]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[Realm Keys](${getDocUrl("realmSettings")})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, certificate validation succeeds."],
+        nextEvidence: ["Certificate expiration date", "Metadata XML", "Vendor certificate cache"]
+      };
+    }
+
+    // ============ PHASE 4: FLOW-SPECIFIC ISSUES ============
+    case "SAML_WRONG_BINDING_CLUE": {
+      return {
+        title: "Unexpected SAML response binding",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding SAML bindings",
+            owner: "KZero",
+            bullets: [
+              "SAML responses can be sent two ways:",
+              "",
+              "1️⃣ POST Binding (recommended for most vendors):",
+              "   - Sends response as form data",
+              "   - More reliable, works with most vendors",
+              "   - User clicks and data is submitted",
+              "",
+              "2️⃣ Redirect Binding:",
+              "   - Sends response as URL parameters",
+              "   - Can have issues with large responses",
+              "   - Some vendors don't support this"
+            ],
+            tooltip: "SAML binding is how the login response gets delivered. POST is more reliable for most vendors."
+          },
+          {
+            title: "Fix in KZero",
+            owner: "KZero",
+            bullets: [
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "Go to 'SAML Capabilities' section",
+              "",
+              "→ Enable 'Force POST Binding' if vendor requires POST",
+              "→ Disable if vendor accepts redirect"
+            ],
+            kzeroFields: ["Force POST Binding"],
+            tooltip: "Force POST Binding tells KZero to always use the POST method. Enable this if the vendor expects form-based responses."
+          },
+          {
+            title: "Check vendor requirements",
+            owner: "vendor SP",
+            bullets: [
+              "→ Ask the vendor what binding they support:",
+              "   - POST binding: Most vendors support this",
+              "   - Redirect binding: Some vendors only accept this",
+              "",
+              "→ If vendor requires POST, ensure KZero has 'Force POST Binding' ON",
+              "→ If vendor accepts either, either setting should work"
+            ],
+            vendorFields: ["SAML Binding", "Response Binding"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Bindings](${getDocUrl("samlBindings")})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, response binding matches vendor requirements."],
+        nextEvidence: ["Response binding type", "Vendor binding requirements"]
+      };
+    }
+    case "OIDC_STATE_MISSING_OR_MISMATCH": {
+      return {
+        title: "State parameter missing or mismatched",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding the state parameter",
+            owner: "browser",
+            bullets: [
+              "The 'state' parameter is a security feature that:",
+              "   - Prevents CSRF (Cross-Site Request Forgery) attacks",
+              "   - Links your login request to the response",
+              "   - Must be the same on both sides",
+              "",
+              "Why it fails:",
+              "   - Browser extensions sometimes strip URL parameters",
+              "   - Vendor app may not be preserving state through redirects",
+              "   - State was never generated in the first place"
+            ],
+            tooltip: "The state parameter is like a receipt number - it proves this login response goes with your original request."
+          },
+          {
+            title: "Fix in vendor app",
+            owner: "vendor SP",
+            bullets: [
+              "→ Check vendor SSO configuration:",
+              "   - Is state generation enabled?",
+              "   - Is state being preserved through the login flow?",
+              "",
+              "→ Check for issues:",
+              "   - Browser extensions blocking parameters",
+              "   - Redirect chain dropping state",
+              "   - State stored in wrong place (session vs cookie)",
+              "",
+              "→ Test in incognito/private browser to rule out extensions"
+            ],
+            vendorFields: ["State parameter", "CSRF protection"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, state parameter matches between authorize and callback."],
+        nextEvidence: ["Authorize request state", "Callback state value"]
+      };
+    }
+    case "OIDC_NONCE_MISSING": {
+      return {
+        title: "Nonce missing for ID token response",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding the nonce parameter",
+            owner: "vendor SP",
+            bullets: [
+              "A nonce is a unique, random value that:",
+              "   - Prevents replay attacks",
+              "   - Proves the ID token is for THIS login request",
+              "   - Should be unique for each login attempt",
+              "",
+              "When is it required?",
+              "   - Required when using 'Hybrid Flow' (response includes id_token)",
+              "   - Optional for pure Authorization Code flow",
+              "",
+              "What happens without it?",
+              "   - Security vulnerability to token replay attacks",
+              "   - May cause login failures with strict vendors"
+            ],
+            tooltip: "A nonce is like a one-time scratch card - each login has a unique code to prevent someone from replaying an old stolen token."
+          },
+          {
+            title: "Fix in vendor app",
+            owner: "vendor SP",
+            bullets: [
+              "→ Enable nonce generation in vendor OIDC settings",
+              "→ Make sure the nonce:",
+              "   - Is generated fresh for each login",
+              "   - Is included in the authorization request",
+              "   - Is validated against the ID token on callback"
+            ],
+            vendorFields: ["Nonce", "Hybrid Flow settings"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Auth Flows](${getDocUrl("oidcOverview")})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, nonce is present in authorize and matches ID token."],
+        nextEvidence: ["Authorize request nonce", "ID token nonce claim"]
+      };
+    }
+    case "OIDC_PKCE_INCONSISTENT": {
+      return {
+        title: "PKCE code_verifier missing",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding PKCE",
+            owner: "KZero",
+            bullets: [
+              "PKCE (Proof Key for Code Exchange) is an extra security layer:",
+              "   - Generates a random 'code verifier' before login",
+              "   - Sends a hash 'code challenge' with the request",
+              "   - Proves the same client is exchanging the code",
+              "",
+              "Why it matters:",
+              "   - Prevents authorization code interception attacks",
+              "   - Required for public clients (SPAs, mobile apps)",
+              "   - Recommended for all OIDC flows"
+            ],
+            tooltip: "PKCE is like adding a second lock - even if someone steals the authorization code, they can't use it without the verifier."
+          },
+          {
+            title: "Fix in KZero",
+            owner: "KZero",
+            bullets: [
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your OIDC app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "Go to 'Capability Config' section",
+              "",
+              "→ Check 'PKCE Method':",
+              "   - S256 (recommended) - Uses SHA-256 hash",
+              "   - Plain - Uses plain text (less secure)",
+              "   - None - PKCE disabled"
+            ],
+            kzeroFields: ["PKCE Method"],
+            tooltip: "PKCE Method determines how the code verifier is hashed. S256 is the recommended secure option."
+          },
+          {
+            title: "Fix in vendor app",
+            owner: "vendor SP",
+            bullets: [
+              "→ Vendor MUST use PKCE consistently:",
+              "   - If KZero requires PKCE, vendor must send code_verifier",
+              "   - If KZero doesn't require PKCE, vendor shouldn't send challenge",
+              "",
+              "→ Check vendor OIDC settings:",
+              "   - Enable/disable PKCE to match KZero",
+              "   - Ensure code_verifier is sent at token endpoint"
+            ],
+            vendorFields: ["PKCE", "Code Challenge Method"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[OIDC Client Configuration](${oidcDocLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, PKCE is consistent between authorize and token exchange."],
+        nextEvidence: ["code_challenge in authorize", "code_verifier in token request"]
+      };
+    }
+    case "SAML_INRESPONSETO_MISSING": {
+      return {
+        title: "InResponseTo missing",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding SP-initiated vs IdP-initiated SSO",
+            owner: "vendor SP",
+            bullets: [
+              "There are two ways SAML SSO can work:",
+              "",
+              "1️⃣ SP-Initiated (most common):",
+              "   - User goes to vendor app first",
+              "   - App sends AuthnRequest to KZero",
+              "   - Response includes InResponseTo (references the request)",
+              "",
+              "2️⃣ IdP-Initiated:",
+              "   - User goes to KZero first",
+              "   - KZero sends response without InResponseTo",
+              "   - Vendor must accept responses without InResponseTo"
+            ],
+            tooltip: "InResponseTo links the response to the original request. Missing InResponseTo means it's an IdP-initiated login."
+          },
+          {
+            title: "Fix the issue",
+            owner: "vendor SP",
+            bullets: [
+              "→ If vendor expects SP-initiated:",
+              "   - Ensure the login flow starts from vendor app",
+              "   - Check vendor isn't stripping the AuthnRequest",
+              "",
+              "→ If vendor accepts IdP-initiated:",
+              "   - Vendor must be configured to accept responses without InResponseTo",
+              "   - Some vendors require this setting to be enabled"
+            ],
+            vendorFields: ["Accept IdP-Initiated", "Allow unsolicited responses"]
+          },
+          {
+            title: "KZero configuration",
+            owner: "KZero",
+            bullets: [
+              "For IdP-initiated login, KZero provides:",
+              "   - 'IDP-Initiated SSO URL Name' field in Access settings",
+              "   - Creates a direct login URL:",
+              `      https://ca.auth.kzero.com/realms/<TENANT>/protocol/saml/clients/<CLIENT_ID>`
+            ],
+            kzeroFields: ["IDP-Initiated SSO URL Name"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, InResponseTo is present for SP-initiated, or vendor accepts IdP-initiated."],
+        nextEvidence: ["AuthnRequest ID", "InResponseTo value", "Vendor initated login setting"]
+      };
+    }
+    case "SAML_IDP_SP_INIT_MISMATCH_CLUE": {
+      return {
+        title: "IdP vs SP initiated flow mismatch",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 SSO Flow Types Explained",
+            owner: "vendor SP",
+            bullets: [
+              "Your trace shows a mismatch between login flows:",
+              "",
+              "The SAML response has InResponseTo (SP-initiated marker)",
+              "but no AuthnRequest was captured (IdP-initiated marker)",
+              "",
+              "This can happen if:",
+              "   - Login started before trace capture",
+              "   - AuthnRequest happened on a different device",
+              "   - Vendor is doing something unusual"
+            ],
+            tooltip: "The trace captured the response but not the request. This is usually a timing issue, not a configuration error."
+          },
+          {
+            title: "What to check",
+            owner: "vendor SP",
+            bullets: [
+              "→ Verify vendor supports the flow you're testing:",
+              "   - SP-initiated: Login starts from vendor app",
+              "   - IdP-initiated: Login starts from KZero dashboard",
+              "",
+              "→ Make sure trace captures the FULL login flow:",
+              "   - Start trace BEFORE clicking any login button",
+              "   - Include the entire redirect chain",
+              "",
+              "→ If this was just a capture timing issue, re-test with full capture"
+            ],
+            vendorFields: ["SSO Flow Type", "IdP-Initiated supported"]
+          },
+          {
+            title: "Recommendation",
+            owner: "vendor SP",
+            bullets: [
+              "→ For testing, use SP-initiated flow:",
+              "   1. Start trace capture",
+              "   2. Go to vendor app login page",
+              "   3. Click SSO/login button",
+              "   4. Complete login at KZero",
+              "   5. Stop trace after returning to vendor app"
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In a new trace, capture the full login flow from start to finish."],
+        nextEvidence: ["Full redirect chain", "AuthnRequest capture", "Login flow timing"]
+      };
+    }
+    case "SAML_ASSERTION_ENCRYPTED": {
+      return {
+        title: "Assertion is encrypted",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding assertion encryption",
+            owner: "KZero",
+            bullets: [
+              "Encrypted assertions contain the user data in a locked box:",
+              "   - The box can only be opened with the SP's private key",
+              "   - Prevents eavesdropping during transit",
+              "   - Not all vendors support this",
+              "",
+              "Common issues:",
+              "   - Vendor doesn't have the decryption key",
+              "   - Wrong encryption algorithm",
+              "   - Vendor expects unsigned + unencrypted"
+            ],
+            tooltip: "Encrypted assertions keep the user data secret during transmission. But not all vendors can handle encryption."
+          },
+          {
+            title: "Fix in KZero",
+            owner: "KZero",
+            bullets: [
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "Go to 'Keys' tab",
+              "",
+              "→ Check 'Encryption' settings:",
+              "   - 'Client signature and encryption key'",
+              "   - Encryption enabled = sends encrypted assertions",
+              "",
+              "→ If vendor can't handle encryption, disable it here"
+            ],
+            kzeroFields: ["Encryption", "Client encryption key"],
+            tooltip: "Turn off assertion encryption if the vendor can't decrypt the assertions."
+          },
+          {
+            title: "Check vendor requirements",
+            owner: "vendor SP",
+            bullets: [
+              "→ Ask vendor:",
+              "   - Do you support encrypted SAML assertions?",
+              "   - What's your encryption key/certificate?",
+              "",
+              "→ If vendor doesn't support encryption:",
+              "   - Disable encryption in KZero",
+              "   - Assertions will be sent in plain text (but still signed)"
+            ],
+            vendorFields: ["Want Assertions Encrypted", "Decryption Certificate"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, assertion encryption matches vendor capabilities."],
+        nextEvidence: ["EncryptedAssertion element", "Vendor encryption support"]
+      };
+    }
+    case "SAML_NAMEID_FORMAT_MISMATCH": {
+      return {
+        title: "Likely wrong NameID format",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding NameID formats",
+            owner: "KZero",
+            bullets: [
+              "NameID is how KZero identifies the user to the vendor:",
+              "",
+              "Common formats:",
+              "   - emailAddress: user@example.com",
+              "   - persistent: A unique opaque ID like 'AB123...'",
+              "   - transient: A temporary anonymous ID",
+              "",
+              "The issue:",
+              "   - Format says 'emailAddress'",
+              "   - But the value doesn't look like an email!"
+            ],
+            tooltip: "The NameID format and value must match what the vendor expects."
+          },
+          {
+            title: "Fix in KZero",
+            owner: "KZero",
+            bullets: [
+              "Go to your KZero dashboard → Select your tenant",
+              "Navigate to: Integrations → Applications → [Select your SAML app]",
+              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "",
+              "Go to 'SAML Capabilities' section",
+              "",
+              "→ Check 'Name ID format':",
+              "   - If vendor expects email, make sure user principal IS an email",
+              "   - If vendor expects persistent ID, verify the mapper sends correct format"
+            ],
+            kzeroFields: ["Name ID format", "Force Name ID Format"],
+            tooltip: "The NameID format must match what the vendor expects. Check if the user's identity is being sent in the correct format."
+          },
+          {
+            title: "Fix in vendor app",
+            owner: "vendor SP",
+            bullets: [
+              "→ Check what format the vendor expects:",
+              "   - Most modern apps expect emailAddress",
+              "   - Some legacy apps expect persistent (unique user ID)",
+              "",
+              "→ If vendor shows email format but you use username:",
+              "   - Map 'username' to the email attribute OR",
+              "   - Change vendor to accept your format"
+            ],
+            vendorFields: ["NameID Format", "User Identifier"]
+          },
+          {
+            title: "📚 Documentation",
+            owner: "docs",
+            bullets: [
+              `[SAML Client Configuration](${docLink})`
+            ]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, NameID format and value match vendor expectations."],
+        nextEvidence: ["NameID format value", "Vendor expected format"]
+      };
+    }
+    case "SAML_RELAYSTATE_UNEXPECTED": {
+      return {
+        title: "RelayState mismatch",
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "🔧 Understanding RelayState",
+            owner: "vendor SP",
+            bullets: [
+              "RelayState is where the user should go after login:",
+              "   - Embedded in the login URL",
+              "   - Passed through KZero unchanged",
+              "   - Vendor uses it to redirect after SSO",
+              "",
+              "Common issues:",
+              "   - RelayState gets lost in redirect chain",
+              "   - Vendor encodes/decodes differently",
+              "   - Too much data for RelayState limit"
+            ],
+            tooltip: "RelayState tells the vendor where to send the user after login - like a 'forwarding address' on an envelope."
+          },
+          {
+            title: "What to check",
+            owner: "vendor SP",
+            bullets: [
+              "→ Verify vendor supports RelayState:",
+              "   - Some vendors ignore it entirely",
+              "   - Some have character limits",
+              "   - Some require specific encoding",
+              "",
+              "→ Check the RelayState value:",
+              "   - Is it URL-encoded properly?",
+              "   - Is it too long? (RelayState has size limits)",
+              "   - Does vendor expect base64 encoding?"
+            ],
+            vendorFields: ["RelayState", "Post-login redirect"]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, RelayState is preserved and vendor accepts it."],
+        nextEvidence: ["RelayState in request", "RelayState in response", "Post-login redirect"]
+      };
+    }
+
     case "OIDC_MISSING_OPENID_SCOPE": {
       return {
         title: "Missing openid scope",
