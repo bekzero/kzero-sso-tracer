@@ -1267,7 +1267,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           <button
             className="btn btn-icon"
             onClick={() => setShowSettings(true)}
-            title="Settings (,)"
+            title="Settings (Ctrl+Shift+P)"
             aria-label="Settings"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1278,7 +1278,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           <button
             className="btn btn-icon"
             onClick={() => setShowHelp(true)}
-            title="Keyboard shortcuts (?)"
+            title="Keyboard shortcuts (Ctrl+Shift+/)"
             aria-label="Help"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1339,7 +1339,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <div className="shortcut-row"><kbd>S</kbd><span>Start / stop capture</span></div>
               <div className="shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
               <div className="shortcut-row"><kbd>E</kbd><span>Export session</span></div>
-              <div className="shortcut-row"><kbd>,</kbd><span>Open settings</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Shift+P</kbd><span>Open settings</span></div>
               <div className="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
             </div>
             <div className="settings-note">Customize shortcuts at <code>chrome://extensions/shortcuts</code></div>

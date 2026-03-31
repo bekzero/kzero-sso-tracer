@@ -50,7 +50,7 @@
       "description": "Focus search"
     },
     "open-settings": {
-      "suggested_key": { "default": "Ctrl+Shift+,", "mac": "Command+Shift+," },
+      "suggested_key": { "default": "Ctrl+Shift+P", "mac": "Command+Shift+P" },
       "description": "Open settings"
     },
     "show-help": {

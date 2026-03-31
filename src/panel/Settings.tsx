@@ -131,7 +131,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
               <span>Export session</span>
             </div>
             <div className="shortcut-row">
-              <kbd>,</kbd>
+              <kbd>Ctrl+Shift+P</kbd>
               <span>Open settings</span>
             </div>
             <div className="shortcut-row">
