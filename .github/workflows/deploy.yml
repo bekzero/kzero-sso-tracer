@@ -24,20 +24,13 @@
 name: Deploy to Chrome Web Store
 
 on:
-  # Uncomment this block to enable manual + automatic deployment:
-  # workflow_dispatch:
-  #   inputs:
-  #     publish:
-  #       description: "Publish immediately (vs draft)?"
-  #       required: false
-  #       default: "false"
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "src/**"
-  #     - "scripts/**"
-  #     - "package.json"
-  #     - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish immediately (vs upload as draft)?"
+        required: false
+        default: "false"
+        type: boolean
 
 jobs:
   deploy:
