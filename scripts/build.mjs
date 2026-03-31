@@ -1,6 +1,8 @@
 import { build } from "esbuild";
 import { cp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
+import { createWriteStream } from "node:fs";
+import archiver from "archiver";
 import { generateIcons } from "./generate-icons.mjs";
 
 const root = process.cwd();
@@ -55,3 +57,16 @@ await Promise.all([
   cp("src/static/sidepanel.html", path.join(distDir, "sidepanel.html")),
   cp("src/panel/styles.css", path.join(distDir, "styles.css"))
 ]);
+
+await new Promise((resolve, reject) => {
+  const output = createWriteStream(path.join(root, "dist.zip"));
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  output.on("close", () => {
+    console.log(`Created dist.zip (${(archive.pointer() / 1024).toFixed(1)} KB)`);
+    resolve();
+  });
+  archive.on("error", reject);
+  archive.directory(distDir, false);
+  archive.pipe(output);
+  archive.finalize();
+});

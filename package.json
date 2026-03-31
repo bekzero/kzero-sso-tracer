@@ -16,12 +16,13 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/chrome": "^0.0.284",
     "@types/node": "^22.13.13",
     "@types/pako": "^2.0.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@resvg/resvg-js": "^2.6.2",
+    "archiver": "^7.0.1",
     "esbuild": "^0.25.1",
     "typescript": "^5.7.3",
     "vitest": "^3.1.1"

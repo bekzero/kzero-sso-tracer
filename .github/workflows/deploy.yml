@@ -1,0 +1,82 @@
+# Deploy to Chrome Web Store
+#
+# SETUP (one-time):
+# 1. Get Chrome Web Store credentials:
+#    - Create a Google Cloud project at https://console.cloud.google.com
+#    - Enable the "Chrome Web Store API" API
+#    - Create an OAuth 2.0 client ID (Web application type)
+#    - Install chrome-webstore-upload CLI: npm install -g chrome-webstore-upload-cli
+#    - Run: chrome-webstore-upload authenticate <YOUR_EXTENSION_ID>
+#      (this saves a refresh token to ~/.config/chrome-webstore-upload/credentials.json)
+#    - Copy the token content as a GitHub Secret named WEBSTORE_REFRESH_TOKEN
+#    - Add WEBSTORE_EXTENSION_ID as a secret too
+#
+# 2. Add GitHub Secrets:
+#    - WEBSTORE_REFRESH_TOKEN   — the refresh token from step 1
+#    - WEBSTORE_EXTENSION_ID    — your Chrome Web Store extension ID (e.g. "abcdefghijklmnop")
+#
+# 3. Uncomment the `on: workflow_dispatch` block below and push.
+#
+# NOTE: Publishing to the Web Store requires the extension to have passed
+# Chrome Web Store review for the first publish. After that, auto-updates
+# work for listed extensions.
+
+name: Deploy to Chrome Web Store
+
+on:
+  # Uncomment this block to enable manual + automatic deployment:
+  # workflow_dispatch:
+  #   inputs:
+  #     publish:
+  #       description: "Publish immediately (vs draft)?"
+  #       required: false
+  #       default: "false"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "src/**"
+  #     - "scripts/**"
+  #     - "package.json"
+  #     - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Web Store CLI
+        run: npm install -g chrome-webstore-upload-cli
+
+      - name: Upload to Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ secrets.WEBSTORE_EXTENSION_ID }}
+          REFRESH_TOKEN: ${{ secrets.WEBSTORE_REFRESH_TOKEN }}
+        run: |
+          echo "Uploading dist.zip to Chrome Web Store (ID: $EXTENSION_ID)..."
+          RESULT=$(chrome-webstore-upload upload \
+            --extension-id "$EXTENSION_ID" \
+            --refresh-token "$REFRESH_TOKEN" \
+            --file dist.zip \
+            --auto-publish)
+
+          echo "Upload result: $RESULT"
+
+          # Also print the new version info
+          echo "Fetching item info..."
+          chrome-webstore-upload get "$EXTENSION_ID" --refresh-token "$REFRESH_TOKEN" || true
