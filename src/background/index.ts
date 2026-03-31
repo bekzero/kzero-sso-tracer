@@ -18,6 +18,16 @@ chrome.runtime.onInstalled.addListener(() => {
   void sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 });
 
+chrome.commands.onCommand.addListener((command) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0]?.id;
+    if (typeof tabId !== "number") return;
+
+    const ports = panelPorts.get(tabId) ?? [];
+    ports.forEach((port) => port.postMessage({ type: "COMMAND", command }));
+  });
+});
+
 const broadcast = (tabId: number, session: CaptureSession): void => {
   const ports = panelPorts.get(tabId) ?? [];
   ports.forEach((port) => port.postMessage({ type: "SESSION_UPDATE", session }));

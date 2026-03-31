@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KZero Passwordless SSO Tracer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "KZero-specific federation diagnostics for SAML and OIDC troubleshooting",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "webRequest", "sidePanel", "tabs", "alarms", "scripting"],
@@ -35,5 +35,27 @@
       "js": ["content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "commands": {
+    "toggle-capture": {
+      "suggested_key": { "default": "S", "mac": "S" },
+      "description": "Start or stop capture"
+    },
+    "export-session": {
+      "suggested_key": { "default": "E", "mac": "E" },
+      "description": "Export current session"
+    },
+    "focus-search": {
+      "suggested_key": { "default": "/", "mac": "/" },
+      "description": "Focus search"
+    },
+    "open-settings": {
+      "suggested_key": { "default": ",", "mac": "," },
+      "description": "Open settings"
+    },
+    "show-help": {
+      "suggested_key": { "default": "?", "mac": "?" },
+      "description": "Show keyboard shortcuts"
+    }
+  }
 }

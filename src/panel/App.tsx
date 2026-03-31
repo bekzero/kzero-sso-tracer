@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildSanitizedExport } from "../export/sanitizedExport";
+import { downloadHar } from "../export/harExport";
+import { downloadFindingsCsv, downloadSummaryCsv } from "../export/csvExport";
+import { downloadShareableTrace, copyShareableLink } from "../export/shareableExport";
 import type {
   CaptureHistoryItem,
   CaptureSession,
@@ -17,6 +20,10 @@ import { buildFixRecipe } from "../recipes/buildRecipe";
 import type { FixRecipe } from "../recipes/types";
 import { labelVariants } from "../mappings/uiLabelAliases";
 import { KZeroWordmark } from "./KZeroLogo";
+import type { Settings } from "../shared/settings";
+import { getSettings } from "../shared/settings";
+import Compare from "./Compare";
+import SettingsPanel from "./Settings";
 
 interface AppProps {
   mode?: "devtools" | "sidepanel";
@@ -157,7 +164,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [targetTab, setTargetTab] = useState<TargetTab | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<"timeline" | "history" | "findings" | "detail">("findings");
+  const [leftTab, setLeftTab] = useState<"timeline" | "history" | "findings" | "detail" | "compare">("findings");
   const [detailTab, setDetailTab] = useState<"fix" | "happened" | "evidence" | "artifacts" | "xml">("happened");
   const [search, setSearch] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
@@ -168,6 +175,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [isNarrow, setIsNarrow] = useState(false);
   const [uiScan, setUiScan] = useState<{ results: Record<string, UiFieldScanValue> }>({ results: {} });
   const [onboardingDone, setOnboardingDone] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const narrowTab = leftTab;
   const openPopup = (): void => {
@@ -184,6 +197,17 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     setIsPopup(params.get("popup") === "1");
     const saved = sessionStorage.getItem("onboardingDone");
     setOnboardingDone(saved === "1");
+    void getSettings().then(setSettings);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
@@ -219,6 +243,20 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       }
       if (message.type === "TAB_UPDATE") {
         setTargetTab(message.tab as TargetTab);
+      }
+      if (message.type === "COMMAND") {
+        const cmd = message.command as string;
+        if (cmd === "toggle-capture") {
+          session?.active ? stopCapture() : startCapture();
+        } else if (cmd === "export-session") {
+          if (session) void doExport("json");
+        } else if (cmd === "focus-search") {
+          (document.querySelector(".search") as HTMLInputElement)?.focus();
+        } else if (cmd === "open-settings") {
+          setShowSettings(true);
+        } else if (cmd === "show-help") {
+          setShowHelp(prev => !prev);
+        }
       }
     };
 
@@ -275,16 +313,37 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     chrome.runtime.sendMessage({ type: "STOP_CAPTURE", tabId: messagingTabId });
   };
 
-  const exportSession = (): void => {
+  const doExport = async (format: "json" | "har" | "csv" | "csv-summary" | "shareable" | "shareable-link"): Promise<void> => {
     if (!session) return;
-    const data = buildSanitizedExport(session);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `kzero-trace-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    switch (format) {
+      case "json": {
+        const data = buildSanitizedExport(session);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `kzero-trace-${session.tabId}-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        break;
+      }
+      case "har":
+        downloadHar(session);
+        break;
+      case "csv":
+        downloadFindingsCsv(session);
+        break;
+      case "csv-summary":
+        downloadSummaryCsv(session);
+        break;
+      case "shareable":
+        downloadShareableTrace(session);
+        break;
+      case "shareable-link":
+        await copyShareableLink(session);
+        break;
+    }
+    setExportMenuOpen(false);
   };
 
   const clearSession = (): void => {
@@ -515,6 +574,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             <div className="tab-row">
               <button className={classNames("tab", leftTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
               <button className={classNames("tab", leftTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+              {history.length >= 2 && (
+                <button className={classNames("tab", leftTab === "compare" && "active")} onClick={() => setLeftTab("compare")}>Compare</button>
+              )}
             </div>
           </div>
           {leftTab === "timeline" ? (
@@ -850,6 +912,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           </div>
         </section>
       </div>
+      {leftTab === "compare" && (
+        <Compare
+          history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
     </>
   );
 
@@ -860,6 +928,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         <button className={classNames("tab", narrowTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
         <button className={classNames("tab", narrowTab === "findings" && "active")} onClick={() => setLeftTab("findings")}>Findings</button>
         <button className={classNames("tab", narrowTab === "detail" && "active")} onClick={() => setLeftTab("detail")}>Detail</button>
+        {history.length >= 2 && (
+          <button className={classNames("tab", narrowTab === "compare" && "active")} onClick={() => setLeftTab("compare")}>Compare</button>
+        )}
       </div>
 
       {narrowTab === "timeline" || narrowTab === "history" ? (
@@ -1128,6 +1199,15 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           </div>
         </section>
       ) : null}
+
+      {narrowTab === "compare" ? (
+        <section className="pane pane-fill">
+          <Compare
+            history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+            onClose={() => setShowCompare(false)}
+          />
+        </section>
+      ) : null}
     </>
   );
 
@@ -1151,7 +1231,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           <button
             className={classNames("btn", session?.active ? "btn-stop" : "btn-start")}
             onClick={session?.active ? stopCapture : startCapture}
-            title={session?.active ? "Stop capture" : "Start capture"}
+            title={session?.active ? "Stop capture (S)" : "Start capture (S)"}
           >
             {session?.active ? "Stop" : "Start"}
           </button>
@@ -1159,7 +1239,24 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             <button className="btn btn-ghost" onClick={clearSession} title="Clear current session">Clear</button>
           )}
           {session && (
-            <button className="btn btn-ghost" onClick={exportSession} title="Export sanitized trace">Export</button>
+            <div className="export-menu" ref={exportMenuRef}>
+              <button className="btn btn-ghost" onClick={() => setExportMenuOpen(o => !o)} title="Export session">
+                Export
+              </button>
+              {exportMenuOpen && (
+                <div className="export-dropdown">
+                  <button onClick={() => void doExport("json")}>JSON (full trace)</button>
+                  <button onClick={() => void doExport("har")}>HAR (browser DevTools)</button>
+                  <button onClick={() => void doExport("csv")}>CSV (findings only)</button>
+                  <button onClick={() => void doExport("csv-summary")}>CSV (summary)</button>
+                  <button onClick={() => void doExport("shareable")}>Shareable trace (.txt)</button>
+                  <button onClick={() => void doExport("shareable-link")}>Shareable link (clipboard)</button>
+                </div>
+              )}
+            </div>
+          )}
+          {history.length >= 2 && (
+            <button className="btn btn-ghost" onClick={() => setShowCompare(true)} title="Compare two sessions">Compare</button>
           )}
           {session?.active && (
             <div className="live-badge">
@@ -1167,6 +1264,27 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               LIVE
             </div>
           )}
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowSettings(true)}
+            title="Settings (,)"
+            aria-label="Settings"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+              <path fillRule="evenodd" d="M6.5 1.75a.25.25 0 01.25-.25h2a.25.25 0 01.25.25V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5h1.75V1.5A.25.25 0 0113 1.25h-1.75v1.75H9.5V1.5A.25.25 0 019.25 1.25H7.5v1.75H5.75A.25.25 0 015.5 3v8.25a.25.25 0 01-.25.25h-1.5a.25.25 0 01-.25-.25V3.5h1.75v1.75H2.5A.25.25 0 012.25 5V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5H6.5V1.75zm5.5 4.25a.75.75 0 00-.75-.75h-1.5a.75.75 0 00-.75.75v1.5h3v-1.5zM3.75 10a.75.75 0 00-.75.75v1.5h3v-1.5a.75.75 0 00-.75-.75h-1.5zm1.5-2a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5h-4v-1.5z" clipRule="evenodd"/>
+            </svg>
+          </button>
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowHelp(true)}
+            title="Keyboard shortcuts (?)"
+            aria-label="Help"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 12.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11zM7.25 5h1.5v4h-1.5V5zm0 5.5h1.5v1.5h-1.5V10.5z"/>
+            </svg>
+          </button>
           {isNarrow && (
             <button className="btn btn-ghost" onClick={openPopup} title="Open in new window">Pop out</button>
           )}
@@ -1193,8 +1311,41 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       </div>
 
       <main className={classNames("main", isNarrow ? "main-narrow" : "main-wide")}>
-        {isNarrow ? narrowLayout : wideLayout}
+        {showCompare ? (
+          <Compare
+            history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+            onClose={() => setShowCompare(false)}
+          />
+        ) : isNarrow ? narrowLayout : wideLayout}
       </main>
+
+      {showSettings && settings && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowSettings(false); }}>
+          <SettingsPanel
+            onClose={() => setShowSettings(false)}
+            onSave={setSettings}
+          />
+        </div>
+      )}
+
+      {showHelp && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowHelp(false); }}>
+          <div className="help-overlay">
+            <div className="help-head">
+              <h2>Keyboard Shortcuts</h2>
+              <button className="btn btn-ghost" onClick={() => setShowHelp(false)}>Close</button>
+            </div>
+            <div className="shortcut-list">
+              <div className="shortcut-row"><kbd>S</kbd><span>Start / stop capture</span></div>
+              <div className="shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
+              <div className="shortcut-row"><kbd>E</kbd><span>Export session</span></div>
+              <div className="shortcut-row"><kbd>,</kbd><span>Open settings</span></div>
+              <div className="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
+            </div>
+            <div className="settings-note">Customize shortcuts at <code>chrome://extensions/shortcuts</code></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
