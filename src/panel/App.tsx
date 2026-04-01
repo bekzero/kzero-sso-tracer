@@ -439,6 +439,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     chrome.runtime.sendMessage({ type: "CLEAR_SESSION", tabId: messagingTabId });
   };
 
+  const clearHistory = (): void => {
+    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, () => {
+      setHistory([]);
+    });
+  };
+
   const requestUiScan = (labels: string[]): void => {
     if (messagingTabId < 0) return;
     chrome.runtime.sendMessage({ type: "REQUEST_UI_SCAN", tabId: messagingTabId, labels });
@@ -688,22 +694,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                 </li>
               ))}
             </ul>
-          ) : (
-            <ul className="list">
-              {history.map((item) => (
-                <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
-                  <div className="row-main">
-                    <div className="row-title"><span className="mono">{formatDate(item.startedAt)}</span></div>
-                    <div className="row-sub">
-                      <span className="mono">{item.protocolHints.join("/") || "-"}</span>
-                      <span className="dot" />
-                      <span className="mono">{item.findingCount} findings</span>
-                    </div>
-                  </div>
-                  <div className="row-meta mono">Tab {item.tabId}</div>
-                </li>
-              ))}
-            </ul>
+          ) : null}
+          {leftTab === "history" && history.length > 0 && (
+            <div className="pane-actions">
+              <button className="btn btn-ghost btn-sm" onClick={clearHistory}>Clear history</button>
+            </div>
           )}
         </section>
 

@@ -4,6 +4,7 @@ export type RuntimeMessage =
   | { type: "START_CAPTURE"; tabId: number }
   | { type: "STOP_CAPTURE"; tabId: number }
   | { type: "CLEAR_SESSION"; tabId: number }
+  | { type: "CLEAR_HISTORY" }
   | { type: "GET_SESSION"; tabId: number }
   | { type: "GET_HISTORY" }
   | { type: "SET_TAB"; tabId: number }

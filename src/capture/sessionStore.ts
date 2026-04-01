@@ -129,6 +129,10 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
 export const getHistory = async (): Promise<CaptureHistoryItem[]> =>
   (await storageGet<CaptureHistoryItem[]>(HISTORY_KEY)) ?? [];
 
+export const clearHistory = async (): Promise<void> => {
+  await storageRemove(HISTORY_KEY);
+};
+
 export const loadHistoryItem = async (itemId: string): Promise<CaptureHistoryItem | undefined> => {
   const history = await getHistory();
   return history.find((item) => item.id === itemId);

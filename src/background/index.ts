@@ -1,4 +1,4 @@
-import { addRawEvent, clearSession, getHistory, getSession, loadHistoryItem, startCapture, stopCapture } from "../capture/sessionStore";
+import { addRawEvent, clearHistory, clearSession, getHistory, getSession, loadHistoryItem, startCapture, stopCapture } from "../capture/sessionStore";
 import type { RuntimeMessage, RuntimeResponse } from "../shared/messages";
 import { nowId, parseQueryString, toHeaderMap } from "../shared/utils";
 import type { CaptureSession, RawCaptureEvent } from "../shared/models";
@@ -69,10 +69,16 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sendResponse) => {
   const respond = (response: RuntimeResponse): void => sendResponse(response);
 
   if (message.type === "GET_HISTORY") {
+    void getHistory().then((history) => respond({ ok: true, history }));
+    return true;
+  }
+
+  if (message.type === "CLEAR_HISTORY") {
+    await clearHistory();
     void getHistory().then((history) => respond({ ok: true, history }));
     return true;
   }
