@@ -631,14 +631,14 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             <span className="step-num">1</span>
             <div className="step-content">
               <strong>Select your target</strong>
-              <p>Open the vendor login page in this tab, then click <code>Use current tab</code> to target it.</p>
+              <p>Open the vendor login page in this tab, then click <span className="code">Use current tab</span> to target it.</p>
             </div>
           </div>
           <div className="step">
             <span className="step-num">2</span>
             <div className="step-content">
               <strong>Start capture</strong>
-              <p>Click <code>Start</code> to begin recording, then complete your login flow.</p>
+              <p>Click <span className="code">Start</span> to begin recording, then complete your login flow.</p>
             </div>
           </div>
           <div className="step">
@@ -651,7 +651,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         </div>
         <div className="onboarding-cta">
           <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
-          <p className="onboarding-hint">Press <kbd>Alt+Shift+S</kbd> to toggle capture anytime</p>
+          <p className="onboarding-hint">Press Alt+Shift+S to toggle capture anytime</p>
         </div>
       </div>
     );
