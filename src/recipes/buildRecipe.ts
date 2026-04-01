@@ -1515,7 +1515,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       steps.push(`Observed: ${finding.observed}.`);
 
       const isOidcRelated = finding.ruleId.startsWith("OIDC_");
-      const docLink = isOidcRelated ? oidcDocLink : docLink;
+      const defaultDocLink = isOidcRelated ? oidcDocLink : docLink;
 
       return {
         title: finding.title,
