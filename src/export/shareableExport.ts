@@ -38,12 +38,7 @@ export const buildShareableTrace = (session: CaptureSession | null): ShareableTr
 };
 
 const utf8ToBase64 = (str: string): string => {
-  const bytes = new TextEncoder().encode(str);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  return btoa(unescape(encodeURIComponent(str)));
 };
 
 export const encodeShareableTrace = (trace: ShareableTrace): string => {
@@ -56,7 +51,7 @@ export const buildShareableLink = (session: CaptureSession | null): string | nul
   if (!trace) return null;
   const encoded = encodeShareableTrace(trace);
   const viewerUrl = chrome.runtime.getURL("viewer.html");
-  return `${viewerUrl}?trace=${encoded}`;
+  return `${viewerUrl}?trace=${encodeURIComponent(encoded)}`;
 };
 
 export const downloadShareableTrace = (session: CaptureSession | null): void => {

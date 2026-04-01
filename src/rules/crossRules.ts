@@ -15,19 +15,20 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
   const tenants = extractTenants(events);
 
   if (tenants.length > 1) {
-    const lower = new Set(tenants.map((r) => r.toLowerCase()));
-    if (lower.size < tenants.length) {
+    const uniqueTenants = new Set(tenants);
+    const lowerUnique = new Set(tenants.map((r) => r.toLowerCase()));
+    if (uniqueTenants.size > 1 && lowerUnique.size < uniqueTenants.size) {
       findings.push(
         makeFinding({
-          ruleId: "REALM_CASE_MISMATCH",
+          ruleId: "TENANT_CASE_MISMATCH",
           severity: "error",
           protocol: "unknown",
           likelyOwner: "KZero",
           title: "Tenant name casing mismatch",
           explanation: "Tenant names are case-sensitive; mixed casing was observed in the same trace.",
-          observed: tenants.join(", "),
+          observed: [...new Set(tenants)].join(", "),
           expected: "Single tenant name with exact consistent casing",
-          evidence: tenants,
+          evidence: [...new Set(tenants)],
           action: "Normalize tenant casing across Discovery Endpoint, Issuer, and SAML/OIDC endpoints.",
           confidence: 0.94
         })

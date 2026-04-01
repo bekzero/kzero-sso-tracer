@@ -64,7 +64,7 @@ const map: Record<string, FieldMap> = {
     kzeroFields: ["Tenant certificate", "Tenant XML data", "Validate signatures"],
     vendorFields: ["Signature certificate", "Certificate fingerprint"]
   },
-  REALM_CASE_MISMATCH: {
+  TENANT_CASE_MISMATCH: {
     kzeroFields: ["Alias", "Discovery Endpoint", "Identity provider entity ID"],
     vendorFields: ["Issuer", "Metadata URL"]
   }

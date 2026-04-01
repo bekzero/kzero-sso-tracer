@@ -519,7 +519,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         nextEvidence: ["NotBefore", "NotOnOrAfter", "System time on both ends"]
       };
     }
-    case "REALM_CASE_MISMATCH": {
+    case "TENANT_CASE_MISMATCH": {
       return {
         title: "Realm/Tenant casing mismatch",
         owner: finding.likelyOwner,
