@@ -621,33 +621,38 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   if (!onboardingDone) {
     return (
       <div className="onboarding">
-        <KZeroWordmark />
-        <h1>SSO Tracer</h1>
-        <p>A diagnostic tool for KZero Passwordless SSO. Captures and decodes SAML and OIDC traffic to help you identify and fix authentication issues.</p>
+        <div className="onboarding-header">
+          <KZeroWordmark />
+          <h1>SSO Tracer</h1>
+          <p className="onboarding-subtitle">Debug SAML and OIDC login issues in your KZero Passwordless environment.</p>
+        </div>
         <div className="steps-list">
           <div className="step">
             <span className="step-num">1</span>
-            <div>
-              <strong>Open the login page</strong>
-              <p>Navigate to your vendor's login page in this tab. Click <strong>Use current tab</strong> to target it.</p>
+            <div className="step-content">
+              <strong>Select your target</strong>
+              <p>Open the vendor login page in this tab, then click <code>Use current tab</code> to target it.</p>
             </div>
           </div>
           <div className="step">
             <span className="step-num">2</span>
-            <div>
+            <div className="step-content">
               <strong>Start capture</strong>
-              <p>Click <strong>Start</strong> to begin recording. Then initiate the login flow.</p>
+              <p>Click <code>Start</code> to begin recording, then complete your login flow.</p>
             </div>
           </div>
           <div className="step">
             <span className="step-num">3</span>
-            <div>
+            <div className="step-content">
               <strong>Review findings</strong>
-              <p>Each finding includes a plain-English explanation, evidence, and step-by-step fix steps.</p>
+              <p>Each issue includes a plain-English explanation and step-by-step fix instructions.</p>
             </div>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
+        <div className="onboarding-cta">
+          <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
+          <p className="onboarding-hint">Press <kbd>Alt+Shift+S</kbd> to toggle capture anytime</p>
+        </div>
       </div>
     );
   }
