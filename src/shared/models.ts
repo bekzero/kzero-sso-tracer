@@ -1,6 +1,6 @@
 export type ProtocolType = "SAML" | "OIDC" | "network" | "unknown";
 export type Severity = "info" | "warning" | "error";
-export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" | "unknown";
+export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" | "unknown" | "analysis" | "verification" | "docs";
 
 export interface RawCaptureEvent {
   id: string;
