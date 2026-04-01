@@ -21,6 +21,7 @@ export interface FixSection {
   fieldExpectations?: Array<{ field: string; expected: string; sensitive?: boolean }>;
   copySnippets?: CopySnippet[];
   links?: FixLink[];
+  tooltip?: string;
 }
 
 export interface FixRecipe {

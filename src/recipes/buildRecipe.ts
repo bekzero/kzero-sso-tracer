@@ -520,62 +520,76 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       };
     }
     case "TENANT_CASE_MISMATCH": {
+      const uniqueTenants = [...new Set(finding.evidence as string[])];
       return {
-        title: "Realm/Tenant casing mismatch",
+        title: "Tenant name casing mismatch",
         owner: finding.likelyOwner,
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
-            owner: "KZero",
+            title: "What Happened",
+            owner: "analysis",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Note the exact casing of your tenant name (e.g., 'ABCMSP' not 'abcmasp')",
+              "Tenant names are case-sensitive in KZero URLs.",
+              "We detected different casing variants in your authentication flow:",
+              uniqueTenants.map(t => `  • ${t}`).join("\n"),
               "",
-              "Navigate to: Configure → Realm settings → General tab",
-              "Scroll to the 'Endpoints' section",
-              "Verify all KZero URLs use the exact same tenant casing",
-              "",
-              "⚠️ IMPORTANT: Tenant names are CASE SENSITIVE",
-              "  - 'ABCMSP' ≠ 'abcmasp'",
-              "  - 'MyCompany' ≠ 'mycompany'"
-            ],
-            kzeroFields: map.kzeroFields,
-            tooltip: "The tenant name in your KZero URL must be exactly right. URLs are case-sensitive - 'MyTenant' and 'mytenant' are treated as different tenants."
-          },
-          {
-            title: "Fix in vendor app (SP)",
-            owner: "vendor SP",
-            bullets: [
-              "Check all KZero-related URLs in the vendor configuration:",
-              "  - Discovery/Metadata URL",
-              "  - Issuer URL",
-              "  - SSO/Login URL",
-              "  - Entity ID",
-              "",
-              "⚠️ Ensure the tenant name in vendor config matches exactly:",
-              finding.observed
-            ],
-            vendorFields: map.vendorFields,
-            tooltip: "Every URL that mentions your KZero tenant must have the exact same casing. Mixed casing is a common cause of SSO failures."
-          },
-          {
-            title: "What we observed",
-            owner: "browser",
-            bullets: [
-              `Different casing variants found: ${finding.observed}`,
-              "One of these is correct, but they must all match exactly"
+              "Mixed casing causes the Identity Provider to reject the request because the issuer doesn't match exactly."
             ]
           },
           {
-            title: "📚 Documentation",
+            title: "Fix in KZero",
+            owner: "KZero",
+            bullets: [
+              "1. Go to your KZero dashboard → Select your tenant",
+              "2. Navigate to Configure → Realm settings → General",
+              "3. Note the exact casing of your tenant name",
+              "4. Scroll to Endpoints section and verify all URLs use the same casing",
+              "",
+              "⚠️ Tenant names are case-sensitive: 'ABCMSP' ≠ 'abcmasp'"
+            ],
+            kzeroFields: map.kzeroFields,
+            tooltip: "The tenant name in your KZero URLs must be exactly correct. URL casing matters."
+          },
+          {
+            title: "Fix in your application (SP)",
+            owner: "vendor SP",
+            bullets: [
+              "Check all KZero-related URLs in your application settings:",
+              "  • Discovery/Metadata URL",
+              "  • Issuer URL",
+              "  • SSO Login URL",
+              "  • Entity ID",
+              "",
+              "Ensure the tenant name matches exactly with KZero.",
+              `Expected: ${uniqueTenants[0]}`
+            ],
+            vendorFields: map.vendorFields,
+            tooltip: "Every URL pointing to KZero must use the exact same tenant casing."
+          },
+          {
+            title: "How to verify",
+            owner: "verification",
+            bullets: [
+              "After making changes:",
+              "1. Clear your browser cache",
+              "2. Start a new trace",
+              "3. Attempt login again",
+              "4. Confirm only one tenant variant appears"
+            ]
+          },
+          {
+            title: "Learn more",
             owner: "docs",
-            bullets: [],
             links: [docLinks.realmSettings, docLinks.oidcOverview]
           }
         ],
-        verify: [...baseVerify, "In the new trace, only one tenant value appears and issuer values match exactly."],
-        nextEvidence: ["Discovery URL", "Issuer", "SAML IdP Entity ID", "Tenant name casing"]
+        verify: [
+          "In a new trace, only one tenant value appears",
+          "All issuer/endpoints use consistent casing",
+          "Login completes successfully"
+        ],
+        nextEvidence: ["Discovery URL", "Issuer URL", "SAML Entity ID", "Tenant casing"]
       };
     }
 
