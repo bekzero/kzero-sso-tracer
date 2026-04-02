@@ -97,9 +97,13 @@ export const addRawEvent = (tabId: number, raw: RawCaptureEvent): CaptureSession
   if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return session;
 
   session.rawEvents.push(raw);
-  session.normalizedEvents.push(normalizeRawEvent(raw));
+  const normalized = normalizeRawEvent(raw);
+  session.normalizedEvents.push(normalized);
   session.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
+  
+  console.log("[Capture] Added event:", raw.source, raw.url.substring(0, 80), "protocol:", normalized.protocol);
   session.findings = runFindingsEngine(session.normalizedEvents);
+  console.log("[Capture] Findings count:", session.findings.length);
   void storageSet(SESSION_KEY(tabId), session);
 
   return session;
