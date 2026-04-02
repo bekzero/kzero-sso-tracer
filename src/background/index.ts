@@ -3,8 +3,6 @@ import type { RuntimeMessage, RuntimeResponse } from "../shared/messages";
 import { nowId, parseQueryString, toHeaderMap } from "../shared/utils";
 import type { CaptureSession, RawCaptureEvent } from "../shared/models";
 
-console.log("[Background] SSO Tracer starting");
-
 const panelPorts = new Map<number, chrome.runtime.Port[]>();
 const contentPorts = new Map<number, chrome.runtime.Port>();
 
