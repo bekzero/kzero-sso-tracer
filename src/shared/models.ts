@@ -5,7 +5,7 @@ export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" 
 export interface RawCaptureEvent {
   id: string;
   tabId: number;
-  source: "devtools-network" | "content-form" | "webrequest-error";
+  source: "devtools-network" | "content-form" | "webrequest" | "webrequest-error";
   timestamp: number;
   url: string;
   method?: string;
