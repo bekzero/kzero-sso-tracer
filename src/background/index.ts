@@ -253,7 +253,7 @@ const makeWebRequestEvent = (
 
 chrome.webRequest.onCompleted.addListener(
   (details) => {
-    console.log("[webRequest] onCompleted:", details.url.substring(0, 100));
+    console.log("[webRequest] onCompleted:", details.url.substring(0, 80), "tabId:", details.tabId);
     if (details.tabId < 0) return;
     const event = makeWebRequestEvent(
       details.tabId,
