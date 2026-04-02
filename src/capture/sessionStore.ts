@@ -10,6 +10,8 @@ const HISTORY_MAX = 30;
 const MAX_EVENTS_PER_SESSION = 500;
 const MAX_SESSION_SIZE_BYTES = 512 * 1024;
 
+const GLOBAL_TAB_ID = 0;
+
 const storageGet = async <T>(key: string): Promise<T | undefined> => {
   const result = await chrome.storage.local.get(key);
   return result[key] as T | undefined;
@@ -56,66 +58,64 @@ const ensureSession = (tabId: number): CaptureSession => {
   return created;
 };
 
-export const startCapture = (tabId: number): CaptureSession => {
-  console.log("[Capture] Starting capture for tabId:", tabId);
-  const session = ensureSession(tabId);
+export const isGlobalCaptureActive = (): boolean => {
+  const globalSession = sessions.get(GLOBAL_TAB_ID);
+  return globalSession?.active ?? false;
+};
+
+export const startCapture = (_tabId: number): CaptureSession => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.active = true;
   session.startedAt = Date.now();
   session.rawEvents = [];
   session.normalizedEvents = [];
   session.findings = [];
-  void storageSet(SESSION_KEY(tabId), session);
-  console.log("[Capture] Session active:", session.active, "tabId:", session.tabId);
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
   return session;
 };
 
-export const stopCapture = (tabId: number): CaptureSession => {
-  const session = ensureSession(tabId);
+export const stopCapture = (_tabId: number): CaptureSession => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.active = false;
   session.stoppedAt = Date.now();
-  void storageSet(SESSION_KEY(tabId), session);
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
   void persistHistoryItem(session);
   return session;
 };
 
-export const clearSession = (tabId: number): CaptureSession => {
-  const session = ensureSession(tabId);
+export const clearSession = (_tabId: number): CaptureSession => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.rawEvents = [];
   session.normalizedEvents = [];
   session.findings = [];
-  void storageRemove(SESSION_KEY(tabId));
+  void storageRemove(SESSION_KEY(GLOBAL_TAB_ID));
   return session;
 };
 
 export const addRawEvent = (tabId: number, raw: RawCaptureEvent): CaptureSession | undefined => {
-  console.log("[Capture] addRawEvent called for tabId:", tabId, "active session exists:", sessions.has(tabId));
-  let session = sessions.get(tabId);
-  if (!session) {
-    session = ensureSession(tabId);
+  const globalSession = sessions.get(GLOBAL_TAB_ID);
+  if (!globalSession?.active) {
+    return undefined;
   }
-  console.log("[Capture] session.active:", session?.active);
-  if (!session.active) return undefined;
 
-  if (session.rawEvents.length >= MAX_EVENTS_PER_SESSION) return session;
+  if (globalSession.rawEvents.length >= MAX_EVENTS_PER_SESSION) return globalSession;
 
-  const sessionSize = new Blob([JSON.stringify(session)]).size;
+  const sessionSize = new Blob([JSON.stringify(globalSession)]).size;
   const rawSize = new Blob([JSON.stringify(raw)]).size;
-  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return session;
+  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return globalSession;
 
-  session.rawEvents.push(raw);
+  globalSession.rawEvents.push(raw);
   const normalized = normalizeRawEvent(raw);
-  session.normalizedEvents.push(normalized);
-  session.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
+  globalSession.normalizedEvents.push(normalized);
+  globalSession.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
   
-  console.log("[Capture] Added event:", raw.source, raw.url.substring(0, 80), "protocol:", normalized.protocol);
-  session.findings = runFindingsEngine(session.normalizedEvents);
-  console.log("[Capture] Findings count:", session.findings.length);
-  void storageSet(SESSION_KEY(tabId), session);
+  globalSession.findings = runFindingsEngine(globalSession.normalizedEvents);
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), globalSession);
 
-  return session;
+  return globalSession;
 };
 
-export const getSession = (tabId: number): CaptureSession => ensureSession(tabId);
+export const getSession = (_tabId: number): CaptureSession => ensureSession(GLOBAL_TAB_ID);
 
 const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
   if (!session.startedAt || !session.stoppedAt) return;

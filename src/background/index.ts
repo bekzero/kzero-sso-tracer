@@ -30,9 +30,10 @@ chrome.commands.onCommand.addListener((command) => {
   });
 });
 
-const broadcast = (tabId: number, session: CaptureSession): void => {
-  const ports = panelPorts.get(tabId) ?? [];
-  ports.forEach((port) => port.postMessage({ type: "SESSION_UPDATE", session }));
+const broadcast = (_tabId: number, session: CaptureSession): void => {
+  for (const [, ports] of panelPorts) {
+    ports.forEach((port) => port.postMessage({ type: "SESSION_UPDATE", session }));
+  }
 };
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -253,7 +254,6 @@ const makeWebRequestEvent = (
 
 chrome.webRequest.onCompleted.addListener(
   (details) => {
-    console.log("[webRequest] onCompleted:", details.url.substring(0, 80), "tabId:", details.tabId);
     if (details.tabId < 0) return;
     const event = makeWebRequestEvent(
       details.tabId,
@@ -264,7 +264,6 @@ chrome.webRequest.onCompleted.addListener(
       toHeaderMap(details.responseHeaders),
       parseQueryString(details.url.split("?")[1] ?? "")
     );
-    void chrome.storage.local.set({ _debug_last_event: event });
     const session = addRawEvent(details.tabId, event);
     if (session) broadcast(details.tabId, session);
   },

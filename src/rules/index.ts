@@ -18,13 +18,7 @@ const filterNoise = (findings: Finding[]): Finding[] => {
 };
 
 export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
-  const samlFindings = runSamlRules(events);
-  const oidcFindings = runOidcRules(events);
-  const crossFindings = runCrossRules(events);
-  
-  console.log("[Findings] SAML rules:", samlFindings.length, "OIDC:", oidcFindings.length, "Cross:", crossFindings.length);
-  
-  const findings = [...samlFindings, ...oidcFindings, ...crossFindings];
+  const findings = [...runSamlRules(events), ...runOidcRules(events), ...runCrossRules(events)];
   const dedupe = new Map<string, Finding>();
   for (const finding of findings) {
     const key = `${finding.ruleId}-${finding.observed}-${finding.expected}`;
@@ -32,7 +26,5 @@ export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
       dedupe.set(key, finding);
     }
   }
-  const dedupedFindings = [...dedupe.values()];
-  console.log("[Findings] After dedupe:", dedupedFindings.length, "Rules:", dedupedFindings.map(f => f.ruleId));
-  return filterNoise(dedupedFindings);
+  return filterNoise([...dedupe.values()]);
 };
