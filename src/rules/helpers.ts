@@ -14,10 +14,31 @@ export interface FindingInput {
   evidence: string[];
   action: string;
   confidence: number;
+  isAmbiguous?: boolean;
+  ambiguityNote?: string;
+  traceGaps?: string[];
+  disqualifyingEvidence?: string[];
 }
+
+// Note: numeric confidence values are legacy-calibrated and may need audit.
+// Review rules with obviously overrated/underrated confidence in future.
+
+const deriveConfidenceLevel = (confidence: number): "high" | "medium" | "low" => {
+  if (confidence >= 0.80) return "high";
+  if (confidence >= 0.55) return "medium";
+  return "low";
+};
 
 export const makeFinding = (input: FindingInput): Finding => {
   const fields = getFieldMapping(input.ruleId);
+  
+  // Consistency guard: ambiguous findings should explain why
+  if (input.isAmbiguous && !input.ambiguityNote && !input.traceGaps?.length) {
+    console.warn(`Finding ${input.ruleId} is ambiguous but has no ambiguityNote or traceGaps`);
+  }
+
+  const confidenceLevel = deriveConfidenceLevel(input.confidence);
+
   return {
     id: nowId(),
     ruleId: input.ruleId,
@@ -34,6 +55,11 @@ export const makeFinding = (input: FindingInput): Finding => {
       vendorFields: fields.vendorFields,
       action: input.action
     },
-    confidence: input.confidence
+    confidence: input.confidence,
+    confidenceLevel,
+    isAmbiguous: input.isAmbiguous,
+    ambiguityNote: input.ambiguityNote,
+    traceGaps: input.traceGaps,
+    disqualifyingEvidence: input.disqualifyingEvidence
   };
 };

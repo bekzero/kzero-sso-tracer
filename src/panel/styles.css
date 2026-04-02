@@ -1360,6 +1360,273 @@ input[type="checkbox"] {
   background: var(--surface);
 }
 
+.export-mode-selector {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.export-mode-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.export-mode-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg0);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.export-option {
+  display: block;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.export-option input {
+  margin-right: 8px;
+}
+
+.export-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* Scope indicator */
+.scope-indicator {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.scope-indicator.scope-full-capture {
+  background: var(--error);
+  color: white;
+}
+
+.scope-indicator.scope-auth-plus-allowlist {
+  background: var(--warning);
+  color: var(--bg0);
+}
+
+/* Scope notice banner */
+.scope-notice-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.scope-notice-banner span {
+  flex: 1;
+  color: var(--text);
+}
+
+/* Scope selector in settings */
+.scope-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.scope-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scope-option:hover {
+  background: var(--surface);
+}
+
+.scope-option.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.scope-option input {
+  margin-top: 3px;
+  margin-right: 10px;
+}
+
+.scope-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scope-option-label {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.scope-option-desc {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.scope-warning {
+  font-size: 14px;
+}
+
+/* Allowlist section */
+.allowlist-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.allowlist-section h4 {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--text-light);
+}
+
+.host-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--primary-light);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--primary);
+}
+
+.host-chip button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.host-chip button:hover {
+  color: var(--error);
+}
+
+.host-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.host-input-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--bg0);
+  color: var(--text);
+}
+
+.host-input-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.host-error {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.discovered-hosts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.discovered-label {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.discovered-chip {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-light);
+}
+
+.discovered-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Confidence badges */
+.confidence-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 6px;
+}
+
+.confidence-badge.confidence-high {
+  background: var(--kzero);
+  color: var(--bg0);
+}
+
+.confidence-badge.confidence-medium {
+  background: var(--warn);
+  color: var(--bg0);
+}
+
+.confidence-badge.confidence-low {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* Ambiguity badge */
+.ambiguity-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px dashed var(--border);
+}
+
 /* Modal overlay */
 .modal-overlay {
   position: fixed;

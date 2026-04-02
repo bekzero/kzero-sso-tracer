@@ -54,6 +54,20 @@ const classifyOidcKind = (url: string): NormalizedOidcEvent["kind"] => {
   return "unknown";
 };
 
+type FlowType = "auth-code" | "implicit" | "hybrid" | "unknown";
+
+const inferFlowType = (responseType?: string): FlowType => {
+  if (!responseType) return "unknown";
+  const parts = responseType.split(" ").map((p) => p.trim().toLowerCase());
+  const hasCode = parts.includes("code");
+  const hasIdToken = parts.includes("id_token");
+  const hasToken = parts.includes("token");
+  if (hasCode && (hasIdToken || hasToken)) return "hybrid";
+  if (hasCode) return "auth-code";
+  if (hasIdToken || hasToken) return "implicit";
+  return "unknown";
+};
+
 const buildOidc = (raw: RawCaptureEvent): NormalizedOidcEvent | undefined => {
   const oidcHint =
     raw.url.includes("openid") ||
@@ -97,12 +111,17 @@ const buildOidc = (raw: RawCaptureEvent): NormalizedOidcEvent | undefined => {
     errorDescription: callbackParams.error_description,
     codeChallenge: query.code_challenge,
     codeChallengeMethod: query.code_challenge_method,
-    codeVerifier: body.code_verifier
+    codeVerifier: body.code_verifier,
+    sessionState: callbackParams.session_state,
+    prompt: query.prompt,
+    maxAge: query.max_age,
+    acrValues: query.acr_values,
+    uiLocales: query.ui_locales,
+    claimsLocales: query.claims_locales,
+    idTokenHint: query.id_token_hint,
+    postLogoutRedirectUri: query.post_logout_redirect_uri,
+    flowType: query.response_type ? inferFlowType(query.response_type) : undefined
   };
-
-  if (kind === "callback" && callbackParams.id_token) {
-    event.idToken = decodeJwt(callbackParams.id_token);
-  }
 
   if (kind === "discovery" && raw.responseBody) {
     try {

@@ -1,0 +1,58 @@
+{
+  "name": "Zoho successful late capture",
+  "description": "Successful Zoho SAML late-capture flow with clear post-ACS landing",
+  "events": [
+    {
+      "id": "evt-1",
+      "tabId": -1,
+      "timestamp": 1712073600000,
+      "protocol": "SAML",
+      "kind": "saml-response",
+      "url": "https://accounts.zoho.com/saml/sp/acs",
+      "host": "accounts.zoho.com",
+      "method": "POST",
+      "statusCode": 200,
+      "binding": "post",
+      "artifacts": {
+        "relayState": "https://one.zoho.com/home",
+        "binding": "post",
+        "requestHeaders": {},
+        "responseHeaders": {}
+      },
+      "rawRef": "evt-1",
+      "relayState": "https://one.zoho.com/home",
+      "samlResponse": {
+        "encoded": "PHNhbWxwOlJlc3BvbnNlIHhtbG5zOnNhbWxwPSJ1cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoyLjA6cHJvdG9jb2wiIHhtbG5zOnNhbWw9InVybjpvYXNpczpuYW1lczp0YzpTQU1MOjIuMDphc3NlcnRpb24iIElEPSJfemtlemY4ZjFhMmMzZDRlNWYiIFZlcnNpb249IjIuMCIgSW5SZXNwb25zZVRvPSJfem9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnN0YXR1czpTdWNjZXNzIj48U2FtbDpJc3N1ZXI+aHR0cHM6Ly9jYS5hdXRoLmt6ZXJvLmNvbS9yZWFsbXMva3plcm88L1NhbWw6SXNzdWVyPjxTYW1sOk5hbWVJRD51c2VyQGV4YW1wbGUuY29tPC9TYW1sOk5hbWVJRD48U2FtbDpOYW1lSUZtdD51cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoxLjE6bmFtZWlkLWZvcm1hdDplbWFpbDwvU2FtbDpOYW1lSUZtdD48L1NhbWw6SXNzdWVyPjxTYW1sOkF1ZGllbmNlPmh0dHBzOi8vYWNjb3VudHMuem9oby5jb20vc2FtbC9zcDwvU2FtbDpBdWRpZW5jZT48U2FtbDpDbmRpdGlvbnMgTm90T25PckFmdGVyPSIyMDI2LTA0LTAyVDIyOjAwOjAwWiI+Tk9UTk9URjwvU2FtbDpDbmRpdGlvbnM+PC9TYW1sOlJlc3BvbnNlPg==",
+        "decodedXml": "<?xml version=\"1.0\"?><samlp:Response xmlns:samlp=\"urn:oasis:names:tc:SAML:2.0:protocol\" xmlns:saml=\"urn:oasis:names:tc:SAML:2.0:assertion\" ID=\"_kzef8f1a2c3d4e5f6\" Version=\"2.0\" InResponseTo=\"_oasis-names:tc:SAML:2.0:status:Success\"><saml:Issuer>https://ca.auth.kzero.com/realms/kzero</saml:Issuer><saml:NameID>user@example.com</saml:NameID><saml:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:email</saml:NameIDFormat></saml:Issuer><saml:Audience>https://accounts.zoho.com/saml/sp</saml:Audience><saml:Conditions NotOnOrAfter=\"2026-04-02T22:00:00Z\">NOTONORAFTER</saml:Conditions></samlp:Response>",
+        "issuer": "https://ca.auth.kzero.com/realms/kzero",
+        "nameId": "user@example.com",
+        "nameIdFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:email",
+        "destination": "https://accounts.zoho.com/saml/sp/acs",
+        "audience": "https://accounts.zoho.com/saml/sp",
+        "notOnOrAfter": "2026-04-02T22:00:00Z"
+      }
+    },
+    {
+      "id": "evt-2",
+      "tabId": 100,
+      "timestamp": 1712073600500,
+      "protocol": "network",
+      "kind": "webrequest",
+      "url": "https://one.zoho.com/home",
+      "host": "one.zoho.com",
+      "method": "GET",
+      "statusCode": 200,
+      "artifacts": {
+        "errorText": "",
+        "redirectUrl": ""
+      },
+      "rawRef": "evt-2"
+    }
+  ],
+  "assertions": {
+    "nameIdPresent": true,
+    "noFalsePositiveNameId": true,
+    "noWarningMissingRequest": true,
+    "captureStartedLateNote": true
+  }
+}

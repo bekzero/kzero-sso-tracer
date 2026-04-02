@@ -182,9 +182,13 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
 
   switch (message.type) {
     case "START_CAPTURE": {
-      const session = startCapture(tabId);
-      broadcast(tabId, session);
-      respond({ ok: true, session });
+      startCapture(tabId).then(session => {
+        broadcast(tabId, session);
+        respond({ ok: true, session });
+      }).catch(() => {
+        const session = getSession(tabId);
+        respond({ ok: true, session });
+      });
       return;
     }
     case "STOP_CAPTURE": {
@@ -205,9 +209,12 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
     }
     case "DEVTOOLS_NETWORK_EVENT":
     case "CONTENT_FORM_EVENT": {
-      const session = addRawEvent(tabId, message.event);
-      if (session) broadcast(tabId, session);
-      respond({ ok: true, session: session ?? getSession(tabId) });
+      addRawEvent(tabId, message.event).then(session => {
+        if (session) broadcast(tabId, session);
+        respond({ ok: true, session: session ?? getSession(tabId) });
+      }).catch(() => {
+        respond({ ok: true, session: getSession(tabId) });
+      });
       return;
     }
     default:
@@ -262,8 +269,9 @@ chrome.webRequest.onCompleted.addListener(
       toHeaderMap(details.responseHeaders),
       parseQueryString(details.url.split("?")[1] ?? "")
     );
-    const session = addRawEvent(details.tabId, event);
-    if (session) broadcast(details.tabId, session);
+    addRawEvent(details.tabId, event).then(session => {
+      if (session) broadcast(details.tabId, session);
+    });
   },
   { urls: ["<all_urls>"] }
 );
@@ -298,8 +306,9 @@ chrome.webRequest.onBeforeRequest.addListener(
       })()
     };
     void chrome.storage.local.set({ _debug_last_event: event });
-    const session = addRawEvent(details.tabId, event);
-    if (session) broadcast(details.tabId, session);
+    addRawEvent(details.tabId, event).then(session => {
+      if (session) broadcast(details.tabId, session);
+    });
   },
   { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] },
   ["requestBody"]
@@ -318,8 +327,9 @@ chrome.webRequest.onErrorOccurred.addListener(
       parseQueryString(details.url.split("?")[1] ?? ""),
       details.error
     );
-    const session = addRawEvent(details.tabId, event);
-    if (session) broadcast(details.tabId, session);
+    addRawEvent(details.tabId, event).then(session => {
+      if (session) broadcast(details.tabId, session);
+    });
   },
   { urls: ["<all_urls>"] }
 );

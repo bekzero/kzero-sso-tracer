@@ -21,6 +21,45 @@ const decodeRedirectPayload = (raw: string): string => {
   return pako.inflateRaw(uint8, { to: "string" });
 };
 
+const getNodeText = (node: unknown): string | undefined => {
+  if (node === undefined || node === null) return undefined;
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return getNodeText(node[0]);
+  if (typeof node !== "object") return undefined;
+  const obj = node as Record<string, unknown>;
+  if (typeof obj["#text"] === "string") return obj["#text"];
+  if (typeof obj["#"] === "string") return obj["#"];
+  const textValue = Object.values(obj).find((v) => typeof v === "string" && !v.startsWith("@_"));
+  return typeof textValue === "string" ? textValue : undefined;
+};
+
+const getElementAttribute = (node: unknown, attr: string): string | undefined => {
+  if (!node || typeof node !== "object") return undefined;
+  if (Array.isArray(node)) return getElementAttribute(node[0], attr);
+  const obj = node as Record<string, unknown>;
+  const prefixedKey = `@_${attr}`;
+  if (typeof obj[prefixedKey] === "string") return obj[prefixedKey] as string;
+  return undefined;
+};
+
+const findElement = (node: unknown, elementName: string): unknown | undefined => {
+  if (!node || typeof node !== "object") return undefined;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, elementName);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  const obj = node as Record<string, unknown>;
+  if (elementName in obj) return obj[elementName];
+  for (const value of Object.values(obj)) {
+    const found = findElement(value, elementName);
+    if (found) return found;
+  }
+  return undefined;
+};
+
 const findValue = (node: unknown, key: string): string | undefined => {
   if (!node || typeof node !== "object") return undefined;
   if (Array.isArray(node)) {
@@ -48,6 +87,16 @@ const hasNode = (node: unknown, key: string): boolean => {
   return Object.values(obj).some((entry) => hasNode(entry, key));
 };
 
+const extractNameId = (parsed: Record<string, unknown>): { nameId?: string; nameIdFormat?: string } => {
+  const subject = findElement(parsed, "Subject");
+  if (!subject) return {};
+  const nameIdElement = findElement(subject, "NameID");
+  if (!nameIdElement) return {};
+  const nameId = getNodeText(nameIdElement);
+  const nameIdFormat = getElementAttribute(nameIdElement, "Format");
+  return { nameId, nameIdFormat };
+};
+
 export const decodeSamlArtifact = (encoded: string, binding: "redirect" | "post" | "unknown"): SamlArtifact => {
   const artifact: SamlArtifact = { encoded };
   try {
@@ -60,8 +109,11 @@ export const decodeSamlArtifact = (encoded: string, binding: "redirect" | "post"
     artifact.audience = findValue(parsed, "Audience");
     artifact.recipient = findValue(parsed, "@_Recipient");
     artifact.inResponseTo = findValue(parsed, "@_InResponseTo");
-    artifact.nameId = findValue(parsed, "NameID");
-    artifact.nameIdFormat = findValue(parsed, "@_Format");
+
+    const nameIdData = extractNameId(parsed);
+    artifact.nameId = nameIdData.nameId;
+    artifact.nameIdFormat = nameIdData.nameIdFormat;
+
     artifact.notBefore = findValue(parsed, "@_NotBefore");
     artifact.notOnOrAfter = findValue(parsed, "@_NotOnOrAfter");
     artifact.assertionSigned = hasNode(parsed, "Signature") && hasNode(parsed, "Assertion");

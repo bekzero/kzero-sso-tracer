@@ -71,7 +71,8 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "https://<host>/realms/<tenant>/...",
         evidence: [legacyFamily.url],
         action: "Replace legacy endpoint values with current KZero URL patterns.",
-        confidence: 0.88
+        confidence: 0.88,
+        disqualifyingEvidence: ["All endpoints use current /realms/ path pattern"]
       })
     );
   }
@@ -92,7 +93,11 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "Full metadata/payload values",
         evidence: parseFailures.slice(0, 3).map((e) => e.id),
         action: "Re-copy metadata URLs/XML from source and avoid manual edits in the middle of long values.",
-        confidence: 0.61
+        confidence: 0.61,
+        isAmbiguous: true,
+        ambiguityNote: "Parse errors could be from truncation, encoding issues, or actual malformed data. Look at the raw artifact to determine.",
+        traceGaps: ["Full untruncated artifact content"],
+        disqualifyingEvidence: ["Successful parse of same metadata/payload"]
       })
     );
   }
@@ -113,7 +118,11 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "SP accepts metadata/assertion values",
         evidence: [samlPostedButRejected.url],
         action: "Review vendor strict validation requirements and compare against KZero metadata fields.",
-        confidence: 0.65
+        confidence: 0.65,
+        isAmbiguous: true,
+        ambiguityNote: "Error status could be due to signature/cert issues, audience/issuer mismatch, or other validation failures. Check the specific error response body if available.",
+        traceGaps: ["SAML response error body content"],
+        disqualifyingEvidence: ["ACS returns 200 with successful login"]
       })
     );
   }
@@ -134,7 +143,11 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "backend token exchange attempted when callback has authorization code",
         evidence: ["OIDC callback event present", "OIDC token event missing"],
         action: "Check browser/client redirect handler logic before backend token exchange path.",
-        confidence: 0.62
+        confidence: 0.62,
+        isAmbiguous: true,
+        ambiguityNote: "Could be client-side validation failing, or backend returning error before token exchange. Look for token request in trace.",
+        traceGaps: ["OIDC token request event"],
+        disqualifyingEvidence: ["Token request made and succeeds", "Callback has no error"]
       })
     );
   }

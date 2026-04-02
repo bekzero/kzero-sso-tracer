@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildSanitizedExport } from "../export/sanitizedExport";
+import { buildSanitizedExport, buildRawExport, buildSummaryExport } from "../export";
 import { downloadHar } from "../export/harExport";
 import { downloadFindingsCsv, downloadSummaryCsv } from "../export/csvExport";
 import { downloadShareableTrace, copyShareableLink } from "../export/shareableExport";
@@ -11,7 +11,8 @@ import type {
   NormalizedOidcEvent,
   NormalizedSamlEvent,
   Owner,
-  Severity
+  Severity,
+  ExportMode
 } from "../shared/models";
 import { mask, redactRecord } from "../shared/redaction";
 import { RULE_CATALOG, getRuleDoc } from "../shared/ruleCatalog";
@@ -22,7 +23,7 @@ import { labelVariants } from "../mappings/uiLabelAliases";
 import { getFieldMapping } from "../mappings/fieldMappings";
 import { KZeroWordmark } from "./KZeroLogo";
 import type { Settings } from "../shared/settings";
-import { getSettings } from "../shared/settings";
+import { getSettings, saveSettings } from "../shared/settings";
 import Compare from "./Compare";
 import SettingsPanel from "./Settings";
 import ConfirmDialog from "./ConfirmDialog";
@@ -76,6 +77,20 @@ const OwnerPill = ({ owner }: { owner: Owner }): JSX.Element => {
   const tone = owner === "KZero" ? "kzero" : owner === "vendor SP" ? "vendor" : owner;
   return <Pill tone={tone.replace(/\s/g, "-")}>{owner}</Pill>;
 };
+
+const CONFIDENCE_LABELS = {
+  high: "High confidence",
+  medium: "Medium confidence",
+  low: "Low confidence"
+};
+
+const ConfidenceBadge = ({ level }: { level: "high" | "medium" | "low" }): JSX.Element => {
+  return <span className={`confidence-badge confidence-${level}`}>{CONFIDENCE_LABELS[level]}</span>;
+};
+
+const AmbiguityBadge = (): JSX.Element => (
+  <span className="ambiguity-badge">Needs more context</span>
+);
 
 const ProtocolPill = ({ protocol }: { protocol: string }): JSX.Element => <Pill tone="protocol">{protocol}</Pill>;
 
@@ -234,6 +249,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [pendingInjection, setPendingInjection] = useState<{ labels: string[] } | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [exportMode, setExportMode] = useState<ExportMode>("sanitized");
+  const [includePostLogin, setIncludePostLogin] = useState(false);
+  const [showRawWarning, setShowRawWarning] = useState(false);
 
   const narrowTab = leftTab;
   const openPopup = (): void => {
@@ -403,7 +421,14 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     if (!session) return;
     switch (format) {
       case "json": {
-        const data = buildSanitizedExport(session);
+        let data;
+        if (exportMode === "raw") {
+          data = buildRawExport(session);
+        } else if (exportMode === "summary") {
+          data = buildSummaryExport(session);
+        } else {
+          data = buildSanitizedExport(session, { mode: exportMode, includePostLoginActivity: includePostLogin });
+        }
         if (!data) return;
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -780,6 +805,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   <div className="detail-title">
                     <SeverityPill severity={selectedFinding.severity} />
                     <OwnerPill owner={selectedFinding.likelyOwner} />
+                    {selectedFinding.confidenceLevel && <ConfidenceBadge level={selectedFinding.confidenceLevel} />}
+                    {selectedFinding.isAmbiguous && <AmbiguityBadge />}
                     <span>{selectedFinding.title}</span>
                   </div>
                   <div className="detail-meta mono">
@@ -1167,6 +1194,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   <div className="detail-title">
                     <SeverityPill severity={selectedFinding.severity} />
                     <OwnerPill owner={selectedFinding.likelyOwner} />
+                    {selectedFinding.confidenceLevel && <ConfidenceBadge level={selectedFinding.confidenceLevel} />}
+                    {selectedFinding.isAmbiguous && <AmbiguityBadge />}
                     <span>{selectedFinding.title}</span>
                   </div>
                 </div>
@@ -1360,6 +1389,13 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
+          {settings && (
+            <span className="scope-indicator">
+              {settings.captureScope === "auth-only" && "Auth-only"}
+              {settings.captureScope === "auth-plus-allowlist" && "Auth + allowlist"}
+              {settings.captureScope === "full" && "Full capture"}
+            </span>
+          )}
         </div>
         <div className="page-indicator">
           <h1>KZero Passwordless SSO Tracer</h1>
@@ -1450,6 +1486,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           {session && (
             <button className="btn btn-ghost" onClick={clearSession} title="Clear current session">Clear</button>
           )}
+          {session && settings && settings.captureScope !== "auth-only" && (
+            <span className={`scope-indicator scope-${settings.captureScope.replace("_", "-")}`}>
+              {settings.captureScope === "auth-plus-allowlist" ? "Auth + allowlist" : "Full capture"}
+            </span>
+          )}
           {session && (
             <div className="export-menu" ref={exportMenuRef}>
               <button className="btn btn-ghost" onClick={() => setExportMenuOpen(o => !o)} title="Export session">
@@ -1457,7 +1498,37 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               </button>
               {exportMenuOpen && (
                 <div className="export-dropdown">
-                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("json"); }}>JSON (full trace)</button>
+                  <div className="export-mode-selector">
+                    <label className="export-mode-label">Export mode:</label>
+                    <select 
+                      className="export-mode-select" 
+                      value={exportMode} 
+                      onChange={(e) => {
+                        const mode = e.target.value as ExportMode;
+                        if (mode === "raw") {
+                          setShowRawWarning(true);
+                        } else {
+                          setExportMode(mode);
+                        }
+                      }}
+                    >
+                      <option value="summary">Summary (safest)</option>
+                      <option value="sanitized">Sanitized trace (recommended)</option>
+                      <option value="raw">Full raw trace (sensitive)</option>
+                    </select>
+                  </div>
+                  {exportMode === "sanitized" && (
+                    <label className="export-option">
+                      <input 
+                        type="checkbox" 
+                        checked={includePostLogin} 
+                        onChange={(e) => setIncludePostLogin(e.target.checked)} 
+                      />
+                      Include post-login activity
+                    </label>
+                  )}
+                  <div className="export-divider" />
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("json"); }}>Download JSON</button>
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("har"); }}>HAR (browser DevTools)</button>
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv"); }}>CSV (findings only)</button>
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv-summary"); }}>CSV (summary)</button>
@@ -1533,6 +1604,20 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         />
       )}
 
+      {showRawWarning && (
+        <ConfirmDialog
+          title="Export full raw trace?"
+          message="⚠️ This export contains complete authentication data including raw SAML/XML payloads, full tokens and secrets, and user identifiers. This should only be shared with trusted internal teams for troubleshooting. Continue with Full raw export?"
+          confirmLabel="Export Full Raw"
+          onConfirm={() => {
+            setShowRawWarning(false);
+            setExportMode("raw");
+            setPendingExport("json");
+          }}
+          onCancel={() => setShowRawWarning(false)}
+        />
+      )}
+
       {pendingInjection && (
         <ConfirmDialog
           title="Scan page fields?"
@@ -1545,6 +1630,20 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           }}
           onCancel={() => setPendingInjection(null)}
         />
+      )}
+
+      {settings && !settings.hasSeenScopeNotice && onboardingDone && (
+        <div className="scope-notice-banner">
+          <span>Capture scope is now configurable. Recommended default is Auth-only for smaller, safer traces. Your current setting was preserved.</span>
+          <button className="btn btn-sm btn-primary" onClick={() => {
+            saveSettings({ ...settings, captureScope: "auth-only", hasSeenScopeNotice: true });
+            setSettings({ ...settings, captureScope: "auth-only", hasSeenScopeNotice: true });
+          }}>Switch to Auth-only</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => {
+            saveSettings({ ...settings, hasSeenScopeNotice: true });
+            setSettings({ ...settings, hasSeenScopeNotice: true });
+          }}>Keep Full Capture</button>
+        </div>
       )}
 
     </div>
