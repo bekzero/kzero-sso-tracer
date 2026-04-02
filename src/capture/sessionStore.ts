@@ -57,11 +57,15 @@ const ensureSession = (tabId: number): CaptureSession => {
 };
 
 export const startCapture = (tabId: number): CaptureSession => {
+  console.log("[Capture] Starting capture for tabId:", tabId);
   const session = ensureSession(tabId);
   session.active = true;
   session.startedAt = Date.now();
-  session.stoppedAt = undefined;
+  session.rawEvents = [];
+  session.normalizedEvents = [];
+  session.findings = [];
   void storageSet(SESSION_KEY(tabId), session);
+  console.log("[Capture] Session active:", session.active, "tabId:", session.tabId);
   return session;
 };
 
@@ -84,10 +88,12 @@ export const clearSession = (tabId: number): CaptureSession => {
 };
 
 export const addRawEvent = (tabId: number, raw: RawCaptureEvent): CaptureSession | undefined => {
+  console.log("[Capture] addRawEvent called for tabId:", tabId, "active session exists:", sessions.has(tabId));
   let session = sessions.get(tabId);
   if (!session) {
     session = ensureSession(tabId);
   }
+  console.log("[Capture] session.active:", session?.active);
   if (!session.active) return undefined;
 
   if (session.rawEvents.length >= MAX_EVENTS_PER_SESSION) return session;
