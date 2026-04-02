@@ -29,7 +29,19 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  "content_scripts": [],
+  "web_accessible_resources": [
+    {
+      "resources": ["viewer.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "commands": {
     "toggle-capture": {
       "suggested_key": { "default": "Alt+Shift+S", "mac": "Option+Shift+S" },

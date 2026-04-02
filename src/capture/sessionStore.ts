@@ -2,6 +2,8 @@ import { normalizeRawEvent } from "../normalizers";
 import { runFindingsEngine } from "../rules";
 import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent } from "../shared/models";
 import { nowId } from "../shared/utils";
+import { classifyEvent } from "./hostClassifier";
+import { getSettings, type CaptureScope } from "../shared/settings";
 
 const sessions = new Map<number, CaptureSession>();
 const sessionCache = new Map<number, CaptureSession>();
@@ -9,6 +11,8 @@ const HISTORY_KEY = "history:sessions";
 const HISTORY_MAX = 30;
 const MAX_EVENTS_PER_SESSION = 500;
 const MAX_SESSION_SIZE_BYTES = 512 * 1024;
+
+const GLOBAL_TAB_ID = 0;
 
 const storageGet = async <T>(key: string): Promise<T | undefined> => {
   const result = await chrome.storage.local.get(key);
@@ -56,56 +60,110 @@ const ensureSession = (tabId: number): CaptureSession => {
   return created;
 };
 
-export const startCapture = (tabId: number): CaptureSession => {
-  const session = ensureSession(tabId);
+const isHostAllowed = (host: string, allowedHosts: string[]): boolean => {
+  const hostLower = host.toLowerCase();
+  return allowedHosts.some(h => {
+    const allowedLower = h.toLowerCase();
+    return hostLower === allowedLower || hostLower.endsWith("." + allowedLower);
+  });
+};
+
+const shouldCaptureEvent = async (raw: RawCaptureEvent): Promise<boolean> => {
+  const settings = await getSettings();
+  const { classification, isAuthRelevant } = classifyEvent(raw);
+
+  if (settings.captureScope === "full") {
+    return true;
+  }
+
+  if (settings.captureScope === "auth-only") {
+    if (classification === "noise") {
+      return false;
+    }
+    return true;
+  }
+
+  if (settings.captureScope === "auth-plus-allowlist") {
+    if (classification === "noise") {
+      return isHostAllowed(raw.host ?? "", settings.allowedHosts);
+    }
+    return true;
+  }
+
+  return true;
+};
+
+const sessionDiscoveredHosts = new Set<string>();
+
+export const isGlobalCaptureActive = (): boolean => {
+  const globalSession = sessions.get(GLOBAL_TAB_ID);
+  return globalSession?.active ?? false;
+};
+
+export const startCapture = async (_tabId: number): Promise<CaptureSession> => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.active = true;
   session.startedAt = Date.now();
-  session.stoppedAt = undefined;
-  void storageSet(SESSION_KEY(tabId), session);
+  session.rawEvents = [];
+  session.normalizedEvents = [];
+  session.findings = [];
+  sessionDiscoveredHosts.clear();
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
   return session;
 };
 
-export const stopCapture = (tabId: number): CaptureSession => {
-  const session = ensureSession(tabId);
+export const stopCapture = (_tabId: number): CaptureSession => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.active = false;
   session.stoppedAt = Date.now();
-  void storageSet(SESSION_KEY(tabId), session);
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
   void persistHistoryItem(session);
   return session;
 };
 
-export const clearSession = (tabId: number): CaptureSession => {
-  const session = ensureSession(tabId);
+export const clearSession = (_tabId: number): CaptureSession => {
+  const session = ensureSession(GLOBAL_TAB_ID);
   session.rawEvents = [];
   session.normalizedEvents = [];
   session.findings = [];
-  void storageRemove(SESSION_KEY(tabId));
+  sessionDiscoveredHosts.clear();
+  void storageRemove(SESSION_KEY(GLOBAL_TAB_ID));
   return session;
 };
 
-export const addRawEvent = (tabId: number, raw: RawCaptureEvent): CaptureSession | undefined => {
-  let session = sessions.get(tabId);
-  if (!session) {
-    session = ensureSession(tabId);
+export const addRawEvent = async (tabId: number, raw: RawCaptureEvent): Promise<CaptureSession | undefined> => {
+  const globalSession = sessions.get(GLOBAL_TAB_ID);
+  if (!globalSession?.active) {
+    return undefined;
   }
-  if (!session.active) return undefined;
 
-  if (session.rawEvents.length >= MAX_EVENTS_PER_SESSION) return session;
+  if (!await shouldCaptureEvent(raw)) {
+    return globalSession;
+  }
 
-  const sessionSize = new Blob([JSON.stringify(session)]).size;
+  if (globalSession.rawEvents.length >= MAX_EVENTS_PER_SESSION) return globalSession;
+
+  const sessionSize = new Blob([JSON.stringify(globalSession)]).size;
   const rawSize = new Blob([JSON.stringify(raw)]).size;
-  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return session;
+  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return globalSession;
 
-  session.rawEvents.push(raw);
-  session.normalizedEvents.push(normalizeRawEvent(raw));
-  session.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
-  session.findings = runFindingsEngine(session.normalizedEvents);
-  void storageSet(SESSION_KEY(tabId), session);
+  const { isAuthRelevant } = classifyEvent(raw);
+  if (isAuthRelevant && raw.host) {
+    sessionDiscoveredHosts.add(raw.host);
+  }
 
-  return session;
+  globalSession.rawEvents.push(raw);
+  const normalized = normalizeRawEvent(raw);
+  globalSession.normalizedEvents.push(normalized);
+  globalSession.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
+  
+  globalSession.findings = runFindingsEngine(globalSession.normalizedEvents);
+  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), globalSession);
+
+  return globalSession;
 };
 
-export const getSession = (tabId: number): CaptureSession => ensureSession(tabId);
+export const getSession = (_tabId: number): CaptureSession => ensureSession(GLOBAL_TAB_ID);
 
 const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
   if (!session.startedAt || !session.stoppedAt) return;
@@ -129,7 +187,14 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
 export const getHistory = async (): Promise<CaptureHistoryItem[]> =>
   (await storageGet<CaptureHistoryItem[]>(HISTORY_KEY)) ?? [];
 
+export const clearHistory = async (): Promise<void> => {
+  await storageRemove(HISTORY_KEY);
+};
+
 export const loadHistoryItem = async (itemId: string): Promise<CaptureHistoryItem | undefined> => {
   const history = await getHistory();
   return history.find((item) => item.id === itemId);
 };
+
+export const getDiscoveredAuthHosts = (): string[] => 
+  Array.from(sessionDiscoveredHosts);

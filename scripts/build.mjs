@@ -56,6 +56,7 @@ await Promise.all([
   cp("src/static/panel.html", path.join(distDir, "panel.html")),
   cp("src/static/sidepanel.html", path.join(distDir, "sidepanel.html")),
   cp("src/static/viewer.html", path.join(distDir, "viewer.html")),
+  cp("src/static/viewer.js", path.join(distDir, "viewer.js")),
   cp("src/panel/styles.css", path.join(distDir, "styles.css"))
 ]);
 

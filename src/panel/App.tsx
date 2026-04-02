@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildSanitizedExport } from "../export/sanitizedExport";
+import { buildSanitizedExport, buildRawExport, buildSummaryExport } from "../export";
 import { downloadHar } from "../export/harExport";
 import { downloadFindingsCsv, downloadSummaryCsv } from "../export/csvExport";
 import { downloadShareableTrace, copyShareableLink } from "../export/shareableExport";
@@ -11,7 +11,8 @@ import type {
   NormalizedOidcEvent,
   NormalizedSamlEvent,
   Owner,
-  Severity
+  Severity,
+  ExportMode
 } from "../shared/models";
 import { mask, redactRecord } from "../shared/redaction";
 import { RULE_CATALOG, getRuleDoc } from "../shared/ruleCatalog";
@@ -19,11 +20,13 @@ import { buildTraceContext } from "../recipes/context";
 import { buildFixRecipe } from "../recipes/buildRecipe";
 import type { FixRecipe } from "../recipes/types";
 import { labelVariants } from "../mappings/uiLabelAliases";
+import { getFieldMapping } from "../mappings/fieldMappings";
 import { KZeroWordmark } from "./KZeroLogo";
 import type { Settings } from "../shared/settings";
-import { getSettings } from "../shared/settings";
+import { getSettings, saveSettings } from "../shared/settings";
 import Compare from "./Compare";
 import SettingsPanel from "./Settings";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface AppProps {
   mode?: "devtools" | "sidepanel";
@@ -74,6 +77,20 @@ const OwnerPill = ({ owner }: { owner: Owner }): JSX.Element => {
   const tone = owner === "KZero" ? "kzero" : owner === "vendor SP" ? "vendor" : owner;
   return <Pill tone={tone.replace(/\s/g, "-")}>{owner}</Pill>;
 };
+
+const CONFIDENCE_LABELS = {
+  high: "High confidence",
+  medium: "Medium confidence",
+  low: "Low confidence"
+};
+
+const ConfidenceBadge = ({ level }: { level: "high" | "medium" | "low" }): JSX.Element => {
+  return <span className={`confidence-badge confidence-${level}`}>{CONFIDENCE_LABELS[level]}</span>;
+};
+
+const AmbiguityBadge = (): JSX.Element => (
+  <span className="ambiguity-badge">Needs more context</span>
+);
 
 const ProtocolPill = ({ protocol }: { protocol: string }): JSX.Element => <Pill tone="protocol">{protocol}</Pill>;
 
@@ -126,7 +143,17 @@ const DiffLine = ({ label, observed, expected }: { label: string; observed: stri
   );
 };
 
-const PreFlightChecklist = ({ recipe }: { recipe: FixRecipe }): JSX.Element => {
+const getAllFieldExpectations = (recipe: FixRecipe): Array<{ field: string; expected?: string }> => {
+  return recipe.sections.flatMap(s => s.fieldExpectations ?? []);
+};
+
+const PreFlightChecklist = ({ recipe, uiScan, fieldExpectations }: { 
+  recipe: FixRecipe; 
+  uiScan?: { results: Record<string, { found: boolean; value?: string }> };
+  fieldExpectations?: Array<{ field: string; expected?: string }>;
+}): JSX.Element => {
+  const allExpectations = fieldExpectations ?? getAllFieldExpectations(recipe);
+  
   const items = [
     ...recipe.sections
       .filter((s) => s.owner === "KZero" && s.kzeroFields?.length)
@@ -138,20 +165,57 @@ const PreFlightChecklist = ({ recipe }: { recipe: FixRecipe }): JSX.Element => {
 
   if (items.length === 0) return <></>;
 
+  const getFieldStatus = (field: string): { status: "match" | "mismatch" | "pending"; value?: string } => {
+    if (!uiScan?.results) return { status: "pending" };
+    
+    const expectation = allExpectations.find(e => e.field === field);
+    const variants = labelVariants(field);
+    const found = variants.find(v => uiScan.results[v]?.found);
+    const result = found ? uiScan.results[found] : uiScan.results[field];
+    
+    if (!result || !result.found) {
+      return { status: "pending" };
+    }
+    
+    if (expectation?.expected) {
+      const match = result.value === expectation.expected;
+      return { status: match ? "match" : "mismatch", value: result.value };
+    }
+    
+    return { status: "pending", value: result.value };
+  };
+
+  const matchCount = items.filter(i => getFieldStatus(i.label).status === "match").length;
+  const mismatchCount = items.filter(i => getFieldStatus(i.label).status === "mismatch").length;
+  const pendingCount = items.filter(i => getFieldStatus(i.label).status === "pending").length;
+
   return (
     <div className="preflight">
       <div className="preflight-head">
-        <span className="preflight-icon">✅</span>
-        Quick checklist — verify these fields
+        <span className="preflight-icon">📋</span>
+        Field Status
+        <span className="preflight-summary">
+          {matchCount > 0 && <span className="status-match">✅ {matchCount}</span>}
+          {mismatchCount > 0 && <span className="status-mismatch">❌ {mismatchCount}</span>}
+          {pendingCount > 0 && <span className="status-pending">⏳ {pendingCount}</span>}
+        </span>
       </div>
       <ul className="preflight-list">
-        {items.map((item) => (
-          <li key={item.label} className="preflight-item">
-            <div className={classNames("preflight-dot", item.source === "KZero" ? "kzero" : "vendor")} />
-            <span className="preflight-label">{item.label}</span>
-            <span className="preflight-source">{item.source === "KZero" ? "KZero" : "Vendor"}</span>
-          </li>
-        ))}
+        {items.map((item) => {
+          const { status, value } = getFieldStatus(item.label);
+          return (
+            <li key={item.label} className="preflight-item">
+              <div className={`preflight-status preflight-status-${status}`}>
+                {status === "match" && "✅"}
+                {status === "mismatch" && "❌"}
+                {status === "pending" && "⏳"}
+              </div>
+              <span className="preflight-label">{item.label}</span>
+              <span className="preflight-source">{item.source === "KZero" ? "KZero" : "Vendor"}</span>
+              {value && <span className="preflight-value" title={value}>{value.length > 20 ? value.slice(0, 20) + "..." : value}</span>}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -178,8 +242,16 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showTabPicker, setShowTabPicker] = useState(false);
+  const [availableTabs, setAvailableTabs] = useState<Array<{ id: number; title: string; url: string }>>([]);
+  type ExportFormat = "json" | "har" | "csv" | "csv-summary" | "shareable" | "shareable-link";
+  const [pendingExport, setPendingExport] = useState<ExportFormat | null>(null);
+  const [pendingInjection, setPendingInjection] = useState<{ labels: string[] } | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [exportMode, setExportMode] = useState<ExportMode>("sanitized");
+  const [includePostLogin, setIncludePostLogin] = useState(false);
+  const [showRawWarning, setShowRawWarning] = useState(false);
 
   const narrowTab = leftTab;
   const openPopup = (): void => {
@@ -189,6 +261,29 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       width: 1100,
       height: 800
     });
+  };
+
+  const openTabPicker = (): void => {
+    chrome.tabs.query({}, (tabs) => {
+      const filteredTabs = tabs
+        .filter(tab => tab.id && tab.url && !tab.url.startsWith("chrome://") && !tab.url.startsWith("about:"))
+        .map(tab => ({ id: tab.id!, title: tab.title || "Untitled", url: tab.url! }));
+      setAvailableTabs(filteredTabs);
+      setShowTabPicker(true);
+    });
+  };
+
+  const switchToTab = (newTabId: number): void => {
+    chrome.tabs.get(newTabId, (tab) => {
+      if (tab?.id && tab?.url) {
+        const realTabId = tab.id;
+        setMessagingTabId(realTabId);
+        setTabId(realTabId);
+        setTargetTab({ id: realTabId, title: tab.title || "Untitled", url: tab.url });
+        chrome.runtime.sendMessage({ type: "SET_TAB", tabId: realTabId });
+      }
+    });
+    setShowTabPicker(false);
   };
 
   useEffect(() => {
@@ -235,7 +330,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     const handler = (msg: unknown): void => {
       const message = msg as Record<string, unknown>;
       if (message.type === "SESSION_UPDATE") {
-        setSession(message.session as CaptureSession);
+        const incomingSession = message.session as CaptureSession | null;
+        if (incomingSession) setSession(incomingSession);
       }
       if (message.type === "UI_SCAN_RESULT") {
         setUiScan({ results: (message.results as Record<string, UiFieldScanValue>) ?? {} });
@@ -267,7 +363,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     const rc = (msg: unknown): void => {
       const message = msg as Record<string, unknown>;
       if (message.type === "SESSION_UPDATE") {
-        setSession(message.session as CaptureSession);
+        const incomingSession = message.session as CaptureSession | null;
+        if (incomingSession) setSession(incomingSession);
       }
       if (message.type === "UI_SCAN_RESULT") {
         setUiScan({ results: (message.results as Record<string, UiFieldScanValue>) ?? {} });
@@ -287,6 +384,16 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       if (resp?.history) setHistory(resp.history as CaptureHistoryItem[]);
     });
   }, []);
+
+  useEffect(() => {
+    if (selectedFinding && mode === "devtools" && messagingTabId >= 0) {
+      const mapping = getFieldMapping(selectedFinding.ruleId);
+      const fieldLabels = [...mapping.kzeroFields, ...mapping.vendorFields];
+      if (fieldLabels.length > 0) {
+        requestUiScan(fieldLabels);
+      }
+    }
+  }, [selectedFindingId]);
 
   const loadHistory = (id: string): void => {
     chrome.runtime.sendMessage({ type: "LOAD_HISTORY_ITEM", itemId: id }, (resp) => {
@@ -310,11 +417,19 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     chrome.runtime.sendMessage({ type: "STOP_CAPTURE", tabId: messagingTabId });
   };
 
-  const doExport = async (format: "json" | "har" | "csv" | "csv-summary" | "shareable" | "shareable-link"): Promise<void> => {
+  const doExport = async (format: ExportFormat): Promise<void> => {
     if (!session) return;
     switch (format) {
       case "json": {
-        const data = buildSanitizedExport(session);
+        let data;
+        if (exportMode === "raw") {
+          data = buildRawExport(session);
+        } else if (exportMode === "summary") {
+          data = buildSummaryExport(session);
+        } else {
+          data = buildSanitizedExport(session, { mode: exportMode, includePostLoginActivity: includePostLogin });
+        }
+        if (!data) return;
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -340,7 +455,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         await copyShareableLink(session);
         break;
     }
-    setExportMenuOpen(false);
   };
 
   const clearSession = (): void => {
@@ -348,6 +462,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     setSelectedEventId(null);
     setSelectedFindingId(null);
     chrome.runtime.sendMessage({ type: "CLEAR_SESSION", tabId: messagingTabId });
+  };
+
+  const clearHistory = (): void => {
+    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, () => {
+      setHistory([]);
+    });
   };
 
   const requestUiScan = (labels: string[]): void => {
@@ -532,33 +652,38 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   if (!onboardingDone) {
     return (
       <div className="onboarding">
-        <KZeroWordmark />
-        <h1>SSO Tracer</h1>
-        <p>A diagnostic tool for KZero Passwordless SSO. Captures and decodes SAML and OIDC traffic to help you identify and fix authentication issues.</p>
+        <div className="onboarding-header">
+          <KZeroWordmark />
+          <h1>SSO Tracer</h1>
+          <p className="onboarding-subtitle">Debug SAML and OIDC login issues in your KZero Passwordless environment.</p>
+        </div>
         <div className="steps-list">
           <div className="step">
             <span className="step-num">1</span>
-            <div>
-              <strong>Open the login page</strong>
-              <p>Navigate to your vendor's login page in this tab. Click <strong>Use current tab</strong> to target it.</p>
+            <div className="step-content">
+              <strong>Select your target</strong>
+              <p>Open the vendor login page in this tab, then click <span className="code">Use current tab</span> to target it.</p>
             </div>
           </div>
           <div className="step">
             <span className="step-num">2</span>
-            <div>
+            <div className="step-content">
               <strong>Start capture</strong>
-              <p>Click <strong>Start</strong> to begin recording. Then initiate the login flow.</p>
+              <p>Click <span className="code">Start</span> to begin recording, then complete your login flow.</p>
             </div>
           </div>
           <div className="step">
             <span className="step-num">3</span>
-            <div>
+            <div className="step-content">
               <strong>Review findings</strong>
-              <p>Each finding includes a plain-English explanation, evidence, and step-by-step fix steps.</p>
+              <p>Each issue includes a plain-English explanation and step-by-step fix instructions.</p>
             </div>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
+        <div className="onboarding-cta">
+          <button className="btn btn-primary" onClick={dismissOnboarding}>Get started</button>
+          <p className="onboarding-hint">Press Alt+Shift+S to toggle capture anytime</p>
+        </div>
       </div>
     );
   }
@@ -594,22 +719,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                 </li>
               ))}
             </ul>
-          ) : (
-            <ul className="list">
-              {history.map((item) => (
-                <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
-                  <div className="row-main">
-                    <div className="row-title"><span className="mono">{formatDate(item.startedAt)}</span></div>
-                    <div className="row-sub">
-                      <span className="mono">{item.protocolHints.join("/") || "-"}</span>
-                      <span className="dot" />
-                      <span className="mono">{item.findingCount} findings</span>
-                    </div>
-                  </div>
-                  <div className="row-meta mono">Tab {item.tabId}</div>
-                </li>
-              ))}
-            </ul>
+          ) : null}
+          {leftTab === "history" && history.length > 0 && (
+            <div className="pane-actions">
+              <button className="btn btn-ghost btn-sm" onClick={clearHistory}>Clear history</button>
+            </div>
           )}
         </section>
 
@@ -691,6 +805,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   <div className="detail-title">
                     <SeverityPill severity={selectedFinding.severity} />
                     <OwnerPill owner={selectedFinding.likelyOwner} />
+                    {selectedFinding.confidenceLevel && <ConfidenceBadge level={selectedFinding.confidenceLevel} />}
+                    {selectedFinding.isAmbiguous && <AmbiguityBadge />}
                     <span>{selectedFinding.title}</span>
                   </div>
                   <div className="detail-meta mono">
@@ -702,6 +818,44 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   recipe ? (
                     <>
                       <PreFlightChecklist recipe={recipe} />
+                      {(() => {
+                        const allFields = [...new Set(recipe.sections.flatMap((s) => [...(s.kzeroFields ?? []), ...(s.fieldExpectations?.map((e) => e.field) ?? [])]))];
+                        if (allFields.length === 0) return null;
+                        const fieldStatuses = allFields.map((field) => {
+                          const section = recipe.sections.find((s) => (s.kzeroFields ?? []).includes(field) || s.fieldExpectations?.some((e) => e.field === field));
+                          const expectation = section?.fieldExpectations?.find((e) => e.field === field);
+                          const variants = labelVariants(field);
+                          const result = variants.find((v) => uiScan.results[v]?.found) ? uiScan.results[variants.find((v) => uiScan.results[v]?.found)!] : uiScan.results[field];
+                          const match = expectation?.expected && result?.found ? (result.value ?? "") === expectation.expected : undefined;
+                          return { field, match, found: result?.found };
+                        });
+                        const matchCount = fieldStatuses.filter((f) => f.match === true).length;
+                        const mismatchCount = fieldStatuses.filter((f) => f.match === false).length;
+                        const pendingCount = fieldStatuses.filter((f) => f.match === undefined).length;
+                        if (matchCount === 0 && mismatchCount === 0 && pendingCount === 0) return null;
+                        return (
+                          <div className="diff-summary-card">
+                            <div className="diff-summary-header">
+                              <span className="diff-summary-title">Field Scan Summary</span>
+                              <div className="diff-summary-stats">
+                                {matchCount > 0 && <span className="status-match">✅ {matchCount} match{matchCount !== 1 ? "es" : ""}</span>}
+                                {mismatchCount > 0 && <span className="status-mismatch">❌ {mismatchCount} mismatch{mismatchCount !== 1 ? "es" : ""}</span>}
+                                {pendingCount > 0 && <span className="status-pending">⏳ {pendingCount} pending</span>}
+                              </div>
+                            </div>
+                            {mismatchCount > 0 && (
+                              <div className="diff-summary-items">
+                                {fieldStatuses.filter((f) => f.match === false).map((f) => (
+                                  <div key={f.field} className="diff-summary-item" onClick={() => requestUiHighlight(labelVariants(f.field))} style={{ cursor: "pointer" }}>
+                                    <span className="diff-summary-item-field">{f.field}</span>
+                                    <span className="diff-summary-item-status mismatch">❌ mismatch</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <div className="sections">
                         {recipe.sections.map((section) => (
                           <div key={section.title} className="section">
@@ -790,7 +944,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
                 {detailTab === "happened" ? (
                   <>
-                    {recipe ? <PreFlightChecklist recipe={recipe} /> : null}
+                    {recipe ? <PreFlightChecklist recipe={recipe} uiScan={uiScan} /> : null}
                     <div className="sections">
                       <div className="section">
                         <div className="section-title">
@@ -1040,6 +1194,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   <div className="detail-title">
                     <SeverityPill severity={selectedFinding.severity} />
                     <OwnerPill owner={selectedFinding.likelyOwner} />
+                    {selectedFinding.confidenceLevel && <ConfidenceBadge level={selectedFinding.confidenceLevel} />}
+                    {selectedFinding.isAmbiguous && <AmbiguityBadge />}
                     <span>{selectedFinding.title}</span>
                   </div>
                 </div>
@@ -1066,6 +1222,15 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                                 <li key={`${section.title}-${idx}`}>{b}</li>
                               ))}
                             </ol>
+                            {section.links?.length ? (
+                              <div className="links-row">
+                                {section.links.map((link, idx) => (
+                                  <a key={`link-${idx}`} href={link.url} target="_blank" rel="noopener noreferrer" className="doc-link">
+                                    {link.label}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : null}
                             {section.copySnippets?.length ? (
                               <div className="copy-row">
                                 {section.copySnippets.map((snip) => (
@@ -1100,7 +1265,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
                 {detailTab === "happened" ? (
                   <>
-                    {recipe ? <PreFlightChecklist recipe={recipe} /> : null}
+                    {recipe ? <PreFlightChecklist recipe={recipe} uiScan={uiScan} /> : null}
                     <div className="sections">
                       <div className="section">
                         <div className="section-title">
@@ -1210,12 +1375,98 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
   return (
     <div className="app-root">
-      <header className="toolbar">
-        <KZeroWordmark />
-        <div className="toolbar-title">
-          <h1>SSO Tracer</h1>
-          <span className="tab-label">{tabTitle}</span>
+      <header className="header-section">
+        <div className="header-top">
+          <KZeroWordmark height={28} />
+          <button
+            className="btn-icon-only"
+            onClick={() => setShowSettings(true)}
+            title="Settings (Alt+Shift+P)"
+            aria-label="Settings"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+          {settings && (
+            <span className="scope-indicator">
+              {settings.captureScope === "auth-only" && "Auth-only"}
+              {settings.captureScope === "auth-plus-allowlist" && "Auth + allowlist"}
+              {settings.captureScope === "full" && "Full capture"}
+            </span>
+          )}
         </div>
+        <div className="page-indicator">
+          <h1>KZero Passwordless SSO Tracer</h1>
+          <div className="current-tab-display">
+            <span className="current-tab-label">View:</span>
+            <button 
+              className={classNames("tab-pill", narrowTab === "timeline" && "active")} 
+              onClick={() => setLeftTab("timeline")}
+            >
+              Timeline
+            </button>
+            <button 
+              className={classNames("tab-pill", narrowTab === "history" && "active")} 
+              onClick={() => setLeftTab("history")}
+            >
+              History
+            </button>
+            <button 
+              className={classNames("tab-pill", narrowTab === "findings" && "active")} 
+              onClick={() => setLeftTab("findings")}
+            >
+              Findings
+            </button>
+            <button 
+              className={classNames("tab-pill", narrowTab === "detail" && "active")} 
+              onClick={() => setLeftTab("detail")}
+            >
+              Detail
+            </button>
+          </div>
+        </div>
+        <div className="browser-tab-info">
+          <span className="tab-info-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+            </svg>
+          </span>
+          <div className="tab-picker-container">
+            <button className="tab-picker-button" onClick={openTabPicker} title="Switch tab">
+              <span className="tab-info-url" title={targetTab?.url ?? "No tab selected"}>
+                {targetTab?.url ? new URL(targetTab.url).hostname : "No tab selected"}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            {showTabPicker && (
+              <div className="tab-picker-dropdown">
+                <div className="tab-picker-header">Switch to tab</div>
+                {availableTabs.length === 0 ? (
+                  <div className="tab-picker-empty">No tabs available</div>
+                ) : (
+                  availableTabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      className={classNames("tab-picker-item", targetTab?.id === tab.id && "active")}
+                      onClick={() => switchToTab(tab.id)}
+                    >
+                      <span className="tab-picker-title">{tab.title}</span>
+                      <span className="tab-picker-host">{tab.url ? new URL(tab.url).hostname : ""}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="toolbar-row">
         <div className="toolbar-search">
           <input
             className="search"
@@ -1235,6 +1486,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           {session && (
             <button className="btn btn-ghost" onClick={clearSession} title="Clear current session">Clear</button>
           )}
+          {session && settings && settings.captureScope !== "auth-only" && (
+            <span className={`scope-indicator scope-${settings.captureScope.replace("_", "-")}`}>
+              {settings.captureScope === "auth-plus-allowlist" ? "Auth + allowlist" : "Full capture"}
+            </span>
+          )}
           {session && (
             <div className="export-menu" ref={exportMenuRef}>
               <button className="btn btn-ghost" onClick={() => setExportMenuOpen(o => !o)} title="Export session">
@@ -1242,12 +1498,42 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               </button>
               {exportMenuOpen && (
                 <div className="export-dropdown">
-                  <button onClick={() => void doExport("json")}>JSON (full trace)</button>
-                  <button onClick={() => void doExport("har")}>HAR (browser DevTools)</button>
-                  <button onClick={() => void doExport("csv")}>CSV (findings only)</button>
-                  <button onClick={() => void doExport("csv-summary")}>CSV (summary)</button>
-                  <button onClick={() => void doExport("shareable")}>Shareable trace (.txt)</button>
-                  <button onClick={() => void doExport("shareable-link")}>Shareable link (clipboard)</button>
+                  <div className="export-mode-selector">
+                    <label className="export-mode-label">Export mode:</label>
+                    <select 
+                      className="export-mode-select" 
+                      value={exportMode} 
+                      onChange={(e) => {
+                        const mode = e.target.value as ExportMode;
+                        if (mode === "raw") {
+                          setShowRawWarning(true);
+                        } else {
+                          setExportMode(mode);
+                        }
+                      }}
+                    >
+                      <option value="summary">Summary (safest)</option>
+                      <option value="sanitized">Sanitized trace (recommended)</option>
+                      <option value="raw">Full raw trace (sensitive)</option>
+                    </select>
+                  </div>
+                  {exportMode === "sanitized" && (
+                    <label className="export-option">
+                      <input 
+                        type="checkbox" 
+                        checked={includePostLogin} 
+                        onChange={(e) => setIncludePostLogin(e.target.checked)} 
+                      />
+                      Include post-login activity
+                    </label>
+                  )}
+                  <div className="export-divider" />
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("json"); }}>Download JSON</button>
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("har"); }}>HAR (browser DevTools)</button>
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv"); }}>CSV (findings only)</button>
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv-summary"); }}>CSV (summary)</button>
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("shareable"); }}>Shareable trace (.txt)</button>
+                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("shareable-link"); }}>Shareable link (clipboard)</button>
                 </div>
               )}
             </div>
@@ -1261,22 +1547,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               LIVE
             </div>
           )}
-          <button
-            className="btn btn-icon"
-            onClick={() => setShowSettings(true)}
-            title="Settings (Alt+Shift+P)"
-            aria-label="Settings"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
-              <path fillRule="evenodd" d="M6.5 1.75a.25.25 0 01.25-.25h2a.25.25 0 01.25.25V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5h1.75V1.5A.25.25 0 0113 1.25h-1.75v1.75H9.5V1.5A.25.25 0 019.25 1.25H7.5v1.75H5.75A.25.25 0 015.5 3v8.25a.25.25 0 01-.25.25h-1.5a.25.25 0 01-.25-.25V3.5h1.75v1.75H2.5A.25.25 0 012.25 5V3.5h1.75V2a.25.25 0 01.25-.25h2a.25.25 0 01.25.25v1.5H6.5V1.75zm5.5 4.25a.75.75 0 00-.75-.75h-1.5a.75.75 0 00-.75.75v1.5h3v-1.5zM3.75 10a.75.75 0 00-.75.75v1.5h3v-1.5a.75.75 0 00-.75-.75h-1.5zm1.5-2a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5h-4v-1.5z" clipRule="evenodd"/>
-            </svg>
-          </button>
           {isNarrow && (
             <button className="btn btn-ghost" onClick={openPopup} title="Open in new window">Pop out</button>
           )}
         </div>
-      </header>
+      </div>
 
       <div className="toolbar-secondary">
         <div className="filter-row">
@@ -1312,6 +1587,62 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             onClose={() => setShowSettings(false)}
             onSave={setSettings}
           />
+        </div>
+      )}
+
+      {pendingExport && session && (
+        <ConfirmDialog
+          title="Export session?"
+          message="This will export the current session including all captured events and findings. The file will be saved to your downloads folder."
+          confirmLabel="Export"
+          onConfirm={async () => {
+            const fmt = pendingExport;
+            setPendingExport(null);
+            await doExport(fmt);
+          }}
+          onCancel={() => setPendingExport(null)}
+        />
+      )}
+
+      {showRawWarning && (
+        <ConfirmDialog
+          title="Export full raw trace?"
+          message="⚠️ This export contains complete authentication data including raw SAML/XML payloads, full tokens and secrets, and user identifiers. This should only be shared with trusted internal teams for troubleshooting. Continue with Full raw export?"
+          confirmLabel="Export Full Raw"
+          onConfirm={() => {
+            setShowRawWarning(false);
+            setExportMode("raw");
+            setPendingExport("json");
+          }}
+          onCancel={() => setShowRawWarning(false)}
+        />
+      )}
+
+      {pendingInjection && (
+        <ConfirmDialog
+          title="Scan page fields?"
+          message="This will inject a scanner into the current tab to read visible form field labels and values. No data leaves your browser."
+          confirmLabel="Scan"
+          onConfirm={() => {
+            const labels = pendingInjection.labels;
+            setPendingInjection(null);
+            requestUiScan(labels);
+          }}
+          onCancel={() => setPendingInjection(null)}
+        />
+      )}
+
+      {settings && !settings.hasSeenScopeNotice && onboardingDone && (
+        <div className="scope-notice-banner">
+          <span>Capture scope is now configurable. Recommended default is Auth-only for smaller, safer traces. Your current setting was preserved.</span>
+          <button className="btn btn-sm btn-primary" onClick={() => {
+            saveSettings({ ...settings, captureScope: "auth-only", hasSeenScopeNotice: true });
+            setSettings({ ...settings, captureScope: "auth-only", hasSeenScopeNotice: true });
+          }}>Switch to Auth-only</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => {
+            saveSettings({ ...settings, hasSeenScopeNotice: true });
+            setSettings({ ...settings, hasSeenScopeNotice: true });
+          }}>Keep Full Capture</button>
         </div>
       )}
 

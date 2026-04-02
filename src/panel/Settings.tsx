@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import type { Settings } from "../shared/settings";
-import { getSettings, saveSettings, resetSettings } from "../shared/settings";
+import type { Settings, CaptureScope } from "../shared/settings";
+import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
+import { getDiscoveredAuthHosts } from "../capture/sessionStore";
 
 interface SettingsProps {
   onClose: () => void;
@@ -10,10 +11,19 @@ interface SettingsProps {
 const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saved, setSaved] = useState(false);
+  const [newHost, setNewHost] = useState("");
+  const [hostError, setHostError] = useState("");
+  const [discoveredHosts, setDiscoveredHosts] = useState<string[]>([]);
 
   useEffect(() => {
     getSettings().then(setSettings);
   }, []);
+
+  useEffect(() => {
+    if (settings?.captureScope !== "auth-plus-allowlist") {
+      setDiscoveredHosts(getDiscoveredAuthHosts());
+    }
+  }, [settings?.captureScope]);
 
   if (!settings) return <div className="settings-loading">Loading settings...</div>;
 
@@ -32,6 +42,37 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
     onSave(def);
   };
 
+  const handleAddHost = (): void => {
+    const normalized = normalizeHostname(newHost);
+    if (!isValidHostname(normalized)) {
+      setHostError("Invalid hostname");
+      return;
+    }
+    if (settings.allowedHosts.includes(normalized)) {
+      setHostError("Host already in allowlist");
+      return;
+    }
+    update({ allowedHosts: [...settings.allowedHosts, normalized] });
+    setNewHost("");
+    setHostError("");
+  };
+
+  const handleRemoveHost = (host: string): void => {
+    update({ allowedHosts: settings.allowedHosts.filter(h => h !== host) });
+  };
+
+  const handleAddDiscovered = (host: string): void => {
+    if (!settings.allowedHosts.includes(host)) {
+      update({ allowedHosts: [...settings.allowedHosts, host] });
+    }
+  };
+
+  const scopeOptions: { value: CaptureScope; label: string; desc: string }[] = [
+    { value: "auth-only", label: "Auth-only (recommended)", desc: "Capture only IdP, SP, and auth endpoints" },
+    { value: "auth-plus-allowlist", label: "Auth + allowlist", desc: "Auth-only plus custom allowed hosts" },
+    { value: "full", label: "Full capture (all URLs)", desc: "Capture everything, larger traces" }
+  ];
+
   return (
     <div className="settings-panel">
       <div className="settings-head">
@@ -43,6 +84,63 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
       </div>
 
       <div className="settings-sections">
+        <section className="settings-section">
+          <h3>Capture Scope</h3>
+          <div className="scope-selector">
+            {scopeOptions.map(opt => (
+              <label key={opt.value} className={`scope-option ${settings.captureScope === opt.value ? "active" : ""}`}>
+                <input
+                  type="radio"
+                  name="captureScope"
+                  value={opt.value}
+                  checked={settings.captureScope === opt.value}
+                  onChange={() => update({ captureScope: opt.value })}
+                />
+                <div className="scope-option-content">
+                  <span className="scope-option-label">{opt.label}</span>
+                  <span className="scope-option-desc">{opt.desc}</span>
+                  {opt.value === "full" && <span className="scope-warning">⚠️</span>}
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {settings.captureScope === "auth-plus-allowlist" && (
+            <div className="allowlist-section">
+              <h4>Allowed hosts</h4>
+              <div className="host-chips">
+                {settings.allowedHosts.map(host => (
+                  <span key={host} className="host-chip">
+                    {host}
+                    <button onClick={() => handleRemoveHost(host)} title="Remove">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="host-input-row">
+                <input
+                  type="text"
+                  placeholder="e.g. accounts.zoho.com"
+                  value={newHost}
+                  onChange={e => { setNewHost(e.target.value); setHostError(""); }}
+                  onKeyDown={e => e.key === "Enter" && handleAddHost()}
+                />
+                <button className="btn btn-sm" onClick={handleAddHost} disabled={!newHost}>Add</button>
+              </div>
+              {hostError && <div className="host-error">{hostError}</div>}
+              {discoveredHosts.length > 0 && (
+                <div className="discovered-hosts">
+                  <span className="discovered-label">Suggested:</span>
+                  {discoveredHosts.filter(h => !settings.allowedHosts.includes(h)).slice(0, 5).map(host => (
+                    <button key={host} className="discovered-chip" onClick={() => handleAddDiscovered(host)}>
+                      + {host}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
         <section className="settings-section">
           <h3>Capture</h3>
           <label className="settings-row">

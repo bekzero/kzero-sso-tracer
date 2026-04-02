@@ -50,7 +50,8 @@ const statusText = (code: number): string => {
   return "Unknown";
 };
 
-const entriesFromSession = (session: CaptureSession): HarEntry[] => {
+const entriesFromSession = (session: CaptureSession | null): HarEntry[] => {
+  if (!session) return [];
   return session.rawEvents.map((raw): HarEntry => {
     const reqHeaders = Object.entries(raw.requestHeaders ?? {}).map(([name, value]) => ({ name, value }));
     const resHeaders = Object.entries(raw.responseHeaders ?? {}).map(([name, value]) => ({ name, value }));
@@ -94,7 +95,7 @@ const entriesFromSession = (session: CaptureSession): HarEntry[] => {
   });
 };
 
-export const buildHarExport = (session: CaptureSession): string => {
+export const buildHarExport = (session: CaptureSession | null): string => {
   const har: Har = {
     log: {
       version: "1.2",
@@ -108,7 +109,8 @@ export const buildHarExport = (session: CaptureSession): string => {
   return JSON.stringify(har, null, 2);
 };
 
-export const downloadHar = (session: CaptureSession): void => {
+export const downloadHar = (session: CaptureSession | null): void => {
+  if (!session) return;
   const content = buildHarExport(session);
   const blob = new Blob([content], { type: "application/json" });
   const url = URL.createObjectURL(blob);

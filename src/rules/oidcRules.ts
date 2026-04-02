@@ -1,7 +1,13 @@
 import type { Finding, NormalizedEvent, NormalizedOidcEvent } from "../shared/models";
 import { makeFinding } from "./helpers";
+import { computeOidcCorrelation } from "../recipes/context";
+import { detectLanding } from "../shared/landing";
 
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === "OIDC";
+
+const hasStrongDownstreamActivity = (events: NormalizedOidcEvent[]): boolean => {
+  return events.some((e) => e.kind === "token" || e.kind === "userinfo" || e.kind === "logout");
+};
 
 export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
   const findings: Finding[] = [];
@@ -11,6 +17,18 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
   const callback = oidc.find((e) => e.kind === "callback");
   const token = oidc.find((e) => e.kind === "token");
   const jwks = oidc.find((e) => e.kind === "jwks");
+  const userinfo = oidc.find((e) => e.kind === "userinfo");
+  const logoutEvent = oidc.find((e) => e.kind === "logout");
+
+  const correlation = computeOidcCorrelation({
+    discovery,
+    authorize,
+    callback,
+    token,
+    jwks,
+    logout: logoutEvent
+  });
+  const landing = detectLanding(events);
 
   if (discovery && discovery.statusCode && discovery.statusCode >= 400) {
     findings.push(
@@ -25,7 +43,8 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "HTTP 200 with valid OpenID metadata",
         evidence: [discovery.url],
         action: "Verify Discovery Endpoint, DNS/TLS reachability, and WAF rules.",
-        confidence: 0.9
+        confidence: 0.9,
+        disqualifyingEvidence: ["Discovery endpoint returns HTTP 200"]
       })
     );
   }
@@ -45,9 +64,124 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
           expected,
           evidence: [discovery.url],
           action: "Compare tenant casing and ensure Discovery Endpoint and Issuer values match exactly.",
-          confidence: 0.92
+          confidence: 0.92,
+          disqualifyingEvidence: ["Issuer in discovery matches the tenant endpoint used"]
         })
       );
+    }
+  }
+
+  if (discovery?.artifacts?.discoveryError) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_DISCOVERY_MALFORMED",
+        severity: "error",
+        protocol: "OIDC",
+        likelyOwner: "user data",
+        title: "Discovery document is malformed",
+        explanation: "The discovery response could not be parsed as valid JSON.",
+        observed: String(discovery.artifacts.discoveryError),
+        expected: "Valid JSON in discovery response",
+        evidence: [discovery.url],
+        action: "Verify the discovery URL returns valid JSON. Check for proxy/gateway that may be returning error HTML instead of JSON, or that the URL is correct for your IdP.",
+        confidence: 0.94,
+        disqualifyingEvidence: ["Discovery document parses as valid JSON"]
+      })
+    );
+  }
+
+  if (discovery?.artifacts?.discovery) {
+    const disc = discovery.artifacts.discovery as Record<string, unknown>;
+    const issuerHost = typeof disc.issuer === "string" ? disc.issuer : null;
+    const authEndpoint = typeof disc.authorization_endpoint === "string" ? disc.authorization_endpoint : null;
+    const tokenEndpoint = typeof disc.token_endpoint === "string" ? disc.token_endpoint : null;
+    const jwksUri = typeof disc.jwks_uri === "string" ? disc.jwks_uri : null;
+
+    const isPrivateNetworkPattern = (host: string): boolean => {
+      const h = host.toLowerCase();
+      if (h === "localhost" || h === "127.0.0.1") return true;
+      if (/^10\.\d+\.\d+\.\d+$/.test(h)) return true;
+      if (/^192\.168\.\d+\.\d+$/.test(h)) return true;
+      if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(h)) return true;
+      if (h.endsWith(".local") || h.endsWith(".internal") || h.endsWith(".corp")) return true;
+      if (!h.includes(".")) return true;
+      return false;
+    };
+
+    const getHostFamily = (urlStr: string): string | null => {
+      try {
+        const url = new URL(urlStr);
+        const host = url.hostname.toLowerCase();
+        if (isPrivateNetworkPattern(host)) return "private";
+        const parts = host.split(".");
+        if (parts.length >= 2) {
+          return parts.slice(-2).join(".");
+        }
+        return host;
+      } catch {
+        return null;
+      }
+    };
+
+    const endpointHosts = [authEndpoint, tokenEndpoint, jwksUri].filter(Boolean) as string[];
+    const hasPrivateEndpoint = endpointHosts.some((ep) => {
+      try {
+        return isPrivateNetworkPattern(new URL(ep).hostname);
+      } catch {
+        return false;
+      }
+    });
+
+    if (hasPrivateEndpoint) {
+      findings.push(
+        makeFinding({
+          ruleId: "OIDC_DISCOVERY_PUBLIC_REACHABILITY_CLUE",
+          severity: "warning",
+          protocol: "OIDC",
+          likelyOwner: "network",
+          title: "Discovery endpoints may not be publicly reachable",
+          explanation: "Discovery endpoints contain internal or localhost addresses.",
+          observed: "Internal-looking endpoint URLs in discovery",
+          expected: "Publicly accessible endpoint URLs",
+          evidence: [discovery.url],
+          action: "Verify IdP endpoints are publicly accessible. Internal-only endpoints will fail for cloud/SaaS vendors.",
+          confidence: 0.58,
+          isAmbiguous: true,
+          ambiguityNote: "Internal-looking endpoints could be valid for VPN-based setups or private IdP deployments. Verify this matches your deployment model."
+        })
+      );
+    } else if (issuerHost) {
+      const issuerFamily = getHostFamily(issuerHost);
+      let suspiciousHostFound = false;
+
+      for (const endpoint of endpointHosts) {
+        const endpointFamily = getHostFamily(endpoint);
+        if (endpointFamily && endpointFamily !== "private" && issuerFamily && endpointFamily !== issuerFamily) {
+          suspiciousHostFound = true;
+          break;
+        }
+      }
+
+      if (suspiciousHostFound) {
+        findings.push(
+          makeFinding({
+            ruleId: "OIDC_DISCOVERY_ENDPOINT_HOST_SUSPICIOUS",
+            severity: "warning",
+            protocol: "OIDC",
+            likelyOwner: "user data",
+            title: "Discovery endpoint host differs from issuer",
+            explanation: "The authorization_endpoint, token_endpoint, or jwks_uri host does not match the issuer host family.",
+            observed: "Endpoint hosts differ across incompatible families",
+            expected: "Consistent host family across issuer and endpoints",
+            evidence: [discovery.url],
+            action: "Verify all endpoint URLs use the expected host family. Mismatched hosts may indicate copied values from another environment or cross-environment configuration.",
+            confidence: 0.72,
+            isAmbiguous: true,
+            ambiguityNote: "Endpoint host differences could indicate multi-tenant setup, CDN, reverse proxy, or actual misconfiguration. Check if this is expected for your IdP.",
+            disqualifyingEvidence: ["All endpoints use consistent host family matching issuer"]
+          })
+        );
+      }
     }
   }
 
@@ -64,7 +198,8 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "scope contains openid",
         evidence: [authorize.url],
         action: "Update vendor scope list to include openid and keep profile/email as needed.",
-        confidence: 0.98
+        confidence: 0.98,
+        disqualifyingEvidence: ["Authorization request includes 'openid' scope"]
       })
     );
   }
@@ -85,7 +220,8 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
           expected: authorize.redirectUri,
           evidence: [authorize.url, callback.url],
           action: "Align redirect URI values exactly on both sides (scheme, host, path, trailing slash).",
-          confidence: 0.95
+          confidence: 0.95,
+          disqualifyingEvidence: ["Callback URL matches redirect_uri exactly"]
         })
       );
     }
@@ -273,10 +409,9 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
     }
   }
 
-  const logout = oidc.find((e) => e.kind === "logout");
-  if (logout) {
-    const logoutParams = logout.artifacts.query as Record<string, string> | undefined;
-    if ((logout.statusCode ?? 0) >= 400 || logoutParams?.error) {
+  if (logoutEvent) {
+    const logoutParams = logoutEvent.artifacts.query as Record<string, string> | undefined;
+    if ((logoutEvent.statusCode ?? 0) >= 400 || logoutParams?.error) {
       findings.push(
         makeFinding({
           ruleId: "OIDC_LOGOUT_REDIRECT_MISMATCH_CLUE",
@@ -285,9 +420,9 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
           likelyOwner: "vendor SP",
           title: "Logout redirect mismatch clue",
           explanation: "Logout request returned error, often from post logout redirect mismatch.",
-          observed: `logout status ${logout.statusCode ?? "unknown"}`,
+          observed: `logout status ${logoutEvent.statusCode ?? "unknown"}`,
           expected: "Valid logout with accepted post logout redirect",
-          evidence: [logout.url],
+          evidence: [logoutEvent.url],
           action: "Verify Logout URL and registered post logout redirect URI values.",
           confidence: 0.69
         })
@@ -309,6 +444,201 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
         evidence: [token.url],
         action: "Treat as informational unless vendor incorrectly expects JWT access tokens.",
         confidence: 0.8
+      })
+    );
+  }
+
+  if (!authorize && callback) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_LATE_CAPTURE_CLUE",
+        severity: "info",
+        protocol: "OIDC",
+        likelyOwner: "unknown",
+        title: "Capture started after authorization request",
+        explanation: "Callback was captured but no authorize request is present in this trace.",
+        observed: "Callback captured but authorize missing",
+        expected: "Full flow with authorize and callback",
+        action: "If this should be a complete trace, start capture before clicking login.",
+        evidence: callback ? [callback.url] : [],
+        confidence: 0.6,
+        isAmbiguous: true,
+        ambiguityNote: "This is informational - the flow may have succeeded, but capture started after the authorize was sent. This usually means capture started late, the initial authorize happened outside the captured tab/window, or the authorize request was not retained.",
+        traceGaps: ["Authorize request not captured"],
+        disqualifyingEvidence: ["Authorize request captured", "Full flow observed"]
+      })
+    );
+  }
+
+  if (!authorize && !callback && hasStrongDownstreamActivity(oidc)) {
+    const downstreamEvent = token ?? userinfo ?? logoutEvent;
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_MISSING_AUTHORIZE_REQUEST_CLUE",
+        severity: "info",
+        protocol: "OIDC",
+        likelyOwner: "unknown",
+        title: "Authorization request not captured but downstream activity present",
+        explanation: "Token, userinfo, or logout activity was captured without the authorize request.",
+        observed: "Callback or token activity was captured, but the authorize request was not present in this trace.",
+        expected: "Authorize request present in trace",
+        action: "This usually means capture started late, the initial authorize happened outside the captured tab/window, or the authorize request was not retained. If SP-initiated flow is expected, start capture before initiating login.",
+        evidence: downstreamEvent ? [downstreamEvent.url] : [],
+        confidence: 0.58,
+        isAmbiguous: true,
+        ambiguityNote: "This usually means capture started late, the initial authorize happened outside the captured tab/window, or the authorize request was not retained.",
+        traceGaps: ["Authorize request not captured"],
+        disqualifyingEvidence: ["Authorize request captured"]
+      })
+    );
+  }
+
+  if (authorize && !callback && !correlation.lateCapture) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_MISSING_CALLBACK",
+        severity: "warning",
+        protocol: "OIDC",
+        likelyOwner: "vendor SP",
+        title: "No callback captured after authorization request",
+        explanation: "Authorize request was captured but no callback was detected.",
+        observed: "Authorize sent but no callback captured",
+        expected: "OIDC callback with code or error",
+        action: "Verify the app received a callback to the configured redirect URI, including form_post if that response_mode is in use. Check for browser extension/CSP blocking or vendor redirect handler issues.",
+        evidence: [authorize.url],
+        confidence: 0.68,
+        traceGaps: ["OIDC callback not captured"],
+        disqualifyingEvidence: ["Callback captured", "Callback error present"]
+      })
+    );
+  }
+
+  if (authorize && authorize.responseType?.includes("code") && !authorize.codeChallenge) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_PKCE_MISSING_WHEN_CODE_FLOW",
+        severity: "warning",
+        protocol: "OIDC",
+        likelyOwner: "vendor SP",
+        title: "PKCE not used in Authorization Code flow",
+        explanation: "response_type=code was used but no code_challenge was present in the authorize request.",
+        observed: "response_type=code but no code_challenge present",
+        expected: "PKCE code_challenge for Authorization Code flow",
+        action: "Enable PKCE (Use PKCE) in vendor OIDC client - recommended for all Authorization Code flows for security.",
+        evidence: [authorize.url],
+        confidence: 0.74,
+        disqualifyingEvidence: ["code_challenge present in authorize request"]
+      })
+    );
+  }
+
+  if (authorize?.codeChallengeMethod && authorize.codeChallengeMethod !== "S256") {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_PKCE_METHOD_WEAK_OR_UNEXPECTED",
+        severity: "warning",
+        protocol: "OIDC",
+        likelyOwner: "vendor SP",
+        title: "Weak or unexpected PKCE method",
+        explanation: "PKCE code_challenge_method is not the recommended S256.",
+        observed: `code_challenge_method=${authorize.codeChallengeMethod}`,
+        expected: "code_challenge_method=S256",
+        action: "Set code_challenge_method to S256 in vendor OIDC client. Plain method is considered weak and not recommended.",
+        evidence: [authorize.url],
+        confidence: 0.84,
+        disqualifyingEvidence: ["code_challenge_method=S256"]
+      })
+    );
+  }
+
+  if (discovery) {
+    const requiredFields = ["issuer", "authorization_endpoint", "token_endpoint"];
+    const missingFields = requiredFields.filter((f) => {
+      const artifacts = discovery.artifacts as Record<string, unknown>;
+      return !artifacts[f];
+    });
+    if (missingFields.length > 0) {
+      findings.push(
+        makeFinding({
+          ruleId: "OIDC_DISCOVERY_ENDPOINT_INCONSISTENT",
+          severity: "error",
+          protocol: "OIDC",
+          likelyOwner: "user data",
+          title: "Discovery document missing required fields",
+          explanation: "Discovery document is missing required OpenID Connect metadata fields.",
+          observed: `Missing fields: ${missingFields.join(", ")}`,
+          expected: "All required fields present in discovery document",
+          action: "Verify discovery document structure - may indicate stale copied values, wrong discovery URL, or malformed IdP metadata. Check all required fields are present and properly formatted.",
+          evidence: [discovery.url],
+          confidence: 0.86,
+          disqualifyingEvidence: ["Discovery document validates and passes structural checks"]
+        })
+      );
+    }
+  }
+
+  if (userinfo && (userinfo.statusCode ?? 0) >= 400) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_USERINFO_FAILED",
+        severity: "warning",
+        protocol: "OIDC",
+        likelyOwner: "vendor SP",
+        title: "UserInfo endpoint request failed",
+        explanation: "The UserInfo endpoint returned an error status.",
+        observed: `userinfo status ${userinfo.statusCode}`,
+        expected: "HTTP 200 with user claims",
+        action: "Check UserInfo endpoint accessibility, token validity, and vendor UserInfo URL configuration.",
+        evidence: [userinfo.url],
+        confidence: 0.76,
+        disqualifyingEvidence: ["UserInfo returns HTTP 200"]
+      })
+    );
+  }
+
+  if (authorize && !callback) {
+    const recentAuthorizes = oidc.filter((e) => e.kind === "authorize");
+    if (recentAuthorizes.length > 2) {
+      findings.push(
+        makeFinding({
+          ruleId: "OIDC_BROWSER_STORAGE_OR_COOKIE_BLOCKING_CLUE",
+          severity: "warning",
+          protocol: "OIDC",
+          likelyOwner: "browser",
+          title: "Multiple authorize requests without callback - possible cookie/storage blocking",
+          explanation: "Multiple authorization requests were captured without any callback, which may indicate the browser is blocking cookies or storage.",
+          observed: `${recentAuthorizes.length} authorize requests without callback`,
+          expected: "Single authorize → callback flow",
+          action: "Check browser for blocked cookies or storage - common with incognito mode or privacy extensions.",
+          evidence: recentAuthorizes.map((e) => e.url),
+          confidence: 0.52,
+          isAmbiguous: true,
+          ambiguityNote: "Pattern suggests cookie/storage blocking, but could also be vendor redirect loop. Verify in browser devtools.",
+          traceGaps: ["Callback event captured"],
+          disqualifyingEvidence: ["Callback captured after authorize", "Single authorize → callback flow observed"]
+        })
+      );
+    }
+  }
+
+  if (callback?.code && !landing.detected) {
+    findings.push(
+      makeFinding({
+        ruleId: "OIDC_CALLBACK_SEEN_BUT_NO_APP_LANDING_CLUE",
+        severity: "warning",
+        protocol: "OIDC",
+        likelyOwner: "vendor SP",
+        title: "Callback succeeded but no app landing detected",
+        explanation: "OIDC callback with authorization code was captured, but no app landing was detected within the capture window.",
+        observed: "Callback succeeded but no app landing detected within capture window",
+        expected: "App landing after successful callback",
+        action: "Check if vendor callback handler properly redirects to app landing page. Verify redirect URI points to correct app URL.",
+        evidence: [callback.url],
+        confidence: 0.64,
+        isAmbiguous: true,
+        ambiguityNote: "Landing may have happened but was filtered as noise, occurred outside capture window, or SPA routing finished without full navigation event. This is a clue, not a definitive failure.",
+        traceGaps: ["App landing event captured"],
+        disqualifyingEvidence: ["Landing event captured", "Successful flow with landing observed"]
       })
     );
   }

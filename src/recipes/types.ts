@@ -6,6 +6,11 @@ export interface CopySnippet {
   sensitive?: boolean;
 }
 
+export interface FixLink {
+  label: string;
+  url: string;
+}
+
 export interface FixSection {
   title: string;
   owner: Owner;
@@ -15,6 +20,8 @@ export interface FixSection {
   vendorFields?: string[];
   fieldExpectations?: Array<{ field: string; expected: string; sensitive?: boolean }>;
   copySnippets?: CopySnippet[];
+  links?: FixLink[];
+  tooltip?: string;
 }
 
 export interface FixRecipe {

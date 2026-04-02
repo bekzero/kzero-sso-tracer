@@ -1,127 +1,119 @@
 # KZero Passwordless SSO Tracer
 
-KZero Passwordless SSO Tracer is a Chrome MV3 extension for deterministic SAML/OIDC troubleshooting in KZero Passwordless environments.
+KZero Passwordless SSO Tracer is a Chrome extension for debugging SAML and OIDC authentication issues in KZero Passwordless environments.
 
-It captures active auth traces, decodes federation artifacts, runs deterministic diagnostics, and maps likely fixes to KZero field labels and vendor/SP fields.
+## What It Does
 
-## MVP capabilities
+- **Captures** federation traffic (SAML requests/responses, OIDC authorize flows, token exchanges)
+- **Decodes** SAML XML, JWT tokens, OIDC parameters
+- **Analyzes** the auth flow and identifies common configuration issues
+- **Guides** you through fixing problems with step-by-step instructions
 
-- Start/stop/clear capture for the inspected tab.
-- Timeline of federation events (SAML + OIDC + network errors).
-- Optional Side Panel mode for reviewing saved traces outside DevTools.
-- Artifact extraction and decoding:
-  - SAMLRequest / SAMLResponse / RelayState
-  - Redirect DEFLATE + base64 decode
-  - XML parse and core claim extraction
-  - OIDC authorize/callback/token/discovery/JWKS/logout fields
-  - JWT header/payload decode for ID/access tokens when JWT
-- Deterministic findings engine with severity, likely owner, evidence, expected vs observed, and confidence.
-- Rule ID catalog filter with per-rule docs in the UI.
-- SAML XML XPath inspector with highlights for critical nodes/attributes.
-- KZero Passwordless UI helper: scan visible config fields on the current page and compare vs expected; "Locate" scroll+highlight.
-- KZero-specific field mapping in suggested fixes.
-- Sanitized local export (JSON).
-- Persisted multi-session capture history in local extension storage.
+## Quick Start
 
-## Privacy defaults
-
-- Captured auth data stays local unless explicitly exported.
-- Secrets are redacted by default in inspector views.
-- No cookies are stored.
-- No backend service is required.
-
-## Repository structure
-
-```
-src/
-  background/        # service worker, session store wiring
-  capture/           # session store and event lifecycle
-  content/           # hidden SAML form capture
-  devtools/          # devtools network capture entry
-  export/            # sanitized bundle generation
-  fixtures/          # sample traces
-  mappings/          # KZero custom field label mapping
-  normalizers/       # raw -> normalized events
-  panel/             # React DevTools panel UI
-  parsers/           # SAML/JWT/OIDC decode helpers
-  rules/             # deterministic findings engine
-  shared/            # models, message contracts, utilities
-  static/            # manifest + html entry points
-tests/
-  *.test.ts          # decoder + rules tests
-```
-
-## Install and run
-
-1. Install dependencies:
+### 1. Install
 
 ```bash
 npm install
-```
-
-2. Build extension:
-
-```bash
 npm run build
 ```
 
-3. Load in Chrome:
-- Open `chrome://extensions`
-- Enable **Developer mode**
-- Click **Load unpacked**
-- Select the `dist/` directory
+### 2. Load in Chrome
 
-4. Open target site and DevTools:
-- Open DevTools on the tab under test
-- Open panel: **KZero Passwordless SSO Tracer**
-- Click **Start capture**
-- Run login flow
-- Click **Stop capture** and inspect timeline/findings
-- Click a finding -> **Fix steps** -> use **Check fields** when you have the relevant KZero Passwordless config screen open in the same tab.
+1. Open `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the `dist/` folder
 
-5. Optional Side Panel:
-- Click the extension action to open the Side Panel.
-- Use **Session history** to reopen prior captures and inspect findings/artifacts.
-- Use **Use current tab** to target a tab, then open a KZero Passwordless config screen in that tab and use **Check fields** in Fix steps.
+### 3. Use the Tracer
 
-## Making it fit
+**Starting a Trace:**
+1. Open the website you want to test
+2. Open DevTools (F12 or right-click → Inspect)
+3. Click the **KZero SSO Tracer** tab in DevTools
+4. Click **Start capture**
 
-- The Side Panel is designed to work at small widths. When the panel is narrow, the UI switches to a single-pane layout with tabs (Findings/Detail/Timeline/History) so it doesn't become an overly tall stacked layout.
-- If you need more space without covering the webpage, click **Pop out** to open the tracer in a separate window while keeping the page fully visible.
+**Recording a Login:**
+1. Perform the login flow (enter credentials, click login)
+2. Watch events appear in the timeline
+3. Click **Stop capture** when done
 
-Note: Side Panel field scanning uses the `tabs` permission. If you updated permissions, reload the unpacked extension and refresh the target page once.
+**Reviewing Findings:**
+- The **Findings** tab shows issues found in your auth flow
+- Click a finding to see details
+- **Fix steps** shows guided instructions
+- **Check fields** helps locate the exact setting in KZero Admin
 
-## Icons
+**Using the Side Panel:**
+- Click the extension icon in Chrome's toolbar
+- Opens a side panel with session history
+- Use **Use current tab** to analyze a page
 
-Extension icons are generated at build time from `src/static/icon.svg` into `dist/icons/`.
+## Understanding Findings
 
-## Testing
+Findings are color-coded by severity:
 
-Run unit tests:
+| Severity | Meaning | Action |
+|----------|---------|--------|
+| 🔴 Problem | Likely breaking the login | Fix before going live |
+| 🟡 Warning | Could cause issues | Review when convenient |
+| 🔵 Info | FYI or configuration note | Usually safe to ignore |
 
-```bash
-npm test
-```
+Common findings and what they mean:
 
-Included tests cover:
-- JWT decode
-- SAML decode (POST + Redirect DEFLATE)
-- Rules engine detection on fixture traces
+### SAML Findings
+- **Missing NameID**: User identity not mapped - check Principal type in KZero
+- **Destination mismatch**: Assertion sent to wrong URL - verify ACS URL in both systems
+- **Audience mismatch**: Token for wrong application - check Audience/Entity ID settings
+- **Missing signature**: Assertion not signed - enable "Validate signatures" in KZero
 
-## Rule coverage in MVP
+### OIDC Findings  
+- **Discovery unreachable**: KZero endpoint not accessible - verify tenant name
+- **Redirect URI mismatch**: Callback URL doesn't match - check in both systems
+- **Invalid client**: Client ID/secret wrong - verify credentials in KZero
 
-Implemented deterministic checks include:
+### Cross-Cutting Findings
+- **Tenant name casing mismatch**: Tenant names are case-sensitive in URLs
+- **Wrong environment mix**: Seeing endpoints from multiple environments
 
-- SAML: missing request/response, decode/XML failures, destination mismatch, recipient/ACS mismatch, audience mismatch, issuer mismatch, missing NameID, relay state anomalies, missing signatures, assertion expiry/clock skew clue, missing InResponseTo, encrypted assertion clue, unsigned AuthnRequest clue.
-- OIDC: discovery unreachable, discovery issuer mismatch, missing openid scope, redirect_uri mismatch, protocol error responses (`invalid_client`, `invalid_scope`, `unauthorized_client`, `unsupported_response_type`, `unsupported_response_mode`), state mismatch, nonce missing for implicit/hybrid responses, PKCE inconsistency, JWKS fetch failure, token/discovery issuer mismatch, callback-to-token exchange break, opaque access token info.
-- Cross/environment: realm case mismatch, wrong endpoint family clue, mixed host/environment clue, potential copy/paste truncation clue.
+## Shareable Links
 
-## Chrome API constraints and design notes
+After capturing a trace:
+1. Click the **Export** dropdown
+2. Select **Copy shareable link**
+3. Paste the link to share with others
 
-- Response bodies are best-effort via DevTools API.
-- Network failures are supplemented with `webRequest.onErrorOccurred`.
-- Hidden form SAML POST is captured through content script submit interception.
-- Session history snapshots are stored in `chrome.storage.local` (bounded list).
-- No unsupported API assumptions (for example, unrestricted response body interception from background) are used.
+The recipient can view the full trace (events, findings, artifacts) without needing the extension.
 
-See `ARCHITECTURE.md` for details and tradeoffs.
+## Privacy
+
+- All data stays local in your browser
+- Nothing is sent to external servers
+- No cookies stored
+- Export includes only the trace data you choose to share
+
+## Troubleshooting
+
+**No events appearing?**
+- Make sure you're on the tab you want to trace
+- Click "Start capture" before performing the login
+- Some POST requests may not appear if the page uses JavaScript redirects
+
+**Finding seems wrong?**
+- Check if the login actually succeeded - some findings only apply to failures
+- Verify you're looking at the right tenant/environment
+- Click a finding to see "What Happened" for full explanation
+
+**Need more details?**
+- Click any event in the Timeline to see raw decoded data
+- Use the search box to filter events
+- Click **Artifacts** to see decoded SAML/XML content
+
+## Commands
+
+| Shortcut | Action |
+|----------|--------|
+| Alt+Shift+S | Start/Stop capture |
+| Alt+Shift+E | Export session |
+| Alt+Shift+F | Focus search |
+| Alt+Shift+P | Open settings |

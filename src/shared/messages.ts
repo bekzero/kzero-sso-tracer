@@ -4,8 +4,10 @@ export type RuntimeMessage =
   | { type: "START_CAPTURE"; tabId: number }
   | { type: "STOP_CAPTURE"; tabId: number }
   | { type: "CLEAR_SESSION"; tabId: number }
+  | { type: "CLEAR_HISTORY" }
   | { type: "GET_SESSION"; tabId: number }
   | { type: "GET_HISTORY" }
+  | { type: "SET_TAB"; tabId: number }
   | { type: "LOAD_HISTORY_ITEM"; itemId: string }
   | { type: "REQUEST_UI_SCAN"; tabId: number; requestId: string; labels: string[] }
   | { type: "REQUEST_UI_HIGHLIGHT"; tabId: number; requestId: string; labels: string[] }

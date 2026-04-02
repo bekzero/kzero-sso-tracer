@@ -1,11 +1,11 @@
 export type ProtocolType = "SAML" | "OIDC" | "network" | "unknown";
 export type Severity = "info" | "warning" | "error";
-export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" | "unknown";
+export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" | "unknown" | "analysis" | "verification" | "docs";
 
 export interface RawCaptureEvent {
   id: string;
   tabId: number;
-  source: "devtools-network" | "content-form" | "webrequest-error";
+  source: "devtools-network" | "content-form" | "webrequest" | "webrequest-error";
   timestamp: number;
   url: string;
   method?: string;
@@ -99,6 +99,15 @@ export interface NormalizedOidcEvent extends BaseNormalizedEvent {
   codeChallenge?: string;
   codeChallengeMethod?: string;
   codeVerifier?: string;
+  sessionState?: string;
+  prompt?: string;
+  maxAge?: string;
+  acrValues?: string;
+  uiLocales?: string;
+  claimsLocales?: string;
+  idTokenHint?: string;
+  postLogoutRedirectUri?: string;
+  flowType?: "auth-code" | "implicit" | "hybrid" | "unknown";
 }
 
 export type NormalizedEvent = BaseNormalizedEvent | NormalizedSamlEvent | NormalizedOidcEvent;
@@ -122,6 +131,11 @@ export interface Finding {
   evidence: string[];
   likelyFix: SuggestedFix;
   confidence: number;
+  confidenceLevel: "high" | "medium" | "low";
+  isAmbiguous?: boolean;
+  ambiguityNote?: string;
+  traceGaps?: string[];
+  disqualifyingEvidence?: string[];
 }
 
 export interface CaptureSession {
@@ -144,6 +158,45 @@ export interface CaptureHistoryItem {
   session: CaptureSession;
 }
 
+export type ExportMode = "summary" | "sanitized" | "raw";
+
+export type RedactionAction = "masked" | "hashed" | "truncated" | "removed";
+export type RedactionCategory = "email" | "secret" | "org_id" | "user_id" | "other";
+
+export interface RedactionSummary {
+  category: RedactionCategory;
+  action: RedactionAction;
+  count: number;
+}
+
+export interface ExportMetadata {
+  mode: ExportMode;
+  generatedAt: string;
+  includePostLoginActivity: boolean;
+  authBoundaryDetected: boolean;
+  redactionsApplied: RedactionSummary[];
+}
+
+export interface OidcSummary {
+  protocol: string;
+  authorizeHost?: string;
+  callbackHost?: string;
+  redirectUri?: string;
+  issuer?: string;
+  statePresent: boolean;
+  stateRoundTrip?: boolean;
+  noncePresent: boolean;
+  pkcePresent: boolean;
+  pkceMethod?: string;
+  callbackHasCode: boolean;
+  callbackHasError: boolean;
+  callbackError?: string;
+  tokenExchangeVisible: boolean;
+  tokenResponseBodyVisible?: boolean;
+  authBoundaryDetected: boolean;
+  landingHost?: string;
+}
+
 export interface SanitizedExportBundle {
   generatedAt: string;
   product: string;
@@ -151,4 +204,33 @@ export interface SanitizedExportBundle {
   tabId: number;
   events: NormalizedEvent[];
   findings: Finding[];
+  metadata: ExportMetadata;
+}
+
+export interface SummaryExportBundle {
+  generatedAt: string;
+  product: string;
+  tabId: number;
+  metadata: ExportMetadata;
+  summary: {
+    eventCount: number;
+    findingCount: number;
+    problemCount: number;
+    warningCount: number;
+    infoCount: number;
+    duration?: number;
+  };
+  authHosts: {
+    idpHost?: string;
+    spAppHost?: string;
+    protocol?: string;
+  };
+  oidcSummary?: OidcSummary;
+  findings: Array<{
+    id: string;
+    ruleId: string;
+    severity: Severity;
+    title: string;
+  }>;
+  postLoginTrimmed: boolean;
 }

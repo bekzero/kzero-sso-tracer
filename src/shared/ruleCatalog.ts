@@ -81,9 +81,9 @@ export const RULE_CATALOG: RuleDoc[] = [
     vendorChecks: ["Allowed skew", "System time"]
   },
   {
-    ruleId: "REALM_CASE_MISMATCH",
+    ruleId: "TENANT_CASE_MISMATCH",
     protocol: "unknown",
-    short: "Realm casing differs across endpoints.",
+    short: "Tenant casing differs across endpoints.",
     why: "KZero tenant names are case-sensitive and mismatches break issuer/endpoints.",
     kzeroChecks: ["Alias", "Discovery Endpoint", "Identity provider entity ID"],
     vendorChecks: ["Issuer", "Metadata URL"]

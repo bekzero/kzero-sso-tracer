@@ -3,6 +3,120 @@ import { makeFinding } from "./helpers";
 
 const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === "SAML";
 
+const KNOWN_STATIC_HOSTS = [
+  "zohocdn.com", "static.zohocdn.com",
+  "google-analytics.com", "googletagmanager.com",
+  "segment.io", "segment.com",
+  "hotjar.com", "intercom.io", "zendesk.com"
+];
+
+const isKnownStaticHost = (host: string): boolean => {
+  const h = host.toLowerCase();
+  return KNOWN_STATIC_HOSTS.some((s) => h === s || h.endsWith("." + s));
+};
+
+const normalizeUrl = (urlStr: string): string => {
+  try {
+    const url = new URL(urlStr);
+    const normalized = new URL(url.origin);
+    normalized.pathname = (url.pathname.replace(/\/+$/, "") || "/").toLowerCase();
+    const sortedParams = [...new URLSearchParams(url.search)].sort((a, b) => a[0].localeCompare(b[0]));
+    normalized.search = sortedParams.map(([k, v]) => `${k}=${v}`).join("&");
+    return normalized.toString().replace(/\/+$/, "");
+  } catch {
+    return urlStr;
+  }
+};
+
+const urlsMatch = (url1: string, url2: string): "exact" | "path" | "host" | "none" => {
+  const n1 = normalizeUrl(url1);
+  const n2 = normalizeUrl(url2);
+  if (n1 === n2) return "exact";
+  try {
+    const u1 = new URL(url1);
+    const u2 = new URL(url2);
+    if (u1.host.toLowerCase() !== u2.host.toLowerCase()) return "none";
+    const p1 = u1.pathname.replace(/\/+$/, "");
+    const p2 = u2.pathname.replace(/\/+$/, "");
+    if (p1 === p2) return "path";
+    if (p1.startsWith(p2 + "/")) return "path";
+    if (p2.startsWith(p1 + "/")) return "path";
+    return "host";
+  } catch {
+    return "none";
+  }
+};
+
+const isLikelyDocumentLanding = (event: NormalizedSamlEvent): boolean => {
+  try {
+    const url = new URL(event.url);
+    const pathname = url.pathname;
+    if (/\.(css|js|png|svg|woff|ico|jpg|jpeg|gif|webp|json)(\?|$)/i.test(pathname)) return false;
+    if (pathname.includes("/ws/") || pathname.includes("/chat/") || pathname.includes("/status")) return false;
+    if (url.hostname.includes("statuspage") || url.hostname.includes("wss.")) return false;
+    if (isKnownStaticHost(url.hostname)) return false;
+    if (pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/app" || pathname === "/dashboard") return true;
+    if (pathname.endsWith(".html") || pathname.endsWith(".htm")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+const detectSamlFlow = (
+  events: NormalizedEvent[],
+  responseEvent: NormalizedSamlEvent
+): { success: "clear" | "probable" | "none"; captureCompleteness: "complete" | "late" | "unknown" } => {
+  if ((responseEvent.statusCode ?? 0) >= 400) {
+    return { success: "none", captureCompleteness: "unknown" };
+  }
+
+  const samlEvents = events.filter(isSaml);
+  const relayState = responseEvent.relayState;
+  let relayStateUrl: URL | undefined;
+  if (relayState) {
+    try {
+      relayStateUrl = new URL(relayState);
+    } catch {
+      // not a valid URL
+    }
+  }
+
+  const windowStart = responseEvent.timestamp;
+  const windowEnd = responseEvent.timestamp + 30000;
+
+  // Look for any GET requests in the time window (not just SAML events)
+  const postAcsRequests = events.filter(
+    (e) =>
+      e.timestamp >= windowStart &&
+      e.timestamp <= windowEnd &&
+      e.method === "GET" &&
+      (!e.statusCode || e.statusCode < 400 || (e.statusCode >= 300 && e.statusCode < 400))
+  ).filter((e): e is NormalizedSamlEvent => isLikelyDocumentLanding(e as NormalizedSamlEvent));
+
+  let matchLevel: "exact" | "path" | "host" | "none" = "none";
+  if (relayStateUrl) {
+    for (const req of postAcsRequests) {
+      const m = urlsMatch(req.url, relayStateUrl!.href);
+      if (m === "exact" || m === "path") {
+        matchLevel = m;
+        break;
+      }
+      if (matchLevel === "none" && m === "host") {
+        matchLevel = "host";
+      }
+    }
+  }
+
+  if (matchLevel === "exact" || matchLevel === "path") {
+    return { success: "clear", captureCompleteness: "late" };
+  }
+  if (matchLevel === "host" || postAcsRequests.length > 0) {
+    return { success: "probable", captureCompleteness: "late" };
+  }
+  return { success: "none", captureCompleteness: "unknown" };
+};
+
 export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   const findings: Finding[] = [];
   const samlEvents = events.filter(isSaml);
@@ -27,22 +141,82 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
     );
   }
 
+  // REGRESSION: If requestEvent exists, never emit SAML_MISSING_REQUEST
   if (!requestEvent) {
-    findings.push(
-      makeFinding({
-        ruleId: "SAML_MISSING_REQUEST",
-        severity: "warning",
-        protocol: "SAML",
-        likelyOwner: "vendor SP",
-        title: "Missing SAMLRequest",
-        explanation: "No SP-initiated AuthnRequest was captured.",
-        observed: "SAMLRequest not found",
-        expected: "SAMLRequest for SP-initiated flow",
-        evidence: samlEvents.map((e) => e.url),
-        action: "If this should be SP-initiated, confirm the app starts login with SAMLRequest.",
-        confidence: 0.72
-      })
-    );
+    const flow = responseEvent
+      ? detectSamlFlow(events, responseEvent)
+      : { success: "none" as const, captureCompleteness: "unknown" as const };
+
+    const isSuccessful = flow.success === "clear" || flow.success === "probable";
+
+    // Emit info note for any successful flow with no request
+    if (isSuccessful) {
+      findings.push(
+        makeFinding({
+          ruleId: "SAML_CAPTURE_STARTED_LATE",
+          severity: "info",
+          protocol: "SAML",
+          likelyOwner: "analysis",
+          title: "Capture started after AuthnRequest",
+          explanation:
+            flow.success === "clear"
+              ? "Flow appears successful but no AuthnRequest was captured - may be IdP-initiated or capture started late."
+              : "Post-ACS activity detected but AuthnRequest was not captured - capture may be incomplete.",
+          observed: "AuthnRequest not captured",
+          expected: "Full SAML flow with both request and response",
+          evidence: samlEvents.map((e) => e.url),
+          action: "If this should be SP-initiated, start capture before clicking the app icon.",
+          confidence: 0.6,
+          isAmbiguous: true,
+          ambiguityNote: "No AuthnRequest was captured. This could mean: (1) capture started after the request was sent, (2) IdP-initiated login that has no AuthnRequest, or (3) redirect binding AuthnRequest that wasn't captured.",
+          traceGaps: ["AuthnRequest not captured"],
+          disqualifyingEvidence: ["Captured AuthnRequest in the trace"]
+        })
+      );
+    }
+
+    // Only suppress on clear success; downgrade to info on probable
+    if (flow.success === "clear") {
+      // Suppress completely - don't emit SAML_MISSING_REQUEST
+    } else if (flow.success === "probable") {
+      findings.push(
+        makeFinding({
+          ruleId: "SAML_MISSING_REQUEST",
+          severity: "info",
+          protocol: "SAML",
+          likelyOwner: "vendor SP",
+          title: "Missing SAMLRequest",
+          explanation: "No SP-initiated AuthnRequest was captured - flow may be IdP-initiated or capture started late.",
+          observed: "SAMLRequest not found",
+          expected: "SAMLRequest for SP-initiated flow",
+          evidence: samlEvents.map((e) => e.url),
+          action: "If this should be SP-initiated, confirm the app starts login with SAMLRequest.",
+          confidence: 0.72,
+          isAmbiguous: true,
+          ambiguityNote: "No AuthnRequest captured. Could be SP-initiated with late capture, or IdP-initiated login.",
+          traceGaps: ["AuthnRequest not captured"],
+          disqualifyingEvidence: ["Captured AuthnRequest matching this response"]
+        })
+      );
+    } else {
+      // No success evidence - keep warning
+      findings.push(
+        makeFinding({
+          ruleId: "SAML_MISSING_REQUEST",
+          severity: "warning",
+          protocol: "SAML",
+          likelyOwner: "vendor SP",
+          title: "Missing SAMLRequest",
+          explanation: "No SP-initiated AuthnRequest was captured.",
+          observed: "SAMLRequest not found",
+          expected: "SAMLRequest for SP-initiated flow",
+          evidence: samlEvents.map((e) => e.url),
+          action: "If this should be SP-initiated, confirm the app starts login with SAMLRequest.",
+          confidence: 0.72,
+          traceGaps: ["AuthnRequest not captured"]
+        })
+      );
+    }
   }
 
   const parseErrorEvent = samlEvents.find(
@@ -167,19 +341,27 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   }
 
   if (responseEvent?.relayState && !requestEvent?.relayState) {
+    const flow = responseEvent ? detectSamlFlow(samlEvents, responseEvent) : { success: "none" as const, captureCompleteness: "unknown" as const };
+    const severity = flow.success === "clear" || flow.success === "probable" ? "info" : "warning";
+    const isAmbiguous = flow.success !== "none" && !requestEvent;
     findings.push(
       makeFinding({
         ruleId: "SAML_RELAYSTATE_UNEXPECTED",
-        severity: "warning",
+        severity,
         protocol: "SAML",
         likelyOwner: "vendor SP",
         title: "Unexpected RelayState behavior",
-        explanation: "RelayState appeared in response without matching request value.",
+        explanation: flow.success !== "none"
+          ? "RelayState present in response but not request - likely capture started late."
+          : "RelayState appeared in response without matching request value.",
         observed: "response RelayState present, request missing",
         expected: "Stable RelayState round-trip",
         evidence: [responseEvent.url],
         action: "Verify vendor Relay State setting and preserve value across redirects.",
-        confidence: 0.75
+        confidence: 0.75,
+        isAmbiguous,
+        ambiguityNote: isAmbiguous ? "No AuthnRequest was captured, so we cannot verify if RelayState was expected on the request side." : undefined,
+        traceGaps: !requestEvent ? ["AuthnRequest not captured - cannot verify RelayState round-trip"] : undefined
       })
     );
   }
@@ -333,7 +515,11 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         expected: "Captured AuthnRequest for SP-initiated flow",
         evidence: [responseEvent.url],
         action: "Verify capture start timing and whether the app expects IdP-initiated or SP-initiated login.",
-        confidence: 0.64
+        confidence: 0.64,
+        isAmbiguous: true,
+        ambiguityNote: "Response contains InResponseTo (suggesting SP-initiated) but no AuthnRequest was captured. This could mean capture started late, or this is actually an IdP-initiated flow that includes InResponseTo from a prior SP-initiated request.",
+        traceGaps: ["AuthnRequest not captured"],
+        disqualifyingEvidence: ["Captured AuthnRequest that matches InResponseTo", "Confirmed IdP-initiated login without InResponseTo"]
       })
     );
   }
