@@ -1,5 +1,5 @@
-import type { CaptureSession, NormalizedEvent, NormalizedSamlEvent, NormalizedOidcEvent, SanitizedExportBundle, ExportMetadata, ExportMode } from "../shared/models";
-import { redactRecord, sanitizeRelayState, buildRedactionSummary, isEmailLike, generateExportSalt, sanitizeOidcEventUrls, sanitizeOidcEventPayload } from "../shared/redaction";
+import type { CaptureSession, NormalizedEvent, NormalizedSamlEvent, NormalizedOidcEvent, SanitizedExportBundle, SanitizedEvent, SanitizedOidcEvent as SanitizedOidcEventType, ExportMetadata, ExportMode } from "../shared/models";
+import { redactRecord, sanitizeRelayState, buildRedactionSummary, isEmailLike, generateExportSalt, sanitizeOidcEventUrls, sanitizeOidcEventPayload, sanitizeOidcTopLevelFields, sanitizeUrlParams } from "../shared/redaction";
 import { filterEventsByMode, detectAuthBoundary } from "./filtering";
 
 export interface SanitizedExportOptions {
@@ -8,15 +8,14 @@ export interface SanitizedExportOptions {
 }
 
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === "OIDC";
+const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === "SAML";
 
 const sanitizeOidcEvent = (
   event: NormalizedOidcEvent,
   salt: string,
   mode: ExportMode
-): NormalizedOidcEvent => {
-  const urlSanitized = sanitizeOidcEventUrls(event, salt) as NormalizedOidcEvent;
-  const payloadSanitized = sanitizeOidcEventPayload(urlSanitized, salt) as NormalizedOidcEvent;
-  return payloadSanitized;
+): SanitizedOidcEventType => {
+  return sanitizeOidcTopLevelFields(event, salt);
 };
 
 const sanitizeEvent = (
@@ -24,33 +23,35 @@ const sanitizeEvent = (
   counts: Map<string, number>,
   salt: string,
   mode: ExportMode
-): NormalizedEvent => {
+): SanitizedEvent => {
   if (mode !== "raw" && isOidc(event)) {
     return sanitizeOidcEvent(event as NormalizedOidcEvent, salt, mode);
   }
 
-  const sanitized: NormalizedEvent = {
-    ...event,
-    artifacts: redactRecord(event.artifacts, counts)
-  };
-
-  if (event.protocol === "SAML") {
+  if (mode !== "raw" && isSaml(event)) {
     const samlEvent = event as NormalizedSamlEvent;
-    if (samlEvent.relayState) {
-      (sanitized as NormalizedSamlEvent).relayState = sanitizeRelayState(samlEvent.relayState);
-    }
-    const nameIdValue = samlEvent.samlResponse?.nameId;
-    if (nameIdValue && typeof nameIdValue === "string" && isEmailLike(nameIdValue)) {
+    let maskedNameId = samlEvent.samlResponse?.nameId;
+    if (maskedNameId && typeof maskedNameId === "string" && isEmailLike(maskedNameId)) {
       counts.set("email", (counts.get("email") || 0) + 1);
-      const masked = nameIdValue.slice(0, 2) + "..." + nameIdValue.slice(-2);
-      (sanitized as NormalizedSamlEvent).samlResponse = {
-        ...samlEvent.samlResponse,
-        nameId: masked
-      } as any;
+      maskedNameId = maskedNameId.slice(0, 2) + "..." + maskedNameId.slice(-2);
     }
+    return {
+      ...samlEvent,
+      url: samlEvent.url ? sanitizeUrlParams(samlEvent.url, salt) : undefined,
+      artifacts: redactRecord(samlEvent.artifacts, counts),
+      relayState: samlEvent.relayState ? sanitizeRelayState(samlEvent.relayState) : undefined,
+      samlResponse: samlEvent.samlResponse ? {
+        ...samlEvent.samlResponse,
+        nameId: maskedNameId
+      } : undefined,
+    };
   }
 
-  return sanitized;
+  return {
+    ...event,
+    url: event.url ? sanitizeUrlParams(event.url, salt) : undefined,
+    artifacts: redactRecord(event.artifacts, counts)
+  };
 };
 
 export const buildSanitizedExport = (

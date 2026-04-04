@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSanitizedExport, buildRawExport, buildSummaryExport } from "../src/export";
-import type { CaptureSession, NormalizedSamlEvent } from "../src/shared/models";
+import type { CaptureSession, NormalizedSamlEvent, NormalizedOidcEvent } from "../src/shared/models";
 
 const createMockSession = (events: CaptureSession["normalizedEvents"]): CaptureSession => ({
   tabId: 1,
@@ -157,5 +157,136 @@ describe("buildRawExport", () => {
     expect(result?.metadata.mode).toBe("raw");
     expect(result?.metadata.redactionsApplied).toEqual([]);
     expect(result?.metadata.includePostLoginActivity).toBe(true);
+  });
+});
+
+const createOidcAuthorizeEvent = (overrides: Partial<NormalizedOidcEvent> = {}): NormalizedOidcEvent => ({
+  id: "evt-oidc-1",
+  tabId: 1,
+  timestamp: 1000000000000,
+  protocol: "OIDC",
+  kind: "authorize",
+  url: "https://idp.example.com/oauth2/authorize?client_id=app&redirect_uri=https://app.example.com/callback&response_type=code&state=abc123&nonce=xyz789&scope=openid%20profile%20email",
+  host: "idp.example.com",
+  method: "GET",
+  statusCode: 200,
+  rawRef: "raw-oidc-1",
+  artifacts: {},
+  clientId: "app",
+  redirectUri: "https://app.example.com/callback",
+  responseType: "code",
+  scope: "openid profile email",
+  state: "abc123",
+  nonce: "xyz789",
+  code: "authz-code-123",
+  ...overrides
+} as NormalizedOidcEvent);
+
+const createOidcTokenEvent = (overrides: Partial<NormalizedOidcEvent> = {}): NormalizedOidcEvent => ({
+  id: "evt-oidc-2",
+  tabId: 1,
+  timestamp: 1000000000500,
+  protocol: "OIDC",
+  kind: "token",
+  url: "https://idp.example.com/oauth2/token",
+  host: "idp.example.com",
+  method: "POST",
+  statusCode: 200,
+  rawRef: "raw-oidc-2",
+  artifacts: {},
+  issuer: "https://idp.example.com",
+  clientId: "app",
+  accessTokenJwt: { header: {}, payload: { sub: "user123" } },
+  idToken: { header: {}, payload: { sub: "user123", email: "test@example.com" } },
+  codeVerifier: "pkce-verifier-secret",
+  sessionState: "opaque-session-id",
+  ...overrides
+} as NormalizedOidcEvent);
+
+describe("OIDC sanitized export", () => {
+  it("hashes top-level OIDC state", () => {
+    const session = createMockSession([createOidcAuthorizeEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.state).toMatch(/^\[hash:[a-f0-9]+\]$/);
+  });
+
+  it("hashes top-level OIDC nonce", () => {
+    const session = createMockSession([createOidcAuthorizeEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.nonce).toMatch(/^\[hash:[a-f0-9]+\]$/);
+  });
+
+  it("hashes top-level OIDC code", () => {
+    const session = createMockSession([createOidcAuthorizeEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.code).toMatch(/^\[hash:[a-f0-9]+\]$/);
+  });
+
+  it("removes top-level OIDC idToken completely", () => {
+    const session = createMockSession([createOidcTokenEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.idToken).toBeUndefined();
+  });
+
+  it("removes top-level OIDC accessTokenJwt completely", () => {
+    const session = createMockSession([createOidcTokenEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.accessTokenJwt).toBeUndefined();
+  });
+
+  it("removes top-level OIDC codeVerifier completely", () => {
+    const session = createMockSession([createOidcTokenEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.codeVerifier).toBeUndefined();
+  });
+
+  it("preserves config redirectUri in sanitized export", () => {
+    const session = createMockSession([createOidcAuthorizeEvent()]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const event = result?.events[0] as NormalizedOidcEvent;
+    expect(event.redirectUri).toBe("https://app.example.com/callback");
+  });
+
+  it("sanitizes URL query params - removes access_token from URL", () => {
+    const event = createOidcAuthorizeEvent({
+      url: "https://idp.example.com/oauth2/authorize?client_id=app&access_token=secret-token&state=abc"
+    });
+    const session = createMockSession([event]);
+    const result = buildSanitizedExport(session);
+    expect(result).not.toBeNull();
+    const resultEvent = result?.events[0] as NormalizedOidcEvent;
+    expect(resultEvent.url).not.toContain("access_token=secret-token");
+    expect(resultEvent.url).toContain("state=");
+  });
+
+  it("raw mode preserves all top-level OIDC fields", () => {
+    const event = createOidcTokenEvent({
+      state: "abc123",
+      nonce: "xyz789",
+      code: "authz-code-123"
+    });
+    const session = createMockSession([event]);
+    const result = buildRawExport(session);
+    expect(result).not.toBeNull();
+    const eventResult = result?.events[0] as NormalizedOidcEvent;
+    expect(eventResult.state).toBe("abc123");
+    expect(eventResult.nonce).toBe("xyz789");
+    expect(eventResult.code).toBe("authz-code-123");
+    expect(eventResult.idToken).toBeDefined();
+    expect(eventResult.accessTokenJwt).toBeDefined();
+    expect(eventResult.codeVerifier).toBeDefined();
   });
 });

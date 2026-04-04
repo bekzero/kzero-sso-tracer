@@ -205,9 +205,18 @@ export const runOidcRules = (events: NormalizedEvent[]): Finding[] => {
   }
 
   if (authorize && callback && authorize.redirectUri) {
+    const normalizeRedirect = (url: string): string => {
+      try {
+        const u = new URL(url);
+        return `${u.origin}${u.pathname.replace(/\/$/, "")}`;
+      } catch {
+        return url;
+      }
+    };
     const callbackUrl = new URL(callback.url);
-    const observed = `${callbackUrl.origin}${callbackUrl.pathname}`;
-    if (!observed.startsWith(authorize.redirectUri)) {
+    const observed = normalizeRedirect(`${callbackUrl.origin}${callbackUrl.pathname}`);
+    const expected = normalizeRedirect(authorize.redirectUri);
+    if (observed !== expected) {
       findings.push(
         makeFinding({
           ruleId: "OIDC_REDIRECT_URI_MISMATCH",

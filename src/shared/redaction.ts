@@ -1,4 +1,4 @@
-import type { RedactionCategory, RedactionAction, RedactionSummary } from "./models";
+import type { RedactionCategory, RedactionAction, RedactionSummary, NormalizedOidcEvent, SanitizedOidcEvent } from "./models";
 
 const SECRET_KEYS = [
   "client_secret",
@@ -216,6 +216,67 @@ export const sanitizeOidcEventPayload = (obj: unknown, salt: string): unknown =>
     return result;
   }
   return obj;
+};
+
+const OIDC_REMOVE_FIELDS = [
+  "idToken",
+  "accessTokenJwt", 
+  "accessTokenOpaque",
+  "codeVerifier",
+  "sessionState"
+] as const;
+
+const OIDC_HASH_FIELDS = ["state", "nonce", "code"] as const;
+
+export const sanitizeOidcTopLevelFields = (
+  event: NormalizedOidcEvent,
+  salt: string
+): SanitizedOidcEvent => {
+  const sanitized: SanitizedOidcEvent = {
+    id: event.id,
+    tabId: event.tabId,
+    timestamp: event.timestamp,
+    protocol: event.protocol,
+    kind: event.kind,
+    url: event.url ? sanitizeUrlParams(event.url, salt) : undefined,
+    host: event.host,
+    method: event.method,
+    statusCode: event.statusCode,
+    artifacts: event.artifacts,
+    rawRef: event.rawRef,
+  };
+  
+  if (event.state) {
+    sanitized.state = `[hash:${hashForCorrelation(event.state, salt)}]`;
+  }
+  if (event.nonce) {
+    sanitized.nonce = `[hash:${hashForCorrelation(event.nonce, salt)}]`;
+  }
+  if (event.code) {
+    sanitized.code = `[hash:${hashForCorrelation(event.code, salt)}]`;
+  }
+  
+  if (event.issuer) sanitized.issuer = event.issuer;
+  if (event.clientId) sanitized.clientId = event.clientId;
+  if (event.redirectUri) sanitized.redirectUri = event.redirectUri;
+  if (event.responseType) sanitized.responseType = event.responseType;
+  if (event.responseMode) sanitized.responseMode = event.responseMode;
+  if (event.scope) sanitized.scope = event.scope;
+  if (event.error) sanitized.error = event.error;
+  if (event.errorDescription) sanitized.errorDescription = event.errorDescription;
+  if (event.tokenEndpointAuthMethod) sanitized.tokenEndpointAuthMethod = event.tokenEndpointAuthMethod;
+  if (event.codeChallenge) sanitized.codeChallenge = event.codeChallenge;
+  if (event.codeChallengeMethod) sanitized.codeChallengeMethod = event.codeChallengeMethod;
+  if (event.prompt) sanitized.prompt = event.prompt;
+  if (event.maxAge) sanitized.maxAge = event.maxAge;
+  if (event.acrValues) sanitized.acrValues = event.acrValues;
+  if (event.uiLocales) sanitized.uiLocales = event.uiLocales;
+  if (event.claimsLocales) sanitized.claimsLocales = event.claimsLocales;
+  if (event.idTokenHint) sanitized.idTokenHint = event.idTokenHint;
+  if (event.postLogoutRedirectUri) sanitized.postLogoutRedirectUri = event.postLogoutRedirectUri;
+  if (event.flowType) sanitized.flowType = event.flowType;
+  
+  return sanitized;
 };
 
 export const isSecretKey = (key: string): boolean => {

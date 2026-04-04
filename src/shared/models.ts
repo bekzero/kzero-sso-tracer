@@ -202,9 +202,37 @@ export interface SanitizedExportBundle {
   product: string;
   notice: string;
   tabId: number;
-  events: NormalizedEvent[];
+  events: SanitizedEvent[];
   findings: Finding[];
   metadata: ExportMetadata;
+}
+
+export type SanitizedEvent = SanitizedOidcEvent | SanitizedSamlEvent | SanitizedGenericEvent;
+
+export interface SanitizedOidcEvent extends Omit<NormalizedOidcEvent, "state" | "nonce" | "code" | "idToken" | "accessTokenJwt" | "accessTokenOpaque" | "codeVerifier" | "sessionState" | "url"> {
+  state?: string;
+  nonce?: string;
+  code?: string;
+  url?: string;
+}
+
+export interface SanitizedSamlEvent extends Omit<NormalizedSamlEvent, "url" | "samlResponse"> {
+  url?: string;
+  samlResponse?: SamlArtifact;
+}
+
+export interface SanitizedGenericEvent {
+  id: string;
+  tabId: number;
+  timestamp: number;
+  protocol?: string;
+  kind: string;
+  url?: string;
+  host: string;
+  method?: string;
+  statusCode?: number;
+  artifacts: Record<string, unknown>;
+  rawRef: string;
 }
 
 export interface SummaryExportBundle {
