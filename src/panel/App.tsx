@@ -27,6 +27,7 @@ import { getSettings, saveSettings } from "../shared/settings";
 import Compare from "./Compare";
 import SettingsPanel from "./Settings";
 import ConfirmDialog from "./ConfirmDialog";
+import { TenantValidator } from "./TenantValidator";
 
 interface AppProps {
   mode?: "devtools" | "sidepanel";
@@ -228,7 +229,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [targetTab, setTargetTab] = useState<TargetTab | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<"timeline" | "history" | "findings" | "detail" | "compare">("findings");
+  const [leftTab, setLeftTab] = useState<"timeline" | "history" | "findings" | "detail" | "compare" | "validator">("findings");
   const [detailTab, setDetailTab] = useState<"fix" | "happened" | "evidence" | "artifacts" | "xml">("happened");
   const [search, setSearch] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
@@ -697,6 +698,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             <div className="tab-row">
               <button className={classNames("tab", leftTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
               <button className={classNames("tab", leftTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+              <button className={classNames("tab", leftTab === "validator" && "active")} onClick={() => setLeftTab("validator")}>Validator</button>
               {history.length >= 2 && (
                 <button className={classNames("tab", leftTab === "compare" && "active")} onClick={() => setLeftTab("compare")}>Compare</button>
               )}
@@ -725,6 +727,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             <div className="pane-actions">
               <button className="btn btn-ghost btn-sm" onClick={clearHistory}>Clear history</button>
             </div>
+          )}
+          {leftTab === "validator" && (
+            <TenantValidator session={session} />
           )}
         </section>
 
@@ -1078,6 +1083,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       <div className="narrow-tabs">
         <button className={classNames("tab", narrowTab === "timeline" && "active")} onClick={() => setLeftTab("timeline")}>Timeline</button>
         <button className={classNames("tab", narrowTab === "history" && "active")} onClick={() => setLeftTab("history")}>History</button>
+        <button className={classNames("tab", narrowTab === "validator" && "active")} onClick={() => setLeftTab("validator")}>Validator</button>
         <button className={classNames("tab", narrowTab === "findings" && "active")} onClick={() => setLeftTab("findings")}>Findings</button>
         <button className={classNames("tab", narrowTab === "detail" && "active")} onClick={() => setLeftTab("detail")}>Detail</button>
         {history.length >= 2 && (
@@ -1360,6 +1366,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <div className="empty">Select a finding from the list to see details.</div>
             )}
           </div>
+        </section>
+      ) : null}
+
+      {narrowTab === "validator" ? (
+        <section className="pane pane-fill">
+          <TenantValidator session={session} />
         </section>
       ) : null}
 

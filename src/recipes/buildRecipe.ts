@@ -37,7 +37,7 @@ const baseVerify = [
 const formatStep = (step: { text: string; important?: boolean; warning?: boolean; field?: string }): string => {
   let prefix = "";
   if (step.important && step.warning) prefix = "⚠️ ";
-  else if (step.important) prefix = "→ ";
+  else if (step.important) prefix = "";
   else if (step.warning) prefix = "⚠️ ";
   return `${prefix}${step.text}`;
 };
@@ -98,7 +98,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: fixSteps.map(formatStep),
             kzeroFields: map.kzeroFields,
@@ -125,12 +125,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [`Expected redirect_uri: ${expected}`, `Browser callback reached: ${observed}`]
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcClients]
@@ -155,7 +155,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: [
               ...fixSteps.map(formatStep),
@@ -193,7 +193,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             ]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcOverview, docLinks.realmSettings]
@@ -216,16 +216,16 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
+              "Go to your KZero dashboard, select your tenant",
+              "Click 'Advanced Console', select 'Clients', search for your app",
               "Go to 'General settings' section",
               `Confirm 'Client ID' is: ${clientId || finding.expected}`,
               "",
-              "Go to 'Capability Config' section → verify 'Client Authentication' is set correctly",
-              "Go to 'Credentials' tab → check/regenerate 'Client Secret' if needed"
+              "Go to 'Capability Config' section, verify 'Client Authentication' is set correctly",
+              "Go to 'Credentials' tab, check/regenerate 'Client Secret' if needed"
             ],
             kzeroFields: map.kzeroFields,
             tooltip: "The Client ID and Client Secret are like a username and password for your app. Both KZero and the vendor must use the same values."
@@ -246,12 +246,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: "The vendor app needs to authenticate itself to KZero using the same Client ID and Client Secret."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcClients]
@@ -270,7 +270,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: [
               ...fixSteps.map(formatStep),
@@ -299,12 +299,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [`Observed Entity ID: ${finding.observed}`, `Expected Entity ID: ${finding.expected}`]
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -324,7 +324,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: fixSteps.map(formatStep),
             kzeroFields: map.kzeroFields,
@@ -345,12 +345,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: "The vendor app needs to tell KZero where to send the SAML response. This URL must match exactly on both sides."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -370,11 +370,11 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
+              "Go to your KZero dashboard, select your tenant",
+              "Click 'Advanced Console', select 'Clients', search for your app",
               "Go to 'Access settings' section",
               "Find 'Master SAML Processing URL' (ACS URL)",
               "",
@@ -403,12 +403,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [`Destination in SAMLResponse: ${destination}`, `Browser posted to: ${postedTo}`]
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients, docLinks.samlBindings]
@@ -427,7 +427,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Fix in KZero",
+            title: "Fix in KZero",
             owner: "KZero",
             bullets: fixSteps.map(formatStep),
             kzeroFields: map.kzeroFields,
@@ -445,12 +445,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: "The vendor app needs to know which field identifies the user. Most vendors expect the user's email as the identifier."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -469,11 +469,11 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         confidence: finding.confidence,
         sections: [
           {
-            title: "🔧 Check KZero time settings",
+            title: "Check KZero time settings",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Configure → Realm settings",
+              "Go to your KZero dashboard, select your tenant",
+              "Navigate to: Configure, Realm settings",
               "Click on 'Tokens' tab",
               "",
               "Find 'Allow clock skew' setting",
@@ -489,7 +489,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check server times",
             owner: "network",
             bullets: [
-              "Verify KZero server time is accurate (check via 'Realm settings → General')",
+              "Verify KZero server time is accurate (check via 'Realm settings, General')",
               "Ask vendor to verify their server time is accurate and using NTP",
               "Time difference between servers can cause 'expired' or 'not yet valid' errors"
             ]
@@ -513,7 +513,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             ]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.realmSettings]
@@ -545,8 +545,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "1. Go to your KZero dashboard → Select your tenant",
-              "2. Navigate to Configure → Realm settings → General",
+              "1. Go to your KZero dashboard, select your tenant",
+              "2. Navigate to Configure, Realm settings, General",
               "3. Note the exact casing of your tenant name",
               "4. Scroll to Endpoints section and verify all URLs use the same casing",
               "",
@@ -609,13 +609,13 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "🔧 Check KZero signing settings",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
               "Go to 'Signature & Encryption' section",
               "",
-              "→ Check 'Sign Assertions':",
+              "> Check 'Sign Assertions':",
               "   - Turn ON if vendor requires signed assertions",
               "   - This adds a digital signature to prove KZero sent the assertion",
               "",
@@ -630,18 +630,18 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check vendor requirements",
             owner: "vendor SP",
             bullets: [
-              "→ Check what the vendor expects:",
+              "> Check what the vendor expects:",
               "   - Some vendors REQUIRE signed assertions",
               "   - Some vendors don't need signing",
               "   - Check vendor docs for 'Want Assertions Signed' or similar",
               "",
-              "→ If vendor requires signing, make sure KZero is configured to sign",
-              "→ If vendor doesn't need signing, you can leave it OFF"
+              "> If vendor requires signing, make sure KZero is configured to sign",
+              "> If vendor doesn't need signing, you can leave it OFF"
             ],
             vendorFields: ["Want Assertions Signed", "Require signed assertions"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -680,14 +680,14 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Recommendation",
             owner: "KZero",
             bullets: [
-              "→ Keep 'Sign Documents' OFF unless vendor specifically requires it",
-              "→ Enable 'Sign Assertions' ON if vendor requires signed assertions",
+              "> Keep 'Sign Documents' OFF unless vendor specifically requires it",
+              "> Enable 'Sign Assertions' ON if vendor requires signed assertions",
               "",
               "Most modern vendors only need assertion signing, not document signing"
             ]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -709,8 +709,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [
               "The certificate used to sign assertions may need attention",
               "",
-              "→ Go to: Configure → Realm settings",
-              "→ Click on 'Keys' tab",
+              "> Go to: Configure > Realm settings",
+              "> Click on 'Keys' tab",
               "",
               "Check the signing keys:",
               "   - Are there active keys with 'Enabled' status?",
@@ -728,12 +728,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "For the vendor app",
             owner: "vendor SP",
             bullets: [
-              "→ Ask vendor to:",
+              "> Ask vendor to:",
               "   1. Refresh/re-download KZero metadata",
               "   2. Update the IdP certificate if it was changed",
               "   3. Clear any certificate cache",
               "",
-              "→ Common certificate issues:",
+              "> Common certificate issues:",
               "   - Expired certificate",
               "   - Certificate was rotated but vendor still has old one",
               "   - Wrong certificate format (missing BEGIN/END markers)"
@@ -744,15 +744,15 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "How to get KZero's certificate",
             owner: "KZero",
             bullets: [
-              "→ Go to: Configure → Realm settings → General tab",
-              "→ Scroll to 'Endpoints' section",
-              "→ Click 'SAML 2.0 Identity Provider Metadata'",
-              "→ Download the XML file",
-              "→ Share with vendor to update their configuration"
+              "> Go to: Configure > Realm settings > General tab",
+              "> Scroll to 'Endpoints' section",
+              "> Click 'SAML 2.0 Identity Provider Metadata'",
+              "> Download the XML file",
+              "> Share with vendor to update their configuration"
             ]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.realmSettings]
@@ -792,14 +792,14 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
               "Go to 'SAML Capabilities' section",
               "",
-              "→ Enable 'Force POST Binding' if vendor requires POST",
-              "→ Disable if vendor accepts redirect"
+              "> Enable 'Force POST Binding' if vendor requires POST",
+              "> Disable if vendor accepts redirect"
             ],
             kzeroFields: ["Force POST Binding"],
             tooltip: "Force POST Binding tells KZero to always use the POST method. Enable this if the vendor expects form-based responses."
@@ -808,17 +808,17 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check vendor requirements",
             owner: "vendor SP",
             bullets: [
-              "→ Ask the vendor what binding they support:",
+              "> Ask the vendor what binding they support:",
               "   - POST binding: Most vendors support this",
               "   - Redirect binding: Some vendors only accept this",
               "",
-              "→ If vendor requires POST, ensure KZero has 'Force POST Binding' ON",
-              "→ If vendor accepts either, either setting should work"
+              "> If vendor requires POST, ensure KZero has 'Force POST Binding' ON",
+              "> If vendor accepts either, either setting should work"
             ],
             vendorFields: ["SAML Binding", "Response Binding"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlBindings]
@@ -854,21 +854,21 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app",
             owner: "vendor SP",
             bullets: [
-              "→ Check vendor SSO configuration:",
+              "> Check vendor SSO configuration:",
               "   - Is state generation enabled?",
               "   - Is state being preserved through the login flow?",
               "",
-              "→ Check for issues:",
+              "> Check for issues:",
               "   - Browser extensions blocking parameters",
               "   - Redirect chain dropping state",
               "   - State stored in wrong place (session vs cookie)",
               "",
-              "→ Test in incognito/private browser to rule out extensions"
+              "> Test in incognito/private browser to rule out extensions"
             ],
             vendorFields: ["State parameter", "CSRF protection"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcOverview]
@@ -907,8 +907,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app",
             owner: "vendor SP",
             bullets: [
-              "→ Enable nonce generation in vendor OIDC settings",
-              "→ Make sure the nonce:",
+              "> Enable nonce generation in vendor OIDC settings",
+              "> Make sure the nonce:",
               "   - Is generated fresh for each login",
               "   - Is included in the authorization request",
               "   - Is validated against the ID token on callback"
@@ -916,7 +916,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             vendorFields: ["Nonce", "Hybrid Flow settings"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcOverview]
@@ -952,13 +952,13 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
               "Go to 'Capability Config' section",
               "",
-              "→ Check 'PKCE Method':",
+              "> Check 'PKCE Method':",
               "   - S256 (recommended) - Uses SHA-256 hash",
               "   - Plain - Uses plain text (less secure)",
               "   - None - PKCE disabled"
@@ -970,18 +970,18 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app",
             owner: "vendor SP",
             bullets: [
-              "→ Vendor MUST use PKCE consistently:",
+              "> Vendor MUST use PKCE consistently:",
               "   - If KZero requires PKCE, vendor must send code_verifier",
               "   - If KZero doesn't require PKCE, vendor shouldn't send challenge",
               "",
-              "→ Check vendor OIDC settings:",
+              "> Check vendor OIDC settings:",
               "   - Enable/disable PKCE to match KZero",
               "   - Ensure code_verifier is sent at token endpoint"
             ],
             vendorFields: ["PKCE", "Code Challenge Method"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcClients]
@@ -1019,11 +1019,11 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix the issue",
             owner: "vendor SP",
             bullets: [
-              "→ If vendor expects SP-initiated:",
+              "> If vendor expects SP-initiated:",
               "   - Ensure the login flow starts from vendor app",
               "   - Check vendor isn't stripping the AuthnRequest",
               "",
-              "→ If vendor accepts IdP-initiated:",
+              "> If vendor accepts IdP-initiated:",
               "   - Vendor must be configured to accept responses without InResponseTo",
               "   - Some vendors require this setting to be enabled"
             ],
@@ -1041,7 +1041,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             kzeroFields: ["IDP-Initiated SSO URL Name"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -1077,15 +1077,15 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "What to check",
             owner: "vendor SP",
             bullets: [
-              "→ Verify vendor supports the flow you're testing:",
+              "> Verify vendor supports the flow you're testing:",
               "   - SP-initiated: Login starts from vendor app",
               "   - IdP-initiated: Login starts from KZero dashboard",
               "",
-              "→ Make sure trace captures the FULL login flow:",
+              "> Make sure trace captures the FULL login flow:",
               "   - Start trace BEFORE clicking any login button",
               "   - Include the entire redirect chain",
               "",
-              "→ If this was just a capture timing issue, re-test with full capture"
+              "> If this was just a capture timing issue, re-test with full capture"
             ],
             vendorFields: ["SSO Flow Type", "IdP-Initiated supported"]
           },
@@ -1093,7 +1093,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Recommendation",
             owner: "vendor SP",
             bullets: [
-              "→ For testing, use SP-initiated flow:",
+              "> For testing, use SP-initiated flow:",
               "   1. Start trace capture",
               "   2. Go to vendor app login page",
               "   3. Click SSO/login button",
@@ -1132,17 +1132,17 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
               "Go to 'Keys' tab",
               "",
-              "→ Check 'Encryption' settings:",
+              "> Check 'Encryption' settings:",
               "   - 'Client signature and encryption key'",
               "   - Encryption enabled = sends encrypted assertions",
               "",
-              "→ If vendor can't handle encryption, disable it here"
+              "> If vendor can't handle encryption, disable it here"
             ],
             kzeroFields: ["Encryption", "Client encryption key"],
             tooltip: "Turn off assertion encryption if the vendor can't decrypt the assertions."
@@ -1151,18 +1151,18 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check vendor requirements",
             owner: "vendor SP",
             bullets: [
-              "→ Ask vendor:",
+              "> Ask vendor:",
               "   - Do you support encrypted SAML assertions?",
               "   - What's your encryption key/certificate?",
               "",
-              "→ If vendor doesn't support encryption:",
+              "> If vendor doesn't support encryption:",
               "   - Disable encryption in KZero",
               "   - Assertions will be sent in plain text (but still signed)"
             ],
             vendorFields: ["Want Assertions Encrypted", "Decryption Certificate"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -1199,13 +1199,13 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in KZero",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
               "Go to 'SAML Capabilities' section",
               "",
-              "→ Check 'Name ID format':",
+              "> Check 'Name ID format':",
               "   - If vendor expects email, make sure user principal IS an email",
               "   - If vendor expects persistent ID, verify the mapper sends correct format"
             ],
@@ -1216,18 +1216,18 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app",
             owner: "vendor SP",
             bullets: [
-              "→ Check what format the vendor expects:",
+              "> Check what format the vendor expects:",
               "   - Most modern apps expect emailAddress",
               "   - Some legacy apps expect persistent (unique user ID)",
               "",
-              "→ If vendor shows email format but you use username:",
+              "> If vendor shows email format but you use username:",
               "   - Map 'username' to the email attribute OR",
               "   - Change vendor to accept your format"
             ],
             vendorFields: ["NameID Format", "User Identifier"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.samlClients]
@@ -1263,12 +1263,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "What to check",
             owner: "vendor SP",
             bullets: [
-              "→ Verify vendor supports RelayState:",
+              "> Verify vendor supports RelayState:",
               "   - Some vendors ignore it entirely",
               "   - Some have character limits",
               "   - Some require specific encoding",
               "",
-              "→ Check the RelayState value:",
+              "> Check the RelayState value:",
               "   - Is it URL-encoded properly?",
               "   - Is it too long? (RelayState has size limits)",
               "   - Does vendor expect base64 encoding?"
@@ -1293,9 +1293,9 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [
               "The vendor app's SSO configuration is missing the required 'openid' scope",
               "",
-              "→ Check the vendor's SSO/OAuth configuration",
-              "→ Look for a 'Scopes' or 'Permissions' field",
-              "→ Add 'openid' to the list of requested scopes",
+              "> Check the vendor's SSO/OAuth configuration",
+              "> Look for a 'Scopes' or 'Permissions' field",
+              "> Add 'openid' to the list of requested scopes",
               "",
               "What is 'openid'? It's the minimum required scope for OIDC - without it, you won't get an ID token",
               "",
@@ -1309,12 +1309,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: "The 'openid' scope tells OIDC that this is an authentication request. Without it, the server doesn't know you want to log in - it just gives you an access token."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcOverview]
@@ -1336,9 +1336,9 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [
               "The vendor is requesting a scope that KZero doesn't recognize or allow",
               "",
-              "→ Check the vendor's SSO/OAuth configuration",
-              "→ Look for 'Scopes' or 'Permissions' settings",
-              "→ Remove any scopes that aren't standard OIDC:",
+              "> Check the vendor's SSO/OAuth configuration",
+              "> Look for 'Scopes' or 'Permissions' settings",
+              "> Remove any scopes that aren't standard OIDC:",
               "",
               "Standard OIDC scopes (usually supported):",
               "  ✅ openid - Required for OIDC",
@@ -1364,12 +1364,12 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: "In KZero, you can control which scopes a client can request through 'Client Scopes'. Check if the requested scope is assigned to this client."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcClients, docLinks.samlClients]
@@ -1391,11 +1391,11 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [
               "The login page loaded, but the vendor's backend couldn't exchange the auth code for tokens",
               "",
-              "→ Check vendor's backend/server logs for the actual error",
-              "→ Verify the vendor backend can reach KZero's token endpoint:",
+              "> Check vendor's backend/server logs for the actual error",
+              "> Verify the vendor backend can reach KZero's token endpoint:",
               `   https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/openid-connect/token`,
               "",
-              "→ Check these common issues:",
+              "> Check these common issues:",
               "   1. Network/Firewall: Can the vendor server reach KZero?",
               "   2. Client ID/Secret: Do they match exactly?",
               "   3. PKCE: If KZero requires PKCE, does vendor send code_verifier?",
@@ -1408,27 +1408,27 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check KZero configuration",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Click 'Advanced Console' → Select 'Clients' → Search for your app",
-              "Click 'Advanced Console' → Select 'Client' → search for app",
+              "Go to your KZero dashboard > Select your tenant",
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              "Click 'Advanced Console' > Select 'Client' > search for app",
               "",
-              "→ Go to 'Capability Config' section:",
+              "> Go to 'Capability Config' section:",
               "   - Verify 'Client Authentication' is set correctly",
               "   - If using PKCE, ensure it's configured properly",
               "",
-              "→ Go to 'Credentials' tab:",
+              "> Go to 'Credentials' tab:",
               "   - Verify Client Secret is correct and hasn't expired"
             ],
             kzeroFields: ["Token URL", "Use PKCE", "Client authentication", "Client Secret"],
             tooltip: "The Client ID and Client Secret are like a username and password. If they don't match exactly, KZero will reject the token exchange."
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.oidcClients]
@@ -1451,19 +1451,19 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             bullets: [
               "The vendor app couldn't reach KZero's JWKS endpoint to verify tokens",
               "",
-              "→ Test if KZero is reachable from the vendor's server:",
+              "> Test if KZero is reachable from the vendor's server:",
               "   1. Open a browser and try:",
               `      https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/openid-connect/certs`,
               "   2. If using SAML:",
               `      https://ca.auth.kzero.com/realms/<TENANT_NAME>/protocol/saml/descriptor`,
               "",
-              "→ Check if the URL is blocked by:",
+              "> Check if the URL is blocked by:",
               "   - Firewall (port 443)",
               "   - WAF (Web Application Firewall)",
               "   - VPN (must be public, not private network)",
               "   - Geo-blocking",
               "",
-              "→ Verify TLS certificate is valid (no expired certs)"
+              "> Verify TLS certificate is valid (no expired certs)"
             ],
             tooltip: "JWKS is a set of public keys that vendors use to verify that tokens really came from KZero. If they can't fetch these keys, they can't verify the tokens."
           },
@@ -1471,8 +1471,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Check KZero configuration",
             owner: "KZero",
             bullets: [
-              "Go to your KZero dashboard → Select your tenant",
-              "Navigate to: Configure → Realm settings → General tab",
+              "Go to your KZero dashboard > Select your tenant",
+              "Navigate to: Configure > Realm settings > General tab",
               "Scroll to the 'Endpoints' section at the bottom",
               "",
               "Verify these URLs are accessible from the internet:",
@@ -1498,7 +1498,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             vendorFields: ["JWKS URL", "Outbound connectivity"]
           },
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [docLinks.realmSettings, docLinks.oidcOverview]
@@ -1511,10 +1511,10 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     default: {
       const steps: string[] = [];
       if (map.kzeroFields.length) {
-        steps.push(`→ Check these KZero Passwordless fields: ${map.kzeroFields.join(", ")}.`);
+        steps.push(`Check these KZero Passwordless fields: ${map.kzeroFields.join(", ")}.`);
       }
       if (map.vendorFields.length) {
-        steps.push(`→ Check these vendor app fields: ${map.vendorFields.join(", ")}.`);
+        steps.push(`Check these vendor app fields: ${map.vendorFields.join(", ")}.`);
       }
       steps.push(`Expected: ${finding.expected}.`);
       steps.push(`Observed: ${finding.observed}.`);
@@ -1534,19 +1534,19 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             tooltip: finding.explanation
           },
           {
-            title: "🔧 What to check",
+            title: "What to check",
             owner: finding.likelyOwner,
             bullets: steps,
             kzeroFields: map.kzeroFields,
             vendorFields: map.vendorFields
           },
           ...(vendorNotice ? [{
-            title: "📖 Vendor Guide",
+            title: "Vendor Guide",
             owner: "docs",
             bullets: [vendorNotice]
           }] : []),
           {
-            title: "📚 Documentation",
+            title: "Documentation",
             owner: "docs",
             bullets: [],
             links: [isOidcRelated ? docLinks.oidcClients : docLinks.samlClients]

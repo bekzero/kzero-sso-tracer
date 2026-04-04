@@ -2160,3 +2160,363 @@ kbd {
 .diff-summary-item-status.pending {
   color: #fbbf24;
 }
+
+/* Tenant Validator */
+.validator {
+  padding: 12px;
+}
+
+.validator-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.validator-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.validator-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+}
+
+.validator-tab.active {
+  background: var(--kzero);
+  color: #000;
+}
+
+.validator-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.validator-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.validator-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.validator-input:focus {
+  outline: none;
+  border-color: var(--kzero);
+}
+
+.validator-info {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.validator-info strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.validator-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.validator-list li {
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.validator-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.validator-tag {
+  padding: 6px 12px;
+  background: rgba(63, 224, 177, 0.15);
+  border: 1px solid var(--kzero);
+  border-radius: 16px;
+  color: var(--kzero);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.validator-tag:hover {
+  background: var(--kzero);
+  color: #000;
+}
+
+.validator-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.validator-result {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.validator-result.has-error {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.validator-result.has-success {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.validator-result.has-warning {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.validator-result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.validator-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+  background: var(--kzero);
+  color: #000;
+}
+
+.validator-icon.error {
+  background: #f87171;
+  color: #fff;
+}
+
+.validator-icon.warning {
+  background: #fbbf24;
+  color: #000;
+}
+
+.validator-result-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.validator-mismatches {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.validator-mismatch {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border-left: 3px solid #f87171;
+}
+
+.validator-mismatch-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.validator-mismatch-detail {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.validator-mismatch-detail .label {
+  color: var(--muted);
+  min-width: 70px;
+}
+
+.validator-mismatch-url {
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.validator-file-area {
+  padding: 24px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.validator-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.validator-file-drop span {
+  color: var(--muted);
+}
+
+.validator-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.validator-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+.validator-metadata-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.validator-meta-row {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.validator-meta-row:last-child {
+  border-bottom: none;
+}
+
+.validator-meta-row .label {
+  min-width: 200px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.validator-meta-row .mono {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.validator-textarea-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.validator-textarea {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.validator-textarea:focus {
+  outline: none;
+  border-color: var(--kzero);
+}
+
+.validator-textarea-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.validator-error-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.validator-error-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.validator-error-section .label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.validator-error-section p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.validator-suggestions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.validator-suggestions .label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.validator-suggestions ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.validator-suggestions li {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--fg);
+}

@@ -26,14 +26,14 @@ export const buildSamlIssuerFix = samlBuildIssuerFix;
 export const buildOidcIssuerFix = oidcBuildIssuerFix;
 
 export const docsUrls = {
-  samlOverview: "https://docs.kzero.com/server_admin/index.html#_sso_protocols",
-  oidcOverview: "https://docs.kzero.com/server_admin/index.html#con-oidc_server_administration_guide",
-  samlClients: "https://docs.kzero.com/server_admin/index.html#_client-saml-configuration",
-  oidcClients: "https://docs.kzero.com/server_admin/index.html#_oidc_clients",
-  samlBindings: "https://docs.kzero.com/server_admin/index.html#con-saml-bindings_server_administration_guide",
-  realmSettings: "https://docs.kzero.com/server_admin/index.html#_configuring_realms",
-  identityBroker: "https://docs.kzero.com/server_admin/index.html#_identity_broker",
-  partnerGuides: "https://kzpp.vercel.app/library/admin-guides/sso-configuration"
+  samlOverview: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/saml-sso-integration-guide",
+  oidcOverview: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/openid-connect-oidc-sso-integration-guide",
+  samlClients: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/saml-sso-integration-guide",
+  oidcClients: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/openid-connect-oidc-sso-integration-guide",
+  samlBindings: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/saml-sso-integration-guide",
+  realmSettings: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/openid-connect-oidc-sso-integration-guide",
+  identityBroker: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/saml-sso-integration-guide",
+  partnerGuides: "https://kzpp.vercel.app/library/admin-guides/generic-integrations/saml-sso-integration-guide"
 };
 
 export function getDocUrl(type: keyof typeof docsUrls): string {
@@ -46,10 +46,9 @@ export function formatDocLink(label: string, type: keyof typeof docsUrls): strin
 
 export function buildDocNotice(): string {
   return [
-    "📚 Documentation:",
-    `- [SSO Protocols Overview](${docsUrls.samlOverview})`,
-    `- [SAML Client Configuration](${docsUrls.samlClients})`,
-    `- [OIDC Client Configuration](${docsUrls.oidcClients})`,
+    "Documentation:",
+    `- [SAML SSO Integration Guide](${docsUrls.samlOverview})`,
+    `- [OIDC SSO Integration Guide](${docsUrls.oidcOverview})`,
     `- [Partner SSO Guides](${docsUrls.partnerGuides})`
   ].join("\n");
 }

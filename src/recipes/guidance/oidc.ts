@@ -17,34 +17,34 @@ export function buildOidcNavigationSteps(advanced: boolean = true): string[] {
 export function buildRedirectUriFix(observed: string, expected: string, vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Go to 'Access settings' section.",
+      text: "Go to 'Access settings' section.",
       important: true
     },
     {
-      text: "🔹 Find 'Valid Redirect URIs' field.",
+      text: "Find 'Valid Redirect URIs' field.",
       field: "Valid Redirect URIs",
       important: true
     },
     {
-      text: `🔴 Update to: ${expected}`,
+      text: `Update to: ${expected}`,
       important: true,
       warning: true
     },
     {
-      text: "⚠️ The redirect URI must match EXACTLY - including https:// and trailing slash.",
+      text: "The redirect URI must match EXACTLY - including https:// and trailing slash.",
       important: true,
       warning: true
     },
     {
-      text: "💾 Click 'Save' at the bottom of the page.",
+      text: "Click 'Save' at the bottom of the page.",
       important: true
     }
   ];
@@ -53,14 +53,14 @@ export function buildRedirectUriFix(observed: string, expected: string, vendorNa
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
+        text: `See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
   }
 
   steps.push({
-    text: "✅ Test the login flow to confirm the fix works.",
+    text: "Test the login flow to confirm the fix works.",
     important: true
   });
 
@@ -70,24 +70,24 @@ export function buildRedirectUriFix(observed: string, expected: string, vendorNa
 export function buildClientIdFix(observed: string, expected: string, vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Check 'General settings' section for 'Client ID'.",
+      text: "Check 'General settings' section for 'Client ID'.",
       field: "Client ID"
     },
     {
-      text: `🔴 Update Client ID to exactly match: ${expected}`,
+      text: `Update Client ID to exactly match: ${expected}`,
       important: true,
       warning: true
     },
     {
-      text: "💾 Click 'Save'.",
+      text: "Click 'Save'.",
       important: true
     }
   ];
@@ -96,7 +96,7 @@ export function buildClientIdFix(observed: string, expected: string, vendorName?
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
+        text: `See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -108,24 +108,24 @@ export function buildClientIdFix(observed: string, expected: string, vendorName?
 export function buildClientSecretFix(vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Go to 'Credentials' tab.",
+      text: "Go to 'Credentials' tab.",
       important: true
     },
     {
-      text: "🔴 Click 'Regenerate' if the secret was exposed, or copy existing secret.",
+      text: "Click 'Regenerate' if the secret was exposed, or copy existing secret.",
       important: true,
       warning: true
     },
     {
-      text: "🔹 Update the vendor app with the new Client Secret.",
+      text: "Update the vendor app with the new Client Secret.",
       important: true
     }
   ];
@@ -134,7 +134,7 @@ export function buildClientSecretFix(vendorName?: string): OidcStep[] {
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
+        text: `See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -146,27 +146,27 @@ export function buildClientSecretFix(vendorName?: string): OidcStep[] {
 export function buildDiscoveryUrlFix(expected: string): OidcStep[] {
   return [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Navigate to: Configure → Realm settings → General tab.",
+      text: "Navigate to: Configure > Realm settings > General tab.",
       important: true
     },
     {
-      text: "🔹 Scroll to the 'Endpoints' section at the bottom of the page.",
+      text: "Scroll to the 'Endpoints' section at the bottom of the page.",
       important: true
     },
     {
-      text: "🔹 Click 'OpenID Endpoint Configuration' to see the discovery document.",
+      text: "Click 'OpenID Endpoint Configuration' to see the discovery document.",
       field: "OIDC Discovery URL"
     },
     {
-      text: `🔹 Your OIDC Discovery URL is: ${expected}`,
+      text: `Your OIDC Discovery URL is: ${expected}`,
       important: true
     },
     {
-      text: "⚠️ Ensure the vendor app is configured with the exact same URL (case-sensitive).",
+      text: "Ensure the vendor app is configured with the exact same URL (case-sensitive).",
       important: true,
       warning: true
     }
@@ -176,33 +176,33 @@ export function buildDiscoveryUrlFix(expected: string): OidcStep[] {
 export function buildIssuerFix(observed: string, expected: string): OidcStep[] {
   return [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Navigate to: Configure → Realm settings → General tab.",
+      text: "Navigate to: Configure > Realm settings > General tab.",
       important: true
     },
     {
-      text: "🔹 Scroll to the 'Endpoints' section.",
+      text: "Scroll to the 'Endpoints' section.",
       important: true
     },
     {
-      text: "🔹 The Issuer URL is derived from your realm name.",
+      text: "The Issuer URL is derived from your realm name.",
       field: "Issuer"
     },
     {
-      text: `🔴 Expected issuer: ${expected}`,
+      text: `Expected issuer: ${expected}`,
       important: true,
       warning: true
     },
     {
-      text: "⚠️ The issuer URL is CASE SENSITIVE - check for uppercase/lowercase mismatches.",
+      text: "The issuer URL is CASE SENSITIVE - check for uppercase/lowercase mismatches.",
       important: true,
       warning: true
     },
     {
-      text: "🔹 Update the vendor app with the exact issuer URL.",
+      text: "Update the vendor app with the exact issuer URL.",
       important: true
     }
   ];
@@ -211,46 +211,46 @@ export function buildIssuerFix(observed: string, expected: string): OidcStep[] {
 export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Go to 'Capability Config' section.",
+      text: "Go to 'Capability Config' section.",
       important: true
     }
   ];
 
   if (enable) {
     steps.push({
-      text: "🔹 Enable 'Client Authentication' (for confidential clients with secrets).",
+      text: "Enable 'Client Authentication' (for confidential clients with secrets).",
       field: "Client Authentication",
       important: true
     });
     steps.push({
-      text: "🔹 Go to 'Credentials' tab and copy the Client Secret.",
+      text: "Go to 'Credentials' tab and copy the Client Secret.",
       important: true
     });
     steps.push({
-      text: "🔹 Enter the Client Secret in the vendor app.",
+      text: "Enter the Client Secret in the vendor app.",
       important: true
     });
   } else {
     steps.push({
-      text: "🔹 Disable 'Client Authentication' (for public/SPAs without secrets).",
+      text: "Disable 'Client Authentication' (for public/SPAs without secrets).",
       field: "Client Authentication"
     });
     steps.push({
-      text: "⚠️ Ensure the vendor app doesn't expect a client secret.",
+      text: "Ensure the vendor app doesn't expect a client secret.",
       warning: true
     });
   }
 
   steps.push({
-    text: "💾 Click 'Save'.",
+    text: "Click 'Save'.",
     important: true
   });
 
@@ -258,7 +258,7 @@ export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcSt
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See ${vendorName} setup guide: ${guideUrl}`,
+        text: `See ${vendorName} setup guide: ${guideUrl}`,
         vendorHint: vendorName
       });
     }
@@ -270,39 +270,39 @@ export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcSt
 export function buildPkceFix(required: boolean, vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Go to 'Capability Config' section.",
+      text: "Go to 'Capability Config' section.",
       important: true
     }
   ];
 
   if (required) {
     steps.push({
-      text: "🔹 Set 'PKCE Method' to 'S256' (recommended) or 'Plain'.",
+      text: "Set 'PKCE Method' to 'S256' (recommended) or 'Plain'.",
       field: "PKCE Method",
       important: true
     });
     steps.push({
-      text: "⚠️ Ensure the vendor app also uses PKCE when making authorization requests.",
+      text: "Ensure the vendor app also uses PKCE when making authorization requests.",
       important: true,
       warning: true
     });
   } else {
     steps.push({
-      text: "🔹 PKCE is optional - vendor doesn't require it.",
+      text: "PKCE is optional - vendor doesn't require it.",
       important: false
     });
   }
 
   steps.push({
-    text: "💾 Click 'Save'.",
+    text: "Click 'Save'.",
     important: true
   });
 
@@ -312,28 +312,28 @@ export function buildPkceFix(required: boolean, vendorName?: string): OidcStep[]
 export function buildScopeFix(scopes: string[], vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
-      text: "🔹 Go to your KZero dashboard → Select your tenant.",
+      text: "Go to your KZero dashboard > Select your tenant.",
       important: true
     },
     {
-      text: "🔹 Click 'Advanced Console' → Select 'Clients' → Search for your app.",
+      text: "Click 'Advanced Console' > Select 'Clients' > Search for your app.",
       important: true
     },
     {
-      text: "🔹 Go to 'Client Scopes' tab.",
+      text: "Go to 'Client Scopes' tab.",
       important: true
     },
     {
-      text: `🔹 Ensure these scopes are assigned: ${scopes.join(", ")}.`,
+      text: `Ensure these scopes are assigned: ${scopes.join(", ")}.`,
       field: "Assigned Scopes",
       important: true
     },
     {
-      text: "🔹 Common scopes to include: openid, profile, email.",
+      text: "Common scopes to include: openid, profile, email.",
       important: true
     },
     {
-      text: "💾 Click 'Save'.",
+      text: "Click 'Save'.",
       important: true
     }
   ];
@@ -342,7 +342,7 @@ export function buildScopeFix(scopes: string[], vendorName?: string): OidcStep[]
     const guideUrl = getVendorGuideUrl(vendorName);
     if (guideUrl) {
       steps.push({
-        text: `📖 See the [${vendorName} setup guide](${guideUrl}) for required scopes.`,
+        text: `See the [${vendorName} setup guide](${guideUrl}) for required scopes.`,
         vendorHint: vendorName
       });
     }

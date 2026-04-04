@@ -141,7 +141,11 @@ export const stopCapture = (_tabId: number): CaptureSession => {
     startedAt: session.startedAt,
     stoppedAt: session.stoppedAt
   });
-  void persistHistoryItem(session);
+  void persistHistoryItem(session).then(() => {
+    void logDebug("capture", "History item persisted", { tabId: session.tabId });
+  }).catch((err) => {
+    void logDebug("capture", "History persist failed", { error: String(err) });
+  });
   return session;
 };
 
@@ -193,7 +197,19 @@ export const addRawEvent = async (tabId: number, raw: RawCaptureEvent): Promise<
 export const getSession = (_tabId: number): CaptureSession => ensureSession(GLOBAL_TAB_ID);
 
 const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
-  if (!session.startedAt || !session.stoppedAt) return;
+  if (!session.startedAt || !session.stoppedAt) {
+    void logDebug("capture", "History skipped - no start/stop times", { 
+      startedAt: session.startedAt, 
+      stoppedAt: session.stoppedAt 
+    });
+    return;
+  }
+  void logDebug("capture", "Persisting history item", { 
+    eventCount: session.normalizedEvents.length,
+    findingCount: session.findings.length,
+    startedAt: session.startedAt,
+    stoppedAt: session.stoppedAt
+  });
   const history = (await storageGet<CaptureHistoryItem[]>(HISTORY_KEY)) ?? [];
   const protocolHints = [...new Set(session.normalizedEvents.map((event) => event.protocol))]
     .filter((p) => p !== "unknown")
@@ -209,6 +225,7 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
   };
   const next = [snapshot, ...history].slice(0, HISTORY_MAX);
   await storageSet(HISTORY_KEY, next);
+  void logDebug("capture", "History saved", { historyCount: next.length });
 };
 
 export const getHistory = async (): Promise<CaptureHistoryItem[]> =>
