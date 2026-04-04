@@ -15,11 +15,11 @@ export const kzeroNavigation = {
     basicPath: "Advanced Console → Clients",
     advancedPath: "Advanced Console → Clients → [Search App]",
     steps: [
-      "Go to your KZero dashboard",
-      "Select your tenant",
-      "Click 'Advanced Console' on the right side",
-      "Select 'Clients'",
-      "Search for and click on your app"
+      "Go to your KZero dashboard.",
+      "Select your tenant.",
+      "Click 'Advanced Console' on the right side.",
+      "Select 'Clients'.",
+      "Search for and click on your app."
     ],
     sections: {
       general: {
@@ -168,11 +168,11 @@ export const kzeroNavigation = {
   realmSettings: {
     path: "Realm settings → General tab",
     steps: [
-      "Go to your KZero dashboard",
-      "Select your tenant",
-      "Navigate to: Configure → Realm settings",
-      "Click on the 'General' tab",
-      "Scroll to the 'Endpoints' section at the bottom"
+      "Go to your KZero dashboard.",
+      "Select your tenant.",
+      "Navigate to: Configure → Realm settings.",
+      "Click on the 'General' tab.",
+      "Scroll to the 'Endpoints' section at the bottom."
     ],
     fields: {
       "OpenID Endpoint Configuration": {
@@ -213,14 +213,14 @@ export function getFieldNavigation(fieldName: string, protocol: "saml" | "oidc")
 
 export function formatNavigationSteps(protocol: "saml" | "oidc", advanced: boolean = true): string[] {
   const baseSteps = [
-    "Go to your KZero dashboard",
-    "Select your tenant",
-    "Click 'Advanced Console' (on the right side)"
+    "Go to your KZero dashboard.",
+    "Select your tenant.",
+    "Click 'Advanced Console' (on the right side)."
   ];
   
   const advancedSteps = advanced ? [
-    "Select 'Clients'",
-    "Search for and click on your app"
+    "Select 'Clients'.",
+    "Search for and click on your app."
   ] : [];
   
   return [...baseSteps, ...advancedSteps];
