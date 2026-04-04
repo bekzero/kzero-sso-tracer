@@ -115,15 +115,18 @@ export const isGlobalCaptureActive = (): boolean => {
 };
 
 export const startCapture = async (_tabId: number): Promise<CaptureSession> => {
-  const session = ensureSession(GLOBAL_TAB_ID);
-  session.active = true;
-  session.startedAt = Date.now();
-  session.rawEvents = [];
-  session.normalizedEvents = [];
-  session.findings = [];
+  const session: CaptureSession = {
+    tabId: GLOBAL_TAB_ID,
+    active: true,
+    startedAt: Date.now(),
+    rawEvents: [],
+    normalizedEvents: [],
+    findings: []
+  };
+  sessions.set(GLOBAL_TAB_ID, session);
   sessionDiscoveredHosts.clear();
   void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
-  void logDebug("capture", "Capture started", { tabId: session.tabId });
+  void logDebug("capture", "Capture started (fresh session)", { tabId: session.tabId });
   return session;
 };
 
