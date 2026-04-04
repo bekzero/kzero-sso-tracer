@@ -4,6 +4,7 @@ import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent } from "../sha
 import { nowId } from "../shared/utils";
 import { classifyEvent } from "./hostClassifier";
 import { getSettings, type CaptureScope } from "../shared/settings";
+import { logDebug } from "../shared/debugLog";
 
 const sessions = new Map<number, CaptureSession>();
 const sessionCache = new Map<number, CaptureSession>();
@@ -78,6 +79,11 @@ const shouldCaptureEvent = async (raw: RawCaptureEvent): Promise<boolean> => {
 
   if (settings.captureScope === "auth-only") {
     if (classification === "noise") {
+      void logDebug("capture", "Event filtered (noise)", { 
+        url: raw.url, 
+        host: raw.host,
+        classification 
+      });
       return false;
     }
     return true;
@@ -85,7 +91,15 @@ const shouldCaptureEvent = async (raw: RawCaptureEvent): Promise<boolean> => {
 
   if (settings.captureScope === "auth-plus-allowlist") {
     if (classification === "noise") {
-      return isHostAllowed(raw.host ?? "", settings.allowedHosts);
+      const allowed = isHostAllowed(raw.host ?? "", settings.allowedHosts);
+      if (!allowed) {
+        void logDebug("capture", "Event filtered (noise, not allowlisted)", { 
+          url: raw.url, 
+          host: raw.host,
+          classification 
+        });
+      }
+      return allowed;
     }
     return true;
   }
@@ -109,6 +123,7 @@ export const startCapture = async (_tabId: number): Promise<CaptureSession> => {
   session.findings = [];
   sessionDiscoveredHosts.clear();
   void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
+  void logDebug("capture", "Capture started", { tabId: session.tabId });
   return session;
 };
 
@@ -117,6 +132,12 @@ export const stopCapture = (_tabId: number): CaptureSession => {
   session.active = false;
   session.stoppedAt = Date.now();
   void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
+  void logDebug("capture", "Capture stopped", { 
+    tabId: session.tabId, 
+    eventCount: session.rawEvents.length,
+    startedAt: session.startedAt,
+    stoppedAt: session.stoppedAt
+  });
   void persistHistoryItem(session);
   return session;
 };
@@ -145,7 +166,10 @@ export const addRawEvent = async (tabId: number, raw: RawCaptureEvent): Promise<
 
   const sessionSize = new Blob([JSON.stringify(globalSession)]).size;
   const rawSize = new Blob([JSON.stringify(raw)]).size;
-  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) return globalSession;
+  if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) {
+    void logDebug("capture", "Event dropped (session size limit)", { url: raw.url });
+    return globalSession;
+  }
 
   const { isAuthRelevant } = classifyEvent(raw);
   if (isAuthRelevant && raw.host) {

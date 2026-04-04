@@ -10,9 +10,23 @@ export interface Settings {
   allowedHosts: string[];
   hasSeenScopeNotice: boolean;
   settingsVersion: number;
+  debugEnabled: boolean;
 }
 
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 3;
+
+const DEFAULT_SETTINGS_V3: Settings = {
+  autoStartOnTabSwitch: false,
+  maxHistoryItems: 30,
+  redactionStrictness: "strict",
+  defaultDetailTab: "happened",
+  showOnboarding: true,
+  captureScope: "auth-only",
+  allowedHosts: [],
+  hasSeenScopeNotice: true,
+  settingsVersion: SETTINGS_VERSION,
+  debugEnabled: false
+};
 
 const DEFAULT_SETTINGS_V2: Settings = {
   autoStartOnTabSwitch: false,
@@ -23,7 +37,8 @@ const DEFAULT_SETTINGS_V2: Settings = {
   captureScope: "auth-only",
   allowedHosts: [],
   hasSeenScopeNotice: true,
-  settingsVersion: SETTINGS_VERSION
+  settingsVersion: SETTINGS_VERSION,
+  debugEnabled: false
 };
 
 const DEFAULT_SETTINGS_V1: Settings = {
@@ -35,27 +50,29 @@ const DEFAULT_SETTINGS_V1: Settings = {
   captureScope: "full",
   allowedHosts: [],
   hasSeenScopeNotice: false,
-  settingsVersion: 1
+  settingsVersion: 1,
+  debugEnabled: false
 };
 
 const SETTINGS_KEY = "settings";
 
 export const migrateSettings = (stored: Partial<Settings> | undefined): Settings => {
   if (!stored) {
-    return { ...DEFAULT_SETTINGS_V2 };
+    return { ...DEFAULT_SETTINGS_V3 };
   }
 
   if (!stored.settingsVersion || stored.settingsVersion < SETTINGS_VERSION) {
     return {
-      ...DEFAULT_SETTINGS_V2,
+      ...DEFAULT_SETTINGS_V3,
       ...stored,
       captureScope: stored.captureScope ?? "full",
       hasSeenScopeNotice: false,
-      settingsVersion: SETTINGS_VERSION
+      settingsVersion: SETTINGS_VERSION,
+      debugEnabled: stored.debugEnabled ?? false
     };
   }
 
-  return { ...DEFAULT_SETTINGS_V2, ...stored };
+  return { ...DEFAULT_SETTINGS_V3, ...stored };
 };
 
 export const getSettings = async (): Promise<Settings> => {

@@ -2,6 +2,7 @@ import { addRawEvent, clearHistory, clearSession, getHistory, getSession, loadHi
 import type { RuntimeMessage, RuntimeResponse } from "../shared/messages";
 import { nowId, parseQueryString, toHeaderMap } from "../shared/utils";
 import type { CaptureSession, RawCaptureEvent } from "../shared/models";
+import { logDebug } from "../shared/debugLog";
 
 const panelPorts = new Map<number, chrome.runtime.Port[]>();
 const contentPorts = new Map<number, chrome.runtime.Port>();
@@ -74,11 +75,13 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
   const respond = (response: RuntimeResponse): void => sendResponse(response);
 
   if (message.type === "GET_HISTORY") {
+    void logDebug("background", "GET_HISTORY request");
     void getHistory().then((history) => respond({ ok: true, history }));
     return true;
   }
 
   if (message.type === "CLEAR_HISTORY") {
+    void logDebug("background", "CLEAR_HISTORY request");
     await clearHistory();
     void getHistory().then((history) => respond({ ok: true, history }));
     return true;
