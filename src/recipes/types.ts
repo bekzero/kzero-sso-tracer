@@ -13,7 +13,7 @@ export interface FixLink {
 
 export interface FixSection {
   title: string;
-  owner: Owner;
+  owner: Owner | string;
   severity?: Severity;
   bullets: string[];
   kzeroFields?: string[];

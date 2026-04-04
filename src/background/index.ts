@@ -265,8 +265,8 @@ chrome.webRequest.onCompleted.addListener(
       details.url,
       details.method,
       details.statusCode,
-      toHeaderMap(details.requestHeaders),
-      toHeaderMap(details.responseHeaders),
+      undefined,
+      details.responseHeaders ? toHeaderMap(details.responseHeaders) : undefined,
       parseQueryString(details.url.split("?")[1] ?? "")
     );
     addRawEvent(details.tabId, event).then(session => {

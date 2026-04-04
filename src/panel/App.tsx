@@ -156,11 +156,11 @@ const PreFlightChecklist = ({ recipe, uiScan, fieldExpectations }: {
   
   const items = [
     ...recipe.sections
-      .filter((s) => s.owner === "KZero" && s.kzeroFields?.length)
-      .flatMap((s) => s.kzeroFields.map((f) => ({ label: f, source: "KZero" as const }))),
+      .filter((s) => s.owner === "KZero" && s.kzeroFields && s.kzeroFields.length)
+      .flatMap((s) => s.kzeroFields!.map((f) => ({ label: f, source: "KZero" as const }))),
     ...recipe.sections
-      .filter((s) => s.owner === "vendor SP" && s.vendorFields?.length)
-      .flatMap((s) => s.vendorFields.map((f) => ({ label: f, source: "Vendor" as const })))
+      .filter((s) => s.owner === "vendor SP" && s.vendorFields && s.vendorFields.length)
+      .flatMap((s) => s.vendorFields!.map((f) => ({ label: f, source: "Vendor" as const })))
   ];
 
   if (items.length === 0) return <></>;
@@ -621,14 +621,15 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(xml, "text/xml");
+      const xmlContent = xml as string;
+      const doc = parser.parseFromString(xmlContent, "text/xml");
       const resolver = {
-        lookupNamespaceURI: (prefix: string) => nsMap[prefix] ?? null
+        lookupNamespaceURI: (prefix: string): string | null => nsMap[prefix] ?? null
       };
 
       importantPaths.forEach(({ path, label }) => {
         try {
-          const result = doc.evaluate(path, doc, resolver as (prefix: string) => string | null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+          const result = doc.evaluate(path, doc, resolver, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
           for (let i = 0; i < result.snapshotLength; i++) {
             const node = result.snapshotItem(i);
             if (node) {
@@ -860,7 +861,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                         {recipe.sections.map((section) => (
                           <div key={section.title} className="section">
                             <div className="section-title">
-                              <OwnerPill owner={section.owner} />
+                              <OwnerPill owner={section.owner as Owner} />
                               <span>{section.title}</span>
                             </div>
                             {section.kzeroFields?.length ? (
@@ -1208,7 +1209,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                         {recipe.sections.map((section) => (
                           <div key={section.title} className="section">
                             <div className="section-title">
-                              <OwnerPill owner={section.owner} />
+                              <OwnerPill owner={section.owner as Owner} />
                               <span>{section.title}</span>
                             </div>
                             {section.kzeroFields?.length ? (

@@ -203,8 +203,9 @@ export function getFieldNavigation(fieldName: string, protocol: "saml" | "oidc")
   
   for (const sectionKey of Object.keys(allSections)) {
     const section = allSections[sectionKey as keyof typeof allSections];
-    if (section.fields && section.fields[fieldName]) {
-      return `${section.name} → ${section.fields[fieldName].fieldName}`;
+    const fields = section.fields as Record<string, { section: string; fieldName: string; description?: string }> | undefined;
+    if (fields && fields[fieldName]) {
+      return `${section.name} → ${fields[fieldName].fieldName}`;
     }
   }
   

@@ -15,11 +15,15 @@ export {
   formatVendorNotice,
   vendorGuides,
   type VendorGuide,
-  type VendorPattern
+  type VendorPattern,
+  type VendorDetection
 } from "./vendors";
 
-export * from "./saml";
-export * from "./oidc";
+import { buildIssuerFix as samlBuildIssuerFix } from "./saml";
+import { buildIssuerFix as oidcBuildIssuerFix } from "./oidc";
+
+export const buildSamlIssuerFix = samlBuildIssuerFix;
+export const buildOidcIssuerFix = oidcBuildIssuerFix;
 
 export const docsUrls = {
   samlOverview: "https://docs.kzero.com/server_admin/index.html#_sso_protocols",

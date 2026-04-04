@@ -106,7 +106,12 @@ export const vendorGuides: Record<string, VendorGuide> = {
 
 const baseUrl = "https://kzpp.vercel.app/library/admin-guides/sso-configuration";
 
-export function detectVendor(url: string): { vendor: string; guide?: VendorGuide } | null {
+export interface VendorDetection {
+  vendor: string;
+  guide?: VendorGuide;
+}
+
+export function detectVendor(url: string): VendorDetection | null {
   const urlLower = url.toLowerCase();
   
   for (const pattern of vendorPatterns) {
@@ -115,8 +120,7 @@ export function detectVendor(url: string): { vendor: string; guide?: VendorGuide
       const guide = vendorGuides[vendorName];
       return { 
         vendor: vendorName, 
-        guide,
-        protocol: pattern.protocol 
+        guide
       };
     }
   }
@@ -143,7 +147,7 @@ export function isVendorVerified(vendor: string): boolean {
   return guide?.verified === true;
 }
 
-export function formatVendorNotice(vendor: string, protocol: "saml" | "oidc"): string {
+export function formatVendorNotice(vendor: string, protocol: "saml" | "oidc" | "both"): string {
   const detected = detectVendor(vendor);
   if (!detected) return "";
   

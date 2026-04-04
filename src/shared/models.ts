@@ -136,6 +136,7 @@ export interface Finding {
   ambiguityNote?: string;
   traceGaps?: string[];
   disqualifyingEvidence?: string[];
+  eventId?: string;
 }
 
 export interface CaptureSession {

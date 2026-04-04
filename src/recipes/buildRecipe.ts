@@ -1,4 +1,4 @@
-import type { Finding } from "../shared/models";
+import type { Finding, Owner } from "../shared/models";
 import { getFieldMapping } from "../mappings/fieldMappings";
 import type { TraceContext } from "./context";
 import type { FixRecipe } from "./types";
@@ -64,12 +64,16 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       const detected = detectOidcVendor(undefined, ctx.oidc.authorize.clientId);
       if (detected) return detected;
     }
-    if (ctx.saml?.ssoUrl) {
-      const detected = detectSamlVendor(ctx.saml.ssoUrl);
+    if (ctx.saml?.request?.url) {
+      const detected = detectSamlVendor(ctx.saml.request.url);
       if (detected) return detected;
     }
-    if (ctx.saml?.issuer) {
-      const detected = detectSamlVendor(ctx.saml.issuer);
+    if (ctx.saml?.response?.url) {
+      const detected = detectSamlVendor(ctx.saml.response.url);
+      if (detected) return detected;
+    }
+    if (ctx.saml?.response?.samlResponse?.issuer) {
+      const detected = detectSamlVendor(ctx.saml.response.samlResponse.issuer);
       if (detected) return detected;
     }
     return undefined;
@@ -580,7 +584,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
           },
           {
             title: "Learn more",
-            owner: "docs",
+            owner: "docs" as Owner,
+            bullets: [],
             links: [docLinks.realmSettings, docLinks.oidcOverview]
           }
         ],

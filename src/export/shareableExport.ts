@@ -1,13 +1,13 @@
 import { buildSanitizedExport } from "./sanitizedExport";
-import type { CaptureSession } from "../shared/models";
+import type { CaptureSession, SanitizedEvent } from "../shared/models";
 
 interface ShareableTrace {
   v: 1;
   tabId: number;
   startedAt: number | undefined;
   stoppedAt: number | undefined;
-  events: ReturnType<typeof buildSanitizedExport>["events"];
-  findings: ReturnType<typeof buildSanitizedExport>["findings"];
+  events: SanitizedEvent[];
+  findings: Array<{ id: string; ruleId: string; title: string; severity: string }>;
   summary: {
     eventCount: number;
     findingCount: number;
@@ -26,7 +26,7 @@ export const buildShareableTrace = (session: CaptureSession | null): ShareableTr
     startedAt: session.startedAt,
     stoppedAt: session.stoppedAt,
     events: export_.events,
-    findings: export_.findings,
+    findings: session.findings.map(f => ({ id: f.id, ruleId: f.ruleId, title: f.title, severity: f.severity })),
     summary: {
       eventCount: session.normalizedEvents.length,
       findingCount: session.findings.length,

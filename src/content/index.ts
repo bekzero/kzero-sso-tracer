@@ -149,11 +149,11 @@ port.onMessage.addListener((msg) => {
 });
 
 const extractForm = (form: HTMLFormElement): Record<string, string> => {
-  const data = new FormData(form);
   const output: Record<string, string> = {};
-  for (const [key, value] of data.entries()) {
+  const formData = new FormData(form);
+  formData.forEach((value, key) => {
     output[key] = String(value);
-  }
+  });
   return output;
 };
 
@@ -198,7 +198,8 @@ const observedForms = new WeakSet<HTMLFormElement>();
 
 const scanForms = (): void => {
   const forms = document.querySelectorAll<HTMLFormElement>("form[action]");
-  for (const form of forms) {
+  const formArray = Array.from(forms);
+  for (const form of formArray) {
     if (observedForms.has(form)) continue;
     observedForms.add(form);
     const fields = extractForm(form);
