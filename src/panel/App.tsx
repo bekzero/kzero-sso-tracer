@@ -1486,6 +1486,13 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       <header className="header-section">
         <div className="header-top">
           <KZeroWordmark height={28} />
+          {settings && (
+            <span className="scope-indicator">
+              {settings.captureScope === "auth-only" && "Auth-only"}
+              {settings.captureScope === "auth-plus-allowlist" && "Auth + allowlist"}
+              {settings.captureScope === "full" && "Full capture"}
+            </span>
+          )}
           <button
             className="btn-icon-only"
             onClick={() => setShowSettings(true)}
@@ -1497,13 +1504,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
-          {settings && (
-            <span className="scope-indicator">
-              {settings.captureScope === "auth-only" && "Auth-only"}
-              {settings.captureScope === "auth-plus-allowlist" && "Auth + allowlist"}
-              {settings.captureScope === "full" && "Full capture"}
-            </span>
-          )}
         </div>
         <div className="page-indicator">
           <h1>KZero Passwordless SSO Tracer</h1>
