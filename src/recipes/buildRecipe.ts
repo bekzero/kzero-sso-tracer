@@ -418,6 +418,58 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         nextEvidence: ["SAMLResponse Destination", "Actual POST target URL"]
       };
     }
+    case "SAML_AUTHNREQUEST_REJECTED_BY_KZERO": {
+      const requestedAcs = finding.likelyFix.action.match(/Requested ACS URL from the trace: (.*?), \(2\)/)?.[1] ?? "(not captured)";
+      return {
+        title: "KZero rejected the sign-in request",
+        owner: "KZero",
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: "What happened",
+            owner: "browser",
+            bullets: [
+              "The service provider sent a SAML AuthnRequest to KZero.",
+              finding.observed,
+              "No SAMLResponse was generated after that error."
+            ]
+          },
+          {
+            title: "What to check in KZero",
+            owner: "KZero",
+            bullets: [
+              "Open the KZero integration Advanced settings for this app.",
+              "Compare these values side by side:",
+              `Requested ACS URL from trace: ${requestedAcs}`,
+              "KZero Valid Redirect URIs",
+              "KZero Assertion Consumer Service POST Binding URL",
+              "These values must match exactly. Check hostname, tenant, environment, and trailing slash."
+            ],
+            kzeroFields: ["Valid Redirect URIs", "Assertion Consumer Service POST Binding URL"],
+            copySnippets: [{ label: "Requested ACS URL from trace", value: requestedAcs }],
+            tooltip: "When KZero rejects AuthnRequest before login, ACS/redirect URL mismatch is a common cause."
+          },
+          {
+            title: "What to check in the service provider",
+            owner: "vendor SP",
+            bullets: [
+              "Open the service provider SAML settings.",
+              "Verify Assertion Consumer Service URL (ACS) exactly matches KZero values.",
+              "If environment was copied (test/prod), replace outdated URLs."
+            ],
+            vendorFields: ["Assertion Consumer Service URL (ACS)", "SP Entity ID"]
+          },
+          {
+            title: "Documentation",
+            owner: "docs",
+            bullets: [],
+            links: [docLinks.samlClients]
+          }
+        ],
+        verify: [...baseVerify, "In the new trace, KZero SAML endpoint returns 2xx/3xx and a SAMLResponse is captured."],
+        nextEvidence: ["AuthnRequest AssertionConsumerServiceURL", "KZero Valid Redirect URIs", "KZero Assertion Consumer Service POST Binding URL"]
+      };
+    }
     case "SAML_MISSING_NAMEID": {
       const fixSteps = buildNameIdFix("emailAddress", vendorName);
       

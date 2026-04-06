@@ -57,6 +57,14 @@ export const RULE_CATALOG: RuleDoc[] = [
     vendorChecks: ["ACS URL"]
   },
   {
+    ruleId: "SAML_AUTHNREQUEST_REJECTED_BY_KZERO",
+    protocol: "SAML",
+    short: "KZero rejected AuthnRequest before SAMLResponse was produced.",
+    why: "A captured AuthnRequest reached KZero and KZero returned HTTP 4xx before any SAMLResponse was generated.",
+    kzeroChecks: ["Valid Redirect URIs", "Assertion Consumer Service POST Binding URL"],
+    vendorChecks: ["Assertion Consumer Service URL (ACS)", "SP Entity ID"]
+  },
+  {
     ruleId: "SAML_DESTINATION_MISMATCH",
     protocol: "SAML",
     short: "SAML destination does not match receiving URL.",

@@ -388,4 +388,42 @@ describe("findings engine", () => {
     expect(findings.some((f) => f.ruleId === "SAML_MISSING_REQUEST")).toBe(false);
     expect(findings.some((f) => f.ruleId === "SAML_CAPTURE_STARTED_LATE")).toBe(true);
   });
+
+  it("prioritizes KZero pre-response rejection over generic missing response", () => {
+    const events = [
+      {
+        id: "req1",
+        tabId: 300,
+        timestamp: 1710000020000,
+        protocol: "SAML",
+        kind: "saml-request",
+        url: "https://ca.auth.kzero.com/realms/v3ctor_2/protocol/saml",
+        host: "ca.auth.kzero.com",
+        method: "GET",
+        statusCode: 400,
+        binding: "redirect" as const,
+        artifacts: {},
+        rawRef: "req1",
+        samlRequest: {
+          encoded: "mock",
+          issuer: "https://one.kaseya.com",
+          destination: "https://ca.auth.kzero.com/realms/v3ctor_2/protocol/saml",
+          recipient: "https://api-one.kaseya.com/api/v1/sso/saml-callback"
+        }
+      }
+    ];
+
+    const findings = runFindingsEngine(events as any);
+    const top = findings[0];
+    const rejection = findings.find((f) => f.ruleId === "SAML_AUTHNREQUEST_REJECTED_BY_KZERO");
+    const missingResponse = findings.find((f) => f.ruleId === "SAML_MISSING_RESPONSE");
+
+    expect(rejection).toBeDefined();
+    expect(rejection!.likelyOwner).toBe("KZero");
+    expect(rejection!.severity).toBe("error");
+    expect(top.ruleId).toBe("SAML_AUTHNREQUEST_REJECTED_BY_KZERO");
+
+    expect(missingResponse).toBeDefined();
+    expect(missingResponse!.severity).toBe("info");
+  });
 });

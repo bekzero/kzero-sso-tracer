@@ -4,6 +4,18 @@ import { inferSamlDirection } from "../analysis/flowClassifier";
 
 const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === "SAML";
 
+const isKzeroHost = (host?: string): boolean => {
+  if (!host) return false;
+  const h = host.toLowerCase();
+  return h.endsWith("auth.kzero.com") || h.includes(".auth.kzero.com") || h.includes("keycloak");
+};
+
+const isKzeroSamlEndpoint = (event: NormalizedEvent): boolean => {
+  if (!isKzeroHost(event.host)) return false;
+  const url = event.url.toLowerCase();
+  return url.includes("/protocol/saml") || url.includes("saml");
+};
+
 const KNOWN_STATIC_HOSTS = [
   "zohocdn.com", "static.zohocdn.com",
   "google-analytics.com", "googletagmanager.com",
@@ -123,21 +135,62 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   const samlEvents = events.filter(isSaml);
   const requestEvent = samlEvents.find((e) => e.samlRequest);
   const responseEvent = samlEvents.find((e) => e.samlResponse);
+  const kzeroSamlEndpoint4xx =
+    requestEvent && !responseEvent
+      ? events.find(
+          (e) =>
+            isKzeroSamlEndpoint(e) &&
+            (e.statusCode ?? 0) >= 400 &&
+            e.timestamp >= requestEvent.timestamp - 5000 &&
+            e.timestamp <= requestEvent.timestamp + 45000
+        )
+      : undefined;
+
+  if (requestEvent && !responseEvent && kzeroSamlEndpoint4xx) {
+    const acs = requestEvent.samlRequest?.destination ?? requestEvent.samlRequest?.recipient ?? "(not captured)";
+    findings.push(
+      makeFinding({
+        ruleId: "SAML_AUTHNREQUEST_REJECTED_BY_KZERO",
+        severity: "error",
+        protocol: "SAML",
+        likelyOwner: "KZero",
+        title: "KZero rejected the sign-in request before sending a SAML response",
+        explanation:
+          "The service provider sent an AuthnRequest, but KZero returned an error before login completed and before any SAMLResponse was produced.",
+        observed: `KZero SAML endpoint returned HTTP ${kzeroSamlEndpoint4xx.statusCode ?? "unknown"}`,
+        expected: "KZero accepts the AuthnRequest and proceeds to login/SAMLResponse",
+        evidence: [requestEvent.url, kzeroSamlEndpoint4xx.url],
+        action:
+          `Open the KZero integration and compare these values: (1) Requested ACS URL from the trace: ${acs}, (2) KZero Valid Redirect URIs, (3) KZero Assertion Consumer Service POST Binding URL. They must match exactly. Check for wrong hostname, wrong tenant, wrong environment, extra slash, or outdated copied URL.`,
+        confidence: 0.98,
+        disqualifyingEvidence: ["SAMLResponse captured after AuthnRequest", "KZero endpoint returns HTTP 200"]
+      })
+    );
+  }
 
   if (!responseEvent) {
     findings.push(
       makeFinding({
         ruleId: "SAML_MISSING_RESPONSE",
-        severity: "error",
+        severity: kzeroSamlEndpoint4xx ? "info" : "error",
         protocol: "SAML",
-        likelyOwner: "vendor SP",
-        title: "Missing SAMLResponse",
-        explanation: "No SAMLResponse was captured in this trace.",
+        likelyOwner: kzeroSamlEndpoint4xx ? "analysis" : "vendor SP",
+        title: kzeroSamlEndpoint4xx ? "No SAMLResponse captured after KZero rejection" : "Missing SAMLResponse",
+        explanation: kzeroSamlEndpoint4xx
+          ? "This is a supporting clue. The primary issue appears to be KZero rejecting the request before a response could be generated."
+          : "No SAMLResponse was captured in this trace.",
         observed: "SAMLResponse not found",
         expected: "SAMLResponse posted to ACS",
         evidence: samlEvents.map((e) => e.url),
-        action: "Confirm vendor ACS endpoint receives POST and browser is not blocked by extensions/CSP.",
-        confidence: 0.88
+        action: kzeroSamlEndpoint4xx
+          ? "Focus on the KZero rejection finding first. After fixing that, confirm a SAMLResponse is generated and posted to ACS."
+          : "Confirm vendor ACS endpoint receives POST and browser is not blocked by extensions/CSP.",
+        confidence: kzeroSamlEndpoint4xx ? 0.66 : 0.88,
+        isAmbiguous: Boolean(kzeroSamlEndpoint4xx),
+        ambiguityNote: kzeroSamlEndpoint4xx
+          ? "No SAMLResponse was captured, but the stronger evidence is a KZero endpoint 4xx before response generation."
+          : undefined,
+        traceGaps: kzeroSamlEndpoint4xx ? ["SAMLResponse payload not captured because login ended early"] : undefined
       })
     );
   }

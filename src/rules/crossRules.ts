@@ -10,6 +10,25 @@ const extractTenants = (events: NormalizedEvent[]): string[] => {
   return tenants;
 };
 
+const NOISE_HOST_SUFFIXES = [
+  "google-analytics.com",
+  "googletagmanager.com",
+  "segment.com",
+  "segment.io",
+  "statuspage.io",
+  "hotjar.com",
+  "newrelic.com",
+  "nr-data.net",
+  "doubleclick.net",
+  "zohocdn.com",
+  "cloudfront.net"
+];
+
+const isNoiseLikeHost = (host: string): boolean => {
+  const h = host.toLowerCase();
+  return NOISE_HOST_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+};
+
 export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
   const findings: Finding[] = [];
   const tenants = extractTenants(events);
@@ -171,7 +190,13 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
     );
   }
 
-  const mixedRealmHosts = new Set(events.map((e) => e.host)).size > 3;
+  const meaningfulHosts = [...new Set(
+    events
+      .map((e) => e.host)
+      .filter((h) => Boolean(h) && !isNoiseLikeHost(h))
+  )];
+  const nonKzeroMeaningfulHosts = meaningfulHosts.filter((h) => !h.endsWith("auth.kzero.com"));
+  const mixedRealmHosts = meaningfulHosts.length > 5 && nonKzeroMeaningfulHosts.length > 2;
   if (mixedRealmHosts) {
     findings.push(
       makeFinding({
@@ -180,12 +205,14 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         protocol: "unknown",
         likelyOwner: "user data",
         title: "Suspected stale copied values from another environment",
-        explanation: "Auth flow touches many unrelated hosts, which often indicates copied endpoint values.",
-        observed: `${new Set(events.map((e) => e.host)).size} hosts in one auth trace`,
+        explanation: "Auth flow touches many meaningful hosts outside normal KZero + vendor paths, which can indicate copied endpoint values from another environment.",
+        observed: `${meaningfulHosts.length} meaningful hosts in one auth trace`,
         expected: "Small, consistent host set for one tenant integration",
-        evidence: events.slice(0, 5).map((e) => e.url),
+        evidence: events.filter((e) => meaningfulHosts.includes(e.host)).slice(0, 5).map((e) => e.url),
         action: "Re-validate all endpoint URLs against the current environment and tenant.",
-        confidence: 0.57
+        confidence: 0.52,
+        isAmbiguous: true,
+        ambiguityNote: "High host count can be normal when analytics/CDN/status hosts are included. Treat this as supporting context, not primary root cause."
       })
     );
   }

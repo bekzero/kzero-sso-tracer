@@ -40,6 +40,10 @@ const map: Record<string, FieldMap> = {
     kzeroFields: ["Assertion Consumer Service URL", "Single Sign-On service url"],
     vendorFields: ["ACS URL"]
   },
+  SAML_AUTHNREQUEST_REJECTED_BY_KZERO: {
+    kzeroFields: ["Valid Redirect URIs", "Assertion Consumer Service POST Binding URL"],
+    vendorFields: ["Assertion Consumer Service URL (ACS)", "SP Entity ID"]
+  },
   SAML_DESTINATION_MISMATCH: {
     kzeroFields: ["Single Sign-On service url"],
     vendorFields: ["Destination URL"]
