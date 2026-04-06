@@ -1,5 +1,5 @@
 import type { NormalizedEvent, NormalizedOidcEvent, NormalizedSamlEvent } from "../shared/models";
-import type { TenantScanResult, TenantMismatch } from "./types";
+import type { TenantScanResult, TenantMismatch, TenantUnknown } from "./types";
 
 const extractTenantFromUrl = (url: string): string | null => {
   const match = url.match(/\/realms\/([^/?#]+)/i);
@@ -19,7 +19,10 @@ export const scanForTenantMismatches = (
       totalEvents: 0,
       samlEvents: 0,
       oidcEvents: 0,
+      matchCount: 0,
       mismatches: [],
+      unknownCount: 0,
+      unknownEvents: [],
       hasMismatch: false
     };
   }
@@ -31,11 +34,20 @@ export const scanForTenantMismatches = (
   const allRelevantEvents = [...samlEvents, ...oidcEvents];
 
   const mismatches: TenantMismatch[] = [];
+  const unknownEvents: TenantUnknown[] = [];
+  let matchCount = 0;
 
   for (const event of allRelevantEvents) {
     const extractedTenant = extractTenantFromUrl(event.url);
     
-    if (extractedTenant !== null && extractedTenant !== trimmedTenant) {
+    if (extractedTenant === null) {
+      unknownEvents.push({
+        eventId: event.id,
+        eventKind: event.kind,
+        url: event.url,
+        host: event.host
+      });
+    } else if (extractedTenant !== trimmedTenant) {
       mismatches.push({
         eventId: event.id,
         eventKind: event.kind,
@@ -44,6 +56,8 @@ export const scanForTenantMismatches = (
         extractedTenant,
         inputTenant: trimmedTenant
       });
+    } else {
+      matchCount++;
     }
   }
 
@@ -52,7 +66,10 @@ export const scanForTenantMismatches = (
     totalEvents: allRelevantEvents.length,
     samlEvents: samlEvents.length,
     oidcEvents: oidcEvents.length,
+    matchCount,
     mismatches,
+    unknownCount: unknownEvents.length,
+    unknownEvents,
     hasMismatch: mismatches.length > 0
   };
 };

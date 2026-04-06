@@ -71,7 +71,7 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
   const respond = (response: RuntimeResponse): void => sendResponse(response);
 
   if (message.type === "GET_HISTORY") {
@@ -82,22 +82,23 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
 
   if (message.type === "CLEAR_HISTORY") {
     void logDebug("background", "CLEAR_HISTORY request");
-    await clearHistory();
-    void getHistory().then((history) => respond({ ok: true, history }));
+    clearHistory().then(() => getHistory()).then((history) => respond({ ok: true, history }));
     return true;
   }
 
   if (message.type === "SET_TAB") {
     const tabId = message.tabId;
-    if (typeof tabId === "number") {
-      void chrome.tabs.get(tabId, (tab) => {
-        if (tab?.url) {
-          respond({ ok: true, session: getSession(tabId) });
-        } else {
-          respond({ ok: false, error: "Tab not found" });
-        }
-      });
+    if (typeof tabId !== "number") {
+      respond({ ok: false, error: "Missing tabId" });
+      return true;
     }
+    void chrome.tabs.get(tabId, (tab) => {
+      if (tab?.url) {
+        respond({ ok: true, session: getSession(tabId) });
+      } else {
+        respond({ ok: false, error: "Tab not found" });
+      }
+    });
     return true;
   }
 
@@ -154,13 +155,16 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
           const retryPort = contentPorts.get(message.tabId);
           if (retryPort) {
             retryPort.postMessage({ type: "HIGHLIGHT_FIELD", requestId: message.requestId, labels: message.labels });
+            respond({ ok: true });
+          } else {
+            respond({ ok: false, error: "Content script did not connect after injection" });
           }
         } catch {
-          // silently fail for highlights
+          respond({ ok: false, error: "Could not inject content script for highlight" });
         }
       })();
     }
-    return;
+    return true;
   }
 
   if (message.type === "OPEN_POPUP") {
@@ -180,7 +184,7 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
   const tabId = message.tabId ?? sender.tab?.id;
   if (typeof tabId !== "number") {
     respond({ ok: false, error: "Missing tabId" });
-    return;
+    return true;
   }
 
   switch (message.type) {
@@ -192,7 +196,7 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
         const session = getSession(tabId);
         respond({ ok: true, session });
       });
-      return;
+      return true;
     }
     case "STOP_CAPTURE": {
       const session = stopCapture(tabId);
@@ -218,7 +222,7 @@ chrome.runtime.onMessage.addListener(async (message: RuntimeMessage, sender, sen
       }).catch(() => {
         respond({ ok: true, session: getSession(tabId) });
       });
-      return;
+      return true;
     }
     default:
       respond({ ok: false, error: "Unsupported message type" });

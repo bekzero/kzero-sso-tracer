@@ -42,6 +42,8 @@ describe("Tenant Scanner", () => {
       expect(result.hasMismatch).toBe(false);
       expect(result.totalEvents).toBe(2);
       expect(result.mismatches).toHaveLength(0);
+      expect(result.matchCount).toBe(2);
+      expect(result.unknownCount).toBe(0);
     });
 
     it("detects case-sensitive mismatch", () => {
@@ -67,12 +69,25 @@ describe("Tenant Scanner", () => {
       expect(result.mismatches[0].eventId).toBe("e2");
     });
 
-    it("ignores events without realm in URL", () => {
+    it("tracks events without realm in URL as unknown", () => {
       const events = [
         createMockEvent({ url: "https://app.example.com/login" }),
         createMockEvent({ url: "https://auth.kzero.com/realms/mycompany/protocol/openid-connect/auth" }),
       ];
       const result = scanForTenantMismatches(events, "mycompany");
+      expect(result.hasMismatch).toBe(false);
+      expect(result.matchCount).toBe(1);
+      expect(result.unknownCount).toBe(1);
+    });
+
+    it("reports all unknown when no events have realm", () => {
+      const events = [
+        createMockEvent({ url: "https://app.example.com/login" }),
+        createMockEvent({ url: "https://ca.auth.kzero.com/saml", protocol: "SAML" as const, kind: "saml-request" as const }),
+      ];
+      const result = scanForTenantMismatches(events, "mytenant");
+      expect(result.matchCount).toBe(0);
+      expect(result.unknownCount).toBe(2);
       expect(result.hasMismatch).toBe(false);
     });
 

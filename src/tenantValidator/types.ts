@@ -7,12 +7,22 @@ export interface TenantMismatch {
   inputTenant: string;
 }
 
+export interface TenantUnknown {
+  eventId: string;
+  eventKind: string;
+  url: string;
+  host: string;
+}
+
 export interface TenantScanResult {
   inputTenant: string;
   totalEvents: number;
   samlEvents: number;
   oidcEvents: number;
+  matchCount: number;
   mismatches: TenantMismatch[];
+  unknownCount: number;
+  unknownEvents: TenantUnknown[];
   hasMismatch: boolean;
 }
 

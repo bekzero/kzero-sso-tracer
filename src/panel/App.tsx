@@ -382,6 +382,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: "GET_HISTORY" }, (resp) => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
       if (resp?.history) setHistory(resp.history as CaptureHistoryItem[]);
     });
   }, []);
@@ -398,6 +401,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
   const loadHistory = (id: string): void => {
     chrome.runtime.sendMessage({ type: "LOAD_HISTORY_ITEM", itemId: id }, (resp) => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
       if (resp?.session) {
         setSession(resp.session as CaptureSession);
         setSelectedHistoryId(id);
@@ -466,7 +472,10 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   };
 
   const clearHistory = (): void => {
-    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, () => {
+    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, (resp) => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
       setHistory([]);
     });
   };

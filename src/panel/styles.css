@@ -2520,3 +2520,21 @@ kbd {
   margin-bottom: 4px;
   color: var(--fg);
 }
+
+.validator-unknown-warning {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+}
+
+.validator-unknown-warning p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.validator-unknown-warning p:last-child {
+  margin-bottom: 0;
+}

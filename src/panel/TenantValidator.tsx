@@ -23,13 +23,32 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
 
   const events = session?.normalizedEvents ?? [];
   
-  const detectedTenants = useMemo(() => getAllTenantsInSession(events), [events]);
-  const detectedKzeroHosts = useMemo(() => getKzeroHostsInSession(events), [events]);
+  const detectedTenants = useMemo(() => {
+    if (!events || events.length === 0) return [];
+    try {
+      return getAllTenantsInSession(events);
+    } catch {
+      return [];
+    }
+  }, [events]);
+  
+  const detectedKzeroHosts = useMemo(() => {
+    if (!events || events.length === 0) return [];
+    try {
+      return getKzeroHostsInSession(events);
+    } catch {
+      return [];
+    }
+  }, [events]);
 
   const handleTenantScan = (): void => {
     if (!tenantInput.trim()) return;
-    const result = validateTenant(events, tenantInput);
-    setScanResult(result);
+    try {
+      const result = validateTenant(events, tenantInput);
+      setScanResult(result);
+    } catch (e) {
+      console.error("Tenant scan error:", e);
+    }
   };
 
   const handleFileUpload = (file: File): void => {
@@ -44,10 +63,15 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target?.result as string;
-      setMetadataContent(content);
-      const result = parseMetadata(content);
-      setMetadataResult(result);
+      try {
+        const content = e.target?.result as string;
+        setMetadataContent(content);
+        const result = parseMetadata(content);
+        setMetadataResult(result);
+      } catch (err) {
+        console.error("Metadata parse error:", err);
+        setFileError("Failed to parse metadata file");
+      }
     };
     reader.onerror = () => {
       setFileError("Failed to read file.");
@@ -57,8 +81,12 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
 
   const handleErrorAnalyze = (): void => {
     if (!errorInput.trim()) return;
-    const result = analyzeOidcError(errorInput);
-    setErrorResult(result);
+    try {
+      const result = analyzeOidcError(errorInput);
+      setErrorResult(result);
+    } catch (e) {
+      console.error("Error analyze error:", e);
+    }
   };
 
   const handleFileUploadError = (file: File): void => {
@@ -131,12 +159,17 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
       )}
 
       {scanResult && (
-        <div className={`validator-result ${scanResult.hasMismatch ? "has-error" : "has-success"}`}>
+        <div className={`validator-result ${scanResult.hasMismatch ? "has-error" : scanResult.unknownCount > 0 ? "has-warning" : "has-success"}`}>
           <div className="validator-result-head">
             {scanResult.hasMismatch ? (
               <>
                 <span className="validator-icon">!</span>
                 <strong>{scanResult.mismatches.length} Mismatch{scanResult.mismatches.length !== 1 ? "es" : ""} Found</strong>
+              </>
+            ) : scanResult.unknownCount > 0 ? (
+              <>
+                <span className="validator-icon warning">?</span>
+                <strong>No matches - {scanResult.unknownCount} event{scanResult.unknownCount !== 1 ? "s" : ""} with unknown tenant</strong>
               </>
             ) : (
               <>
@@ -146,10 +179,17 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
             )}
           </div>
           <div className="validator-result-stats">
-            <span>SAML: {scanResult.samlEvents}</span>
-            <span>OIDC: {scanResult.oidcEvents}</span>
-            <span>Total: {scanResult.totalEvents}</span>
+            <span>Matches: {scanResult.matchCount}</span>
+            <span>Unknown: {scanResult.unknownCount}</span>
+            <span>Mismatches: {scanResult.mismatches.length}</span>
           </div>
+
+          {scanResult.unknownCount > 0 && (
+            <div className="validator-unknown-warning">
+              <p><strong>Warning:</strong> {scanResult.unknownCount} event(s) had no extractable tenant in the URL.</p>
+              <p>These events may not be from a KZero realm. Detected tenant: "{detectedTenants[0] || "none"}"</p>
+            </div>
+          )}
 
           {scanResult.hasMismatch && (
             <div className="validator-mismatches">
