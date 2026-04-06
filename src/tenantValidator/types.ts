@@ -70,3 +70,19 @@ export interface ErrorAnalysisResult {
   matchedPattern?: ErrorPattern;
   suggestions: string[];
 }
+
+export interface ValidatorHypothesis {
+  id: string;
+  title: string;
+  confidence: "high" | "medium" | "low";
+  summary: string;
+  why: string[];
+  howToFix: string[];
+  evidence: string[];
+  kind: "confirmed" | "likely" | "missing-evidence";
+}
+
+export interface ValidatorAssessment {
+  top?: ValidatorHypothesis;
+  hypotheses: ValidatorHypothesis[];
+}

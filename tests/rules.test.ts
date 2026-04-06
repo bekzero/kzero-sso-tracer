@@ -275,6 +275,33 @@ describe("findings engine", () => {
     expect(findings.some((f) => f.ruleId === "SAML_CAPTURE_STARTED_LATE")).toBe(true);
   });
 
+  it("does not treat missing SAMLRequest as likely root cause for KZero-initiated clue", () => {
+    const events = [
+      {
+        id: "r1",
+        tabId: 102,
+        timestamp: 1710000010000,
+        protocol: "SAML",
+        kind: "saml-response",
+        url: "https://vendor.example.com/acs",
+        host: "vendor.example.com",
+        binding: "post" as const,
+        artifacts: {},
+        rawRef: "r1",
+        samlResponse: {
+          encoded: "mock",
+          issuer: "https://ca.auth.kzero.com/realms/ABCMSP"
+        },
+        statusCode: 200
+      }
+    ];
+    const findings = runFindingsEngine(events as any);
+    const missingRequest = findings.find((f) => f.ruleId === "SAML_MISSING_REQUEST");
+    expect(missingRequest).toBeDefined();
+    expect(missingRequest!.severity).toBe("info");
+    expect(missingRequest!.title.toLowerCase()).toContain("did not capture");
+  });
+
   it("never emits SAML_MISSING_REQUEST when requestEvent exists", () => {
     const events = [
       {

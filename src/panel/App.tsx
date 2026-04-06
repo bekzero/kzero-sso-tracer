@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildSanitizedExport, buildRawExport, buildSummaryExport } from "../export";
 import { downloadHar } from "../export/harExport";
 import { downloadFindingsCsv, downloadSummaryCsv } from "../export/csvExport";
@@ -18,6 +18,7 @@ import { mask, redactRecord } from "../shared/redaction";
 import { RULE_CATALOG, getRuleDoc } from "../shared/ruleCatalog";
 import { buildTraceContext } from "../recipes/context";
 import { buildFixRecipe } from "../recipes/buildRecipe";
+import { classifyCaptureFlow } from "../analysis/flowClassifier";
 import type { FixRecipe } from "../recipes/types";
 import { labelVariants } from "../mappings/uiLabelAliases";
 import { getFieldMapping } from "../mappings/fieldMappings";
@@ -253,6 +254,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [exportMode, setExportMode] = useState<ExportMode>("sanitized");
   const [includePostLogin, setIncludePostLogin] = useState(false);
   const [showRawWarning, setShowRawWarning] = useState(false);
+  const [historyNotice, setHistoryNotice] = useState<"" | "saved">("");
+  const prevSessionActiveRef = useRef<boolean>(false);
 
   const narrowTab = leftTab;
   const openPopup = (): void => {
@@ -286,6 +289,22 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     });
     setShowTabPicker(false);
   };
+
+  const refreshHistory = useCallback((): void => {
+    chrome.runtime.sendMessage({ type: "GET_HISTORY" }, (resp) => {
+      if (chrome.runtime.lastError) return;
+      if (resp?.history) {
+        setHistory(resp.history as CaptureHistoryItem[]);
+      }
+    });
+  }, []);
+
+  const refreshHistoryWithRetry = useCallback((): void => {
+    const retryDelays = [0, 500, 1200];
+    retryDelays.forEach((delay) => {
+      window.setTimeout(() => refreshHistory(), delay);
+    });
+  }, [refreshHistory]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -381,13 +400,19 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   }, [messagingTabId]);
 
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: "GET_HISTORY" }, (resp) => {
-      if (chrome.runtime.lastError) {
-        return;
-      }
-      if (resp?.history) setHistory(resp.history as CaptureHistoryItem[]);
-    });
-  }, []);
+    refreshHistory();
+  }, [refreshHistory]);
+
+  useEffect(() => {
+    const wasActive = prevSessionActiveRef.current;
+    const isActive = Boolean(session?.active);
+    if (wasActive && !isActive) {
+      refreshHistoryWithRetry();
+      setHistoryNotice("saved");
+      window.setTimeout(() => setHistoryNotice(""), 2800);
+    }
+    prevSessionActiveRef.current = isActive;
+  }, [session?.active, refreshHistoryWithRetry]);
 
   useEffect(() => {
     if (selectedFinding && mode === "devtools" && messagingTabId >= 0) {
@@ -421,7 +446,12 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
 
   const stopCapture = (): void => {
     setSession((prev) => (prev ? { ...prev, active: false } : null));
-    chrome.runtime.sendMessage({ type: "STOP_CAPTURE", tabId: messagingTabId });
+    chrome.runtime.sendMessage({ type: "STOP_CAPTURE", tabId: messagingTabId }, () => {
+      if (chrome.runtime.lastError) return;
+      refreshHistoryWithRetry();
+      setHistoryNotice("saved");
+      window.setTimeout(() => setHistoryNotice(""), 2800);
+    });
   };
 
   const doExport = async (format: ExportFormat): Promise<void> => {
@@ -477,6 +507,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         return;
       }
       setHistory([]);
+      refreshHistory();
     });
   };
 
@@ -659,6 +690,31 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   }, [selectedEvent, selectedFinding]);
 
   const tabTitle = targetTab?.title ?? (tabId >= 0 ? `Tab ${tabId}` : "No tab selected");
+  const latestEvent = session?.normalizedEvents[session.normalizedEvents.length - 1];
+  const lastEventTime = latestEvent ? formatTime(latestEvent.timestamp) : "No events yet";
+
+  const flowSummary = useMemo(
+    () => classifyCaptureFlow(session?.normalizedEvents ?? []),
+    [session]
+  );
+
+  const captureTargetHost = useMemo((): string => {
+    if (!targetTab?.url) return "No tab selected";
+    try {
+      return new URL(targetTab.url).hostname;
+    } catch {
+      return targetTab.url;
+    }
+  }, [targetTab?.url]);
+
+  const authHandoffTab = useMemo((): number | null => {
+    if (!session?.normalizedEvents?.length || messagingTabId < 0) return null;
+    const recentAuthEvent = [...session.normalizedEvents]
+      .reverse()
+      .find((e) => (e.protocol === "SAML" || e.protocol === "OIDC") && typeof e.tabId === "number");
+    if (!recentAuthEvent) return null;
+    return recentAuthEvent.tabId !== messagingTabId ? recentAuthEvent.tabId : null;
+  }, [session, messagingTabId]);
 
   if (!onboardingDone) {
     return (
@@ -731,12 +787,37 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                 </li>
               ))}
             </ul>
+          ) : leftTab === "history" ? (
+            <>
+              {history.length > 0 ? (
+                <>
+                  <div className="pane-actions">
+                    <button className="btn btn-ghost btn-sm" onClick={clearHistory}>Clear history</button>
+                  </div>
+                  <ul className="list">
+                    {history.map((item) => (
+                      <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
+                        <div className="row-main">
+                          <div className="row-title"><span className="mono">{formatDate(item.startedAt)}</span></div>
+                          <div className="row-sub">
+                            <span className="mono">{item.protocolHints.join("/") || "-"}</span>
+                            <span className="dot" />
+                            <span className="mono">{item.findingCount} findings</span>
+                          </div>
+                        </div>
+                        <div className="row-meta mono">Tab {item.tabId}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <div className="empty">No saved captures yet. Start capture, reproduce sign-in, then stop capture.</div>
+              )}
+              {historyNotice === "saved" && (
+                <div className="capture-saved-hint">Capture saved. Your latest session should appear in History.</div>
+              )}
+            </>
           ) : null}
-          {leftTab === "history" && history.length > 0 && (
-            <div className="pane-actions">
-              <button className="btn btn-ghost btn-sm" onClick={clearHistory}>Clear history</button>
-            </div>
-          )}
           {leftTab === "validator" && (
             <TenantValidator session={session} />
           )}
@@ -1126,7 +1207,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : history.length > 0 ? (
             <ul className="list">
               {history.map((item) => (
                 <li key={item.id} className={classNames("row", selectedHistoryId === item.id && "active")} onClick={() => void loadHistory(item.id)}>
@@ -1142,6 +1223,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                 </li>
               ))}
             </ul>
+          ) : (
+            <div className="empty">No saved captures yet. Start capture, reproduce sign-in, then stop capture.</div>
+          )}
+          {leftTab === "history" && historyNotice === "saved" && (
+            <div className="capture-saved-hint">Capture saved. Your latest session should appear in History.</div>
           )}
         </section>
       ) : null}
@@ -1429,17 +1515,23 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
             >
               Timeline
             </button>
-            <button 
-              className={classNames("tab-pill", narrowTab === "history" && "active")} 
-              onClick={() => setLeftTab("history")}
-            >
-              History
-            </button>
-            <button 
-              className={classNames("tab-pill", narrowTab === "findings" && "active")} 
-              onClick={() => setLeftTab("findings")}
-            >
-              Findings
+             <button 
+               className={classNames("tab-pill", narrowTab === "history" && "active")} 
+               onClick={() => setLeftTab("history")}
+             >
+               History
+             </button>
+             <button 
+               className={classNames("tab-pill", narrowTab === "validator" && "active")} 
+               onClick={() => setLeftTab("validator")}
+             >
+               Validator
+             </button>
+             <button 
+               className={classNames("tab-pill", narrowTab === "findings" && "active")} 
+               onClick={() => setLeftTab("findings")}
+             >
+               Findings
             </button>
             <button 
               className={classNames("tab-pill", narrowTab === "detail" && "active")} 
@@ -1487,6 +1579,29 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           </div>
         </div>
       </header>
+
+      <section className="capture-banner">
+        <div className="capture-banner-main">
+          <span className={classNames("capture-banner-chip", session?.active ? "active" : "idle")}>
+            {session?.active ? "Capturing" : "Capture stopped"}
+          </span>
+          <span className="capture-banner-target" title={targetTab?.title ?? captureTargetHost}>
+            {captureTargetHost}
+          </span>
+        </div>
+        <div className="capture-banner-meta">
+          <span>Tab {messagingTabId >= 0 ? messagingTabId : "-"}</span>
+          <span>Last event: {lastEventTime}</span>
+          <span>Flow: {flowSummary}</span>
+        </div>
+      </section>
+
+      {authHandoffTab !== null && (
+        <div className="handoff-warning">
+          <span>Auth flow continued in a different tab (Tab {authHandoffTab}).</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => switchToTab(authHandoffTab)}>Switch tracer to that tab</button>
+        </div>
+      )}
 
       <div className="toolbar-row">
         <div className="toolbar-search">
@@ -1584,7 +1699,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <option key={r.ruleId} value={r.ruleId}>{r.ruleId}</option>
             ))}
           </select>
-          <label className="filter-label">Raw:</label>
+          <label className="filter-label">Show raw technical details:</label>
           <input type="checkbox" checked={showRaw} onChange={(e) => setShowRaw(e.target.checked)} />
         </div>
         {selectedFinding?.eventId && (

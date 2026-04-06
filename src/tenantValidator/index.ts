@@ -4,6 +4,7 @@ import { scanForTenantMismatches, getAllTenantsInSession, getKzeroHostsInSession
 import { parseOidcMetadata, isOidcMetadata } from "./metadata/parser";
 import { parseSamlMetadata, isSamlMetadata } from "./metadata/samlParser";
 import { analyzeError, ERROR_PATTERNS } from "./errorPatterns";
+import { assessTrace } from "./assessor";
 
 export * from "./types";
 export { ERROR_PATTERNS };
@@ -33,3 +34,4 @@ export const analyzeOidcError = (errorText: string): ErrorAnalysisResult => {
 };
 
 export { getAllTenantsInSession, getKzeroHostsInSession };
+export { assessTrace };

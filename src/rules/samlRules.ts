@@ -1,5 +1,6 @@
 import type { Finding, NormalizedEvent, NormalizedSamlEvent } from "../shared/models";
 import { makeFinding } from "./helpers";
+import { inferSamlDirection } from "../analysis/flowClassifier";
 
 const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === "SAML";
 
@@ -146,6 +147,8 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
     const flow = responseEvent
       ? detectSamlFlow(events, responseEvent)
       : { success: "none" as const, captureCompleteness: "unknown" as const };
+    const samlDirection = inferSamlDirection(events, requestEvent, responseEvent);
+    const likelyIdpInitiated = samlDirection === "KZero -> SP";
 
     const isSuccessful = flow.success === "clear" || flow.success === "probable";
 
@@ -160,12 +163,14 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
           title: "Capture started after AuthnRequest",
           explanation:
             flow.success === "clear"
-              ? "Flow appears successful but no AuthnRequest was captured - may be IdP-initiated or capture started late."
-              : "Post-ACS activity detected but AuthnRequest was not captured - capture may be incomplete.",
+              ? "Flow appears successful but no AuthnRequest was captured - this is often normal for KZero-launched sign-in or when capture starts late."
+              : "Post-ACS activity detected but AuthnRequest was not captured - capture may be incomplete or KZero-launched.",
           observed: "AuthnRequest not captured",
           expected: "Full SAML flow with both request and response",
           evidence: samlEvents.map((e) => e.url),
-          action: "If this should be SP-initiated, start capture before clicking the app icon.",
+          action: likelyIdpInitiated
+            ? "If users launch sign-in from KZero, missing AuthnRequest can be normal. If SP-initiated is expected, start capture before clicking the app icon."
+            : "If this should be SP-initiated, start capture before clicking the app icon.",
           confidence: 0.6,
           isAmbiguous: true,
           ambiguityNote: "No AuthnRequest was captured. This could mean: (1) capture started after the request was sent, (2) IdP-initiated login that has no AuthnRequest, or (3) redirect binding AuthnRequest that wasn't captured.",
@@ -199,21 +204,31 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         })
       );
     } else {
-      // No success evidence - keep warning
+      // No success evidence - keep warning unless flow likely starts from KZero
       findings.push(
         makeFinding({
           ruleId: "SAML_MISSING_REQUEST",
-          severity: "warning",
+          severity: likelyIdpInitiated ? "info" : "warning",
           protocol: "SAML",
-          likelyOwner: "vendor SP",
-          title: "Missing SAMLRequest",
-          explanation: "No SP-initiated AuthnRequest was captured.",
+          likelyOwner: likelyIdpInitiated ? "analysis" : "vendor SP",
+          title: likelyIdpInitiated
+            ? "We did not capture the service provider sign-in request"
+            : "Missing SAMLRequest",
+          explanation: likelyIdpInitiated
+            ? "No SP AuthnRequest was captured. This can be normal for KZero-launched sign-in, but can also mean capture started late."
+            : "No SP-initiated AuthnRequest was captured.",
           observed: "SAMLRequest not found",
           expected: "SAMLRequest for SP-initiated flow",
           evidence: samlEvents.map((e) => e.url),
-          action: "If this should be SP-initiated, confirm the app starts login with SAMLRequest.",
+          action: likelyIdpInitiated
+            ? "If this is KZero-launched, this can be expected. If SP-initiated should occur, confirm the app starts login with SAMLRequest and begin capture before clicking sign-in."
+            : "If this should be SP-initiated, confirm the app starts login with SAMLRequest.",
           confidence: 0.72,
-          traceGaps: ["AuthnRequest not captured"]
+          traceGaps: ["AuthnRequest not captured"],
+          isAmbiguous: likelyIdpInitiated,
+          ambiguityNote: likelyIdpInitiated
+            ? "The trace indicates KZero-to-SP direction, so missing AuthnRequest may be normal rather than a configuration error."
+            : undefined
         })
       );
     }

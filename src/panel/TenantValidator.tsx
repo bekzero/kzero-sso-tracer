@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import type { NormalizedEvent } from "../shared/models";
-import { validateTenant, parseMetadata, analyzeOidcError, getAllTenantsInSession, getKzeroHostsInSession } from "../tenantValidator";
+import { validateTenant, parseMetadata, analyzeOidcError, getAllTenantsInSession, getKzeroHostsInSession, assessTrace } from "../tenantValidator";
 import type { TenantScanResult, MetadataParseResult, ErrorAnalysisResult } from "../tenantValidator/types";
 
 interface TenantValidatorProps {
@@ -40,6 +40,17 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
       return [];
     }
   }, [events]);
+
+  const assessment = useMemo(
+    () => assessTrace({
+      events,
+      scan: scanResult,
+      metadata: metadataResult,
+      error: errorResult,
+      tenantInput
+    }),
+    [events, scanResult, metadataResult, errorResult, tenantInput]
+  );
 
   const handleTenantScan = (): void => {
     if (!tenantInput.trim()) return;
@@ -435,15 +446,58 @@ export const TenantValidator = ({ session }: TenantValidatorProps): JSX.Element 
           className={`validator-tab ${activeTab === "metadata" ? "active" : ""}`}
           onClick={() => setActiveTab("metadata")}
         >
-          Metafile
+          Metadata check
         </button>
         <button
           className={`validator-tab ${activeTab === "errors" ? "active" : ""}`}
           onClick={() => setActiveTab("errors")}
         >
-          Error Analyze
+          Analyze errors
         </button>
       </div>
+
+      {assessment.top && (
+        <div className="validator-root-cause">
+          <div className="validator-root-cause-head">
+            <span className={`validator-icon ${assessment.top.confidence === "high" ? "error" : assessment.top.confidence === "medium" ? "warning" : ""}`}>!</span>
+            <div>
+              <div className="validator-root-cause-kicker">Most likely root cause</div>
+              <h3>{assessment.top.title}</h3>
+              <p>{assessment.top.summary}</p>
+            </div>
+          </div>
+
+          <div className="validator-root-cause-grid">
+            <div className="validator-root-cause-section">
+              <h4>Why we think this</h4>
+              <ul>
+                {assessment.top.why.map((line, idx) => (
+                  <li key={`why-${idx}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="validator-root-cause-section">
+              <h4>How to fix it</h4>
+              <ul>
+                {assessment.top.howToFix.map((line, idx) => (
+                  <li key={`fix-${idx}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {assessment.top.evidence.length > 0 && (
+            <div className="validator-root-cause-evidence">
+              <h4>Evidence captured</h4>
+              <ul>
+                {assessment.top.evidence.slice(0, 4).map((line, idx) => (
+                  <li key={`ev-${idx}`} className="mono">{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === "tenant" && renderTenantTab()}
       {activeTab === "metadata" && renderMetadataTab()}
