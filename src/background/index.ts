@@ -273,6 +273,10 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
 
   switch (message.type) {
     case "START_CAPTURE": {
+      void chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"]
+      }).catch(() => {});
       startCapture(tabId).then(session => {
         broadcast(tabId, session);
         respond({ ok: true, session });

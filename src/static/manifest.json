@@ -38,6 +38,36 @@
       "matches": ["<all_urls>"]
     }
   ],
+  "commands": {
+    "toggle-capture": {
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "Option+Shift+S" },
+      "description": "Start or stop capture"
+    },
+    "export-session": {
+      "suggested_key": { "default": "Alt+Shift+E", "mac": "Option+Shift+E" },
+      "description": "Export session"
+    },
+    "focus-search": {
+      "suggested_key": { "default": "Alt+Shift+F", "mac": "Option+Shift+F" },
+      "description": "Focus search"
+    },
+    "open-settings": {
+      "suggested_key": { "default": "Alt+Shift+P", "mac": "Option+Shift+P" },
+      "description": "Open settings"
+    }
+  }
+}
+  },
+  "devtools_page": "devtools.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["viewer.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
