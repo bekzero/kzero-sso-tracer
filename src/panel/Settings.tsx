@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { Settings, CaptureScope, AISettings } from "../shared/settings";
 import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
 import { getDiscoveredAuthHosts } from "../capture/sessionStore";
-import { isAIDisabledByPolicy, setEnterpriseAIPolicy } from "../help/ai/policy";
+import { isAIDisabledLocally, setLocalAISettings } from "../help/ai/policy";
 
 interface SettingsProps {
   onClose: () => void;
@@ -21,7 +21,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    if (settings?.captureScope !== "auth-plus-allowlist") {
+    if (settings?.captureScope === "auth-plus-allowlist") {
       setDiscoveredHosts(getDiscoveredAuthHosts());
     }
   }, [settings?.captureScope]);
@@ -249,23 +249,23 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
         <section className="settings-section">
           <h3>AI Assistant</h3>
           <p className="settings-note">
-            Enable optional AI help powered by OpenAI. Your API key is stored locally and never sent to our servers.
+            Enable optional AI help powered by OpenAI. Your API key is stored locally in your browser - not on any server.
           </p>
           
-          {isAIDisabledByPolicy() ? (
+          {isAIDisabledLocally() ? (
             <div className="settings-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
               <p style={{ color: "var(--err)", fontSize: "13px" }}>
-                AI Assistant has been disabled by your organization.
+                AI Assistant has been disabled.
               </p>
               <button 
                 className="btn btn-ghost" 
                 onClick={() => {
-                  setEnterpriseAIPolicy(false);
+                  setLocalAISettings(false);
                   window.location.reload();
                 }}
                 style={{ fontSize: "12px" }}
               >
-                Override (if allowed)
+                Re-enable AI Assistant
               </button>
             </div>
           ) : (
@@ -300,7 +300,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                       })}
                     />
                     <p className="settings-note" style={{ marginTop: "6px" }}>
-                      Your API key is stored locally in Chrome. We never see or store it.
+                      Your API key is stored locally in this browser. We do not see or store it - you are responsible for keeping it safe.
                     </p>
                   </div>
 
@@ -328,20 +328,20 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
         <section className="settings-section">
           <h3>Enterprise Policy</h3>
           <p className="settings-note">
-            Administrative controls for this extension.
+            Local app controls for this extension.
           </p>
           <div className="settings-row">
             <div className="settings-row-info">
               <span className="settings-row-label">AI Assistant</span>
               <span className="settings-row-desc">
-                {isAIDisabledByPolicy() ? "Disabled by policy" : "Allowed"}
+                {isAIDisabledLocally() ? "Disabled" : "Enabled in settings"}
               </span>
             </div>
-            {!isAIDisabledByPolicy() && (
+            {!isAIDisabledLocally() && (
               <button 
                 className="btn btn-ghost" 
                 onClick={() => {
-                  setEnterpriseAIPolicy(true);
+                  setLocalAISettings(true);
                 }}
                 style={{ fontSize: "12px", padding: "6px 12px" }}
               >

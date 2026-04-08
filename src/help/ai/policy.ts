@@ -1,36 +1,27 @@
-import type { Finding } from "../../shared/models";
-
-export interface EnterprisePolicy {
+export interface LocalSettings {
   aiDisabled: boolean;
 }
 
-export function getEnterprisePolicy(): EnterprisePolicy {
+export function getLocalSettings(): LocalSettings {
   try {
-    const policy = chrome?.enterprise?.platformKeys;
-    return {
-      aiDisabled: false
-    };
-  } catch {
-    return {
-      aiDisabled: false
-    };
-  }
-}
-
-export function isAIDisabledByPolicy(): boolean {
-  try {
-    const stored = localStorage.getItem("enterprise_ai_policy");
-    if (stored === "disabled") {
-      return true;
+    const stored = localStorage.getItem("local_settings");
+    if (stored) {
+      return JSON.parse(stored);
     }
   } catch {
   }
-  return false;
+  return { aiDisabled: false };
 }
 
-export function setEnterpriseAIPolicy(disabled: boolean): void {
+export function isAIDisabledLocally(): boolean {
+  return getLocalSettings().aiDisabled;
+}
+
+export function setLocalAISettings(disabled: boolean): void {
   try {
-    localStorage.setItem("enterprise_ai_policy", disabled ? "disabled" : "enabled");
+    const settings = getLocalSettings();
+    settings.aiDisabled = disabled;
+    localStorage.setItem("local_settings", JSON.stringify(settings));
   } catch {
   }
 }

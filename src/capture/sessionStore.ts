@@ -9,7 +9,6 @@ import { logDebug } from "../shared/debugLog";
 const sessions = new Map<number, CaptureSession>();
 const sessionCache = new Map<number, CaptureSession>();
 const HISTORY_KEY = "history:sessions";
-const HISTORY_MAX = 30;
 const MAX_EVENTS_PER_SESSION = 500;
 const MAX_SESSION_SIZE_BYTES = 512 * 1024;
 
@@ -204,6 +203,7 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
     });
     return;
   }
+  const settings = await getSettings();
   void logDebug("capture", "Persisting history item", { 
     eventCount: session.normalizedEvents.length,
     findingCount: session.findings.length,
@@ -223,7 +223,7 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
     findingCount: session.findings.length,
     session: JSON.parse(JSON.stringify(session)) as CaptureSession
   };
-  const next = [snapshot, ...history].slice(0, HISTORY_MAX);
+  const next = [snapshot, ...history].slice(0, settings.maxHistoryItems);
   await storageSet(HISTORY_KEY, next);
   void logDebug("capture", "History saved", { historyCount: next.length });
 };

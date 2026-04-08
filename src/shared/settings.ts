@@ -120,7 +120,7 @@ export const saveSettings = async (settings: Settings): Promise<void> => {
 
 export const resetSettings = async (): Promise<Settings> => {
   await chrome.storage.local.remove(SETTINGS_KEY);
-  return { ...DEFAULT_SETTINGS_V2 };
+  return { ...DEFAULT_SETTINGS_V4 };
 };
 
 export const isValidHostname = (input: string): boolean => {

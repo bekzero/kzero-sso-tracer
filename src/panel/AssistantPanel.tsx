@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "re
 import type { CaptureSession, Finding } from "../shared/models";
 import { RULE_CATALOG } from "../shared/ruleCatalog";
 import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, callAI, type QuickSuggestion, type HelpMessage, type AIResponse } from "../help";
-import { isAIDisabledByPolicy } from "../help/ai/policy";
+import { isAIDisabledLocally } from "../help/ai/policy";
 
 interface AssistantPanelProps {
   session: CaptureSession | null;
@@ -13,6 +13,7 @@ interface AssistantPanelProps {
   aiEnabled?: boolean;
   aiApiKey?: string;
   aiIncludeFindings?: boolean;
+  aiHasSeenConsent?: boolean;
 }
 
 export const AssistantPanel = ({
@@ -23,7 +24,8 @@ export const AssistantPanel = ({
   onSelectFinding,
   aiEnabled = false,
   aiApiKey = "",
-  aiIncludeFindings = true
+  aiIncludeFindings = true,
+  aiHasSeenConsent = false
 }: AssistantPanelProps): JSX.Element => {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<HelpMessage[]>([]);
@@ -31,7 +33,6 @@ export const AssistantPanel = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showConsent, setShowConsent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -39,7 +40,7 @@ export const AssistantPanel = ({
   const hasSession = session !== null;
   const hasFindings = findings.length > 0;
   const currentSuggestions = hasSession ? getQuickSuggestions(ctx) : getDefaultSuggestions();
-  const aiAvailable = aiEnabled && aiApiKey && !isAIDisabledByPolicy();
+  const aiAvailable = aiEnabled && aiApiKey && !isAIDisabledLocally();
 
   useEffect(() => {
     if (isOpen && suggestions.length === 0) {
@@ -57,7 +58,7 @@ export const AssistantPanel = ({
     }
   }, [isOpen, isExpanded]);
 
-  const handleSubmit = useCallback(async (): Promise<void> => {
+  const handleSubmit = useCallback((): void => {
     if (!query.trim()) return;
 
     const userMessage: HelpMessage = {
@@ -68,72 +69,71 @@ export const AssistantPanel = ({
     };
 
     const intent = mapQueryToIntent(query, ctx);
+    const deterministicResponse = getExplanationForIntent(intent, ctx);
 
-    if (aiAvailable) {
-      setIsLoading(true);
-      setError(null);
+    const deterministicMessage: HelpMessage = {
+      id: `msg-${Date.now()}-det`,
+      source: "verified",
+      content: deterministicResponse,
+      timestamp: Date.now(),
+      badge: "Verified"
+    };
 
-      try {
-        const aiResponse: AIResponse = await callAI(
-          {
-            question: query.trim(),
-            findings: aiIncludeFindings ? findings : undefined,
-            includeFindings: aiIncludeFindings
-          },
-          aiApiKey
-        );
-
-        if (aiResponse.success && aiResponse.content) {
-          const assistantMessage: HelpMessage = {
-            id: `msg-${Date.now()}-response`,
-            source: "ai",
-            content: aiResponse.content,
-            timestamp: Date.now(),
-            badge: "AI"
-          };
-          setMessages(prev => [...prev, userMessage, assistantMessage]);
-        } else {
-          const fallbackText = getExplanationForIntent(intent, ctx);
-          const fallbackMessage: HelpMessage = {
-            id: `msg-${Date.now()}-fallback`,
-            source: "verified",
-            content: `${fallbackText}\n\n(AI unavailable: ${aiResponse.error})`,
-            timestamp: Date.now(),
-            badge: "Verified"
-          };
-          setMessages(prev => [...prev, userMessage, fallbackMessage]);
-        }
-      } catch {
-        const fallbackText = getExplanationForIntent(intent, ctx);
-        const fallbackMessage: HelpMessage = {
-          id: `msg-${Date.now()}-fallback`,
-          source: "verified",
-          content: fallbackText,
-          timestamp: Date.now(),
-          badge: "Verified"
-        };
-        setMessages(prev => [...prev, userMessage, fallbackMessage]);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      const responseText = getExplanationForIntent(intent, ctx);
-
-      const assistantMessage: HelpMessage = {
-        id: `msg-${Date.now()}-response`,
-        source: "verified",
-        content: responseText,
-        timestamp: Date.now(),
-        badge: "Verified"
-      };
-
-      setMessages(prev => [...prev, userMessage, assistantMessage]);
-    }
-
+    setMessages(prev => [...prev, userMessage, deterministicMessage]);
     setQuery("");
     const newSuggestions = currentSuggestions.slice(0, 4);
     setSuggestions(newSuggestions);
-  }, [query, ctx, aiAvailable, aiApiKey, aiIncludeFindings, findings, currentSuggestions]);
+  }, [query, ctx, currentSuggestions]);
+
+  const handleAskAI = useCallback(async (): Promise<void> => {
+    const lastUserMessage = messages.filter(m => m.source === "user").pop();
+    if (!lastUserMessage || !aiApiKey) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const aiResponse: AIResponse = await callAI(
+        {
+          question: lastUserMessage.content,
+          findings: aiIncludeFindings ? findings : undefined,
+          includeFindings: aiIncludeFindings
+        },
+        aiApiKey
+      );
+
+      if (aiResponse.success && aiResponse.content) {
+        const aiMessage: HelpMessage = {
+          id: `msg-${Date.now()}-ai`,
+          source: "ai",
+          content: aiResponse.content,
+          timestamp: Date.now(),
+          badge: "AI"
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage: HelpMessage = {
+          id: `msg-${Date.now()}-ai-error`,
+          source: "verified",
+          content: `AI request failed: ${aiResponse.error || "Unknown error"}. Showing deterministic answer above.`,
+          timestamp: Date.now(),
+          badge: "Verified"
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch {
+      const errorMessage: HelpMessage = {
+        id: `msg-${Date.now()}-ai-error`,
+        source: "verified",
+        content: "AI request failed. Showing deterministic answer above.",
+        timestamp: Date.now(),
+        badge: "Verified"
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [messages, aiApiKey, aiIncludeFindings, findings]);
 
   const handleSuggestionClick = (suggestion: QuickSuggestion): void => {
     if (suggestion.category === "finding" && suggestion.id.startsWith("finding-")) {
@@ -251,9 +251,9 @@ export const AssistantPanel = ({
                 <p className="assistant-welcome">SSO Assistant</p>
                 <p className="assistant-welcome-sub">
                   {hasFindings 
-                    ? "Review common issues · Ask a question · Get context-aware help"
+                    ? "Ask a question to get deterministic help"
                     : "Start a capture to get personalized help based on your findings"}
-                  {aiAvailable && <span style={{ display: "block", marginTop: "4px", color: "var(--vendor)", fontSize: "12px" }}>AI assistant available</span>}
+                  {aiAvailable && <span style={{ display: "block", marginTop: "4px", color: "var(--vendor)", fontSize: "12px" }}>AI available - click 'Ask AI' after your question</span>}
                 </p>
               </div>
             ) : (
@@ -291,12 +291,24 @@ export const AssistantPanel = ({
             />
           )}
 
+          {messages.length > 0 && aiAvailable && (
+            <div className="assistant-ai-prompt">
+              <button 
+                className="assistant-ai-prompt-btn"
+                onClick={handleAskAI}
+                disabled={isLoading || messages.filter(m => m.source === "user").length === 0}
+              >
+                🤖 Ask AI
+              </button>
+            </div>
+          )}
+
           <div className="assistant-input-area">
             <input
               ref={inputRef}
               type="text"
               className="assistant-input"
-              placeholder={aiAvailable ? "Ask a question..." : "Ask a question (AI available in settings)..."}
+              placeholder={aiAvailable ? "Ask a question..." : "Ask a question..."}
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}

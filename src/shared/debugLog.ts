@@ -1,3 +1,5 @@
+import { getSettings } from "./settings";
+
 const DEBUG_KEY = "debug:logs";
 const MAX_DEBUG_ENTRIES = 500;
 
@@ -10,6 +12,11 @@ export interface DebugLogEntry {
 
 export const logDebug = async (source: string, message: string, data?: unknown): Promise<void> => {
   try {
+    const settings = await getSettings();
+    if (!settings.debugEnabled) {
+      return;
+    }
+    
     const result = await chrome.storage.local.get(DEBUG_KEY);
     const logs = (result[DEBUG_KEY] as DebugLogEntry[]) ?? [];
     
