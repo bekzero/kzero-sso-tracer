@@ -136,31 +136,82 @@ const highlightFirst = (labels: string[]): boolean => {
   return false;
 };
 
-const port = chrome.runtime.connect({ name: "kzero-content" });
-let portAlive = true;
-
-port.onDisconnect.addListener(() => {
-  portAlive = false;
-  void chrome.runtime.sendMessage({ type: "CONTENT_PORT_DISCONNECTED", tabId: undefined });
-});
-
-port.onMessage.addListener((msg) => {
-  if (!portAlive) return;
-  if (msg?.type === "SCAN_FIELDS") {
-    const results = scanFields(Array.isArray(msg.labels) ? msg.labels : []);
-    if (portAlive) {
-      port.postMessage({ type: "UI_SCAN_RESULT", requestId: msg.requestId, results });
+const safePostMessage = (port: chrome.runtime.Port, msg: unknown): void => {
+  try {
+    if (port) {
+      port.postMessage(msg);
     }
+  } catch {
+    // Port may be disconnected or context invalidated
   }
-  if (msg?.type === "HIGHLIGHT_FIELD") {
-    const labels = Array.isArray(msg.labels) ? msg.labels.map(String) : [String(msg.label ?? "")];
-    highlightFirst(labels);
+};
+
+const safeDisconnectPort = (port: chrome.runtime.Port | null | undefined): void => {
+  try {
+    if (port) {
+      port.disconnect();
+    }
+  } catch {
+    // Port already disconnected or context invalidated
   }
-});
+};
+
+const safeSendMessage = (msg: unknown): void => {
+  try {
+    if (typeof chrome !== "undefined" && chrome.runtime?.id) {
+      void chrome.runtime.sendMessage(msg);
+    }
+  } catch {
+    // Extension context invalidated
+  }
+};
+
+let port: chrome.runtime.Port | null = null;
+let portAlive = false;
+
+const initPort = (): void => {
+  if (port) return;
+  
+  try {
+    port = chrome.runtime.connect({ name: "kzero-content" });
+    portAlive = true;
+    
+    port.onDisconnect.addListener(() => {
+      portAlive = false;
+      port = null;
+      safeSendMessage({ type: "CONTENT_PORT_DISCONNECTED", tabId: undefined });
+    });
+
+    port.onMessage.addListener((msg) => {
+      if (!portAlive || !port) return;
+      if (msg?.type === "SCAN_FIELDS") {
+        const results = scanFields(Array.isArray(msg.labels) ? msg.labels : []);
+        safePostMessage(port, { type: "UI_SCAN_RESULT", requestId: msg.requestId, results });
+      }
+      if (msg?.type === "HIGHLIGHT_FIELD") {
+        const labels = Array.isArray(msg.labels) ? msg.labels.map(String) : [String(msg.label ?? "")];
+        highlightFirst(labels);
+      }
+    });
+  } catch {
+    // Failed to connect - extension context may be invalid
+    port = null;
+    portAlive = false;
+  }
+};
+
+initPort();
 
 window.addEventListener("pagehide", () => {
   portAlive = false;
-  port.disconnect();
+  safeDisconnectPort(port);
+  port = null;
+});
+
+window.addEventListener("pageshow", () => {
+  if (!port && typeof chrome !== "undefined" && chrome.runtime?.id) {
+    initPort();
+  }
 });
 
 const extractForm = (form: HTMLFormElement): Record<string, string> => {
