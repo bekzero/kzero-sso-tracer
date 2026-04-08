@@ -75,6 +75,15 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
   const respond = (response: RuntimeResponse): void => sendResponse(response);
 
+  if (message.type === "CONTENT_PORT_DISCONNECTED") {
+    const tabId = sender.tab?.id;
+    if (typeof tabId === "number") {
+      contentPorts.delete(tabId);
+    }
+    respond({ ok: true });
+    return true;
+  }
+
   if (message.type === "GET_HISTORY") {
     void logDebug("background", "GET_HISTORY request");
     void getHistory().then((history) => respond({ ok: true, history }));
@@ -117,8 +126,30 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
   if (message.type === "REQUEST_UI_SCAN") {
     const port = contentPorts.get(message.tabId);
     if (port) {
-      port.postMessage({ type: "SCAN_FIELDS", requestId: message.requestId, labels: message.labels });
-      respond({ ok: true });
+      try {
+        port.postMessage({ type: "SCAN_FIELDS", requestId: message.requestId, labels: message.labels });
+        respond({ ok: true });
+      } catch {
+        contentPorts.delete(message.tabId);
+        void (async () => {
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: message.tabId },
+              files: ["content.js"]
+            });
+            const retryPort = contentPorts.get(message.tabId);
+            if (retryPort) {
+              retryPort.postMessage({ type: "SCAN_FIELDS", requestId: message.requestId, labels: message.labels });
+              respond({ ok: true });
+            } else {
+              respond({ ok: false, error: "Content script did not connect after injection" });
+            }
+          } catch (err) {
+            respond({ ok: false, error: `Could not inject content script: ${err}` });
+          }
+        })();
+        return true;
+      }
     } else {
       void (async () => {
         try {
@@ -144,8 +175,30 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
   if (message.type === "REQUEST_UI_HIGHLIGHT") {
     const port = contentPorts.get(message.tabId);
     if (port) {
-      port.postMessage({ type: "HIGHLIGHT_FIELD", requestId: message.requestId, labels: message.labels });
-      respond({ ok: true });
+      try {
+        port.postMessage({ type: "HIGHLIGHT_FIELD", requestId: message.requestId, labels: message.labels });
+        respond({ ok: true });
+      } catch {
+        contentPorts.delete(message.tabId);
+        void (async () => {
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: message.tabId },
+              files: ["content.js"]
+            });
+            const retryPort = contentPorts.get(message.tabId);
+            if (retryPort) {
+              retryPort.postMessage({ type: "HIGHLIGHT_FIELD", requestId: message.requestId, labels: message.labels });
+              respond({ ok: true });
+            } else {
+              respond({ ok: false, error: "Content script did not connect after injection" });
+            }
+          } catch {
+            respond({ ok: false, error: "Could not inject content script for highlight" });
+          }
+        })();
+        return true;
+      }
     } else {
       void (async () => {
         try {

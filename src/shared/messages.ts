@@ -13,7 +13,8 @@ export type RuntimeMessage =
   | { type: "REQUEST_UI_HIGHLIGHT"; tabId: number; requestId: string; labels: string[] }
   | { type: "OPEN_POPUP"; targetTabId: number }
   | { type: "DEVTOOLS_NETWORK_EVENT"; tabId: number; event: RawCaptureEvent }
-  | { type: "CONTENT_FORM_EVENT"; tabId: number; event: RawCaptureEvent };
+  | { type: "CONTENT_FORM_EVENT"; tabId: number; event: RawCaptureEvent }
+  | { type: "CONTENT_PORT_DISCONNECTED"; tabId?: number };
 
 export type RuntimeResponse =
   | { ok: true; session?: CaptureSession; history?: CaptureHistoryItem[] }

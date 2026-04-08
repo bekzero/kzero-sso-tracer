@@ -137,15 +137,30 @@ const highlightFirst = (labels: string[]): boolean => {
 };
 
 const port = chrome.runtime.connect({ name: "kzero-content" });
+let portAlive = true;
+
+port.onDisconnect.addListener(() => {
+  portAlive = false;
+  void chrome.runtime.sendMessage({ type: "CONTENT_PORT_DISCONNECTED", tabId: undefined });
+});
+
 port.onMessage.addListener((msg) => {
+  if (!portAlive) return;
   if (msg?.type === "SCAN_FIELDS") {
     const results = scanFields(Array.isArray(msg.labels) ? msg.labels : []);
-    port.postMessage({ type: "UI_SCAN_RESULT", requestId: msg.requestId, results });
+    if (portAlive) {
+      port.postMessage({ type: "UI_SCAN_RESULT", requestId: msg.requestId, results });
+    }
   }
   if (msg?.type === "HIGHLIGHT_FIELD") {
     const labels = Array.isArray(msg.labels) ? msg.labels.map(String) : [String(msg.label ?? "")];
     highlightFirst(labels);
   }
+});
+
+window.addEventListener("pagehide", () => {
+  portAlive = false;
+  port.disconnect();
 });
 
 const extractForm = (form: HTMLFormElement): Record<string, string> => {
