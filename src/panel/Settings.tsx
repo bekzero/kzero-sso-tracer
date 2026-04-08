@@ -275,13 +275,40 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                   <input
                     type="checkbox"
                     checked={settings.ai.enabled}
-                    onChange={(e) => update({ 
-                      ai: { ...settings.ai, enabled: e.target.checked }
-                    })}
+                    onChange={(e) => {
+                      if (e.target.checked && !settings.ai.hasSeenConsent) {
+                        if (confirm("To use AI Assistant, you need to provide explicit consent. This will send your question and current findings (if enabled) to OpenAI for processing. Continue?")) {
+                          update({ 
+                            ai: { ...settings.ai, enabled: true, hasSeenConsent: true }
+                          });
+                        }
+                      } else {
+                        update({ 
+                          ai: { ...settings.ai, enabled: e.target.checked }
+                        });
+                      }
+                    }}
                   />
                   <span className="settings-row-label">Enable AI Assistant</span>
                 </label>
               </div>
+
+              {settings.ai.enabled && !settings.ai.hasSeenConsent && (
+                <p style={{ color: "var(--err)", fontSize: "13px", marginTop: "8px" }}>
+                  Please confirm consent to use AI Assistant.
+                  <button 
+                    className="btn btn-sm btn-ghost" 
+                    style={{ marginLeft: "8px" }}
+                    onClick={() => {
+                      update({ 
+                        ai: { ...settings.ai, hasSeenConsent: true }
+                      });
+                    }}
+                  >
+                    I Consent
+                  </button>
+                </p>
+              )}
 
               {settings.ai.enabled && (
                 <>
@@ -300,7 +327,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                       })}
                     />
                     <p className="settings-note" style={{ marginTop: "6px" }}>
-                      Your API key is stored locally in this browser. We do not see or store it - you are responsible for keeping it safe.
+                      Stored locally in this browser only. Not encrypted - anyone with access to this browser can view it.
                     </p>
                   </div>
 
@@ -326,9 +353,9 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
         </section>
 
         <section className="settings-section">
-          <h3>Enterprise Policy</h3>
+          <h3>Local Extension Control</h3>
           <p className="settings-note">
-            Local app controls for this extension.
+            Local-only controls for this browser.
           </p>
           <div className="settings-row">
             <div className="settings-row-info">

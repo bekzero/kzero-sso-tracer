@@ -3,6 +3,7 @@ import type { RuntimeMessage, RuntimeResponse } from "../shared/messages";
 import { nowId, parseQueryString, toHeaderMap } from "../shared/utils";
 import type { CaptureSession, RawCaptureEvent } from "../shared/models";
 import { logDebug } from "../shared/debugLog";
+import { getSettings } from "../shared/settings";
 
 const panelPorts = new Map<number, chrome.runtime.Port[]>();
 const contentPorts = new Map<number, chrome.runtime.Port>();
@@ -312,7 +313,11 @@ chrome.webRequest.onBeforeRequest.addListener(
         }
       })()
     };
-    void chrome.storage.local.set({ _debug_last_event: event });
+    getSettings().then(settings => {
+      if (settings.debugEnabled) {
+        void chrome.storage.local.set({ _debug_last_event: event });
+      }
+    });
     addRawEvent(details.tabId, event).then(session => {
       if (session) broadcast(details.tabId, session);
     });

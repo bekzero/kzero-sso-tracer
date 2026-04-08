@@ -1801,6 +1801,8 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         aiEnabled={settings?.ai.enabled ?? false}
         aiApiKey={settings?.ai.apiKey ?? ""}
         aiIncludeFindings={settings?.ai.includeFindings ?? true}
+        aiHasSeenConsent={settings?.ai.hasSeenConsent ?? false}
+        onRequestConsent={() => setShowSettings(true)}
       />
 
     </div>

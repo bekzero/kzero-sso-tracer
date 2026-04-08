@@ -3,6 +3,7 @@ import type { CaptureSession, Finding } from "../shared/models";
 import { RULE_CATALOG } from "../shared/ruleCatalog";
 import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, callAI, type QuickSuggestion, type HelpMessage, type AIResponse } from "../help";
 import { isAIDisabledLocally } from "../help/ai/policy";
+import { getSettings, saveSettings } from "../shared/settings";
 
 interface AssistantPanelProps {
   session: CaptureSession | null;
@@ -14,6 +15,7 @@ interface AssistantPanelProps {
   aiApiKey?: string;
   aiIncludeFindings?: boolean;
   aiHasSeenConsent?: boolean;
+  onRequestConsent?: () => void;
 }
 
 export const AssistantPanel = ({
@@ -25,7 +27,8 @@ export const AssistantPanel = ({
   aiEnabled = false,
   aiApiKey = "",
   aiIncludeFindings = true,
-  aiHasSeenConsent = false
+  aiHasSeenConsent = false,
+  onRequestConsent
 }: AssistantPanelProps): JSX.Element => {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<HelpMessage[]>([]);
@@ -86,6 +89,13 @@ export const AssistantPanel = ({
   }, [query, ctx, currentSuggestions]);
 
   const handleAskAI = useCallback(async (): Promise<void> => {
+    if (!aiHasSeenConsent) {
+      if (onRequestConsent) {
+        onRequestConsent();
+      }
+      return;
+    }
+
     const lastUserMessage = messages.filter(m => m.source === "user").pop();
     if (!lastUserMessage || !aiApiKey) return;
 
