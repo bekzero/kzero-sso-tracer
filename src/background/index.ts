@@ -235,6 +235,29 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     return true;
   }
 
+  if (message.type === "REQUEST_AI") {
+    const { question, findings, includeFindings, apiKey } = message;
+    void logDebug("background", "REQUEST_AI received", { 
+      questionLength: question?.length,
+      hasFindings: Boolean(findings && findings.length > 0)
+    });
+    
+    import("../help/ai/provider").then(({ callAI }) => {
+      return callAI({ question, findings, includeFindings }, apiKey);
+    }).then((result) => {
+      void logDebug("background", "REQUEST_AI completed", { 
+        success: result.success,
+        contentLength: result.content?.length
+      });
+      respond({ ok: true, ...result });
+    }).catch((err) => {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      void logDebug("background", "REQUEST_AI failed", { error: errorMsg });
+      respond({ ok: false, error: errorMsg });
+    });
+    return true;
+  }
+
   const tabId = message.tabId ?? sender.tab?.id;
   if (typeof tabId !== "number") {
     respond({ ok: false, error: "Missing tabId" });

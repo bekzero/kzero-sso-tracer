@@ -1,4 +1,4 @@
-import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent } from "./models";
+import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent, Finding } from "./models";
 
 export type RuntimeMessage =
   | { type: "START_CAPTURE"; tabId: number }
@@ -11,13 +11,14 @@ export type RuntimeMessage =
   | { type: "LOAD_HISTORY_ITEM"; itemId: string }
   | { type: "REQUEST_UI_SCAN"; tabId: number; requestId: string; labels: string[] }
   | { type: "REQUEST_UI_HIGHLIGHT"; tabId: number; requestId: string; labels: string[] }
+  | { type: "REQUEST_AI"; question: string; findings?: Finding[]; includeFindings: boolean; apiKey: string }
   | { type: "OPEN_POPUP"; targetTabId: number }
   | { type: "DEVTOOLS_NETWORK_EVENT"; tabId: number; event: RawCaptureEvent }
   | { type: "CONTENT_FORM_EVENT"; tabId: number; event: RawCaptureEvent }
   | { type: "CONTENT_PORT_DISCONNECTED"; tabId?: number };
 
 export type RuntimeResponse =
-  | { ok: true; session?: CaptureSession; history?: CaptureHistoryItem[] }
+  | { ok: true; session?: CaptureSession; history?: CaptureHistoryItem[]; content?: string; provider?: string; success?: boolean; error?: string }
   | { ok: false; error: string };
 
 export interface UiFieldScanValue {

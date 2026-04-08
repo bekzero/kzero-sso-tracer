@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
 import type { CaptureSession, Finding } from "../shared/models";
 import { RULE_CATALOG } from "../shared/ruleCatalog";
-import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, callAI, type QuickSuggestion, type HelpMessage, type AIResponse } from "../help";
+import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, type QuickSuggestion, type HelpMessage } from "../help";
 import { isAIDisabledLocally } from "../help/ai/policy";
 import { getSettings, saveSettings } from "../shared/settings";
 
@@ -103,20 +103,19 @@ export const AssistantPanel = ({
     setError(null);
 
     try {
-      const aiResponse: AIResponse = await callAI(
-        {
-          question: lastUserMessage.content,
-          findings: aiIncludeFindings ? findings : undefined,
-          includeFindings: aiIncludeFindings
-        },
-        aiApiKey
-      );
+      const response = await chrome.runtime.sendMessage({
+        type: "REQUEST_AI",
+        question: lastUserMessage.content,
+        findings: aiIncludeFindings ? findings : undefined,
+        includeFindings: aiIncludeFindings,
+        apiKey: aiApiKey
+      });
 
-      if (aiResponse.success && aiResponse.content) {
+      if (response?.ok && response.success && response.content) {
         const aiMessage: HelpMessage = {
           id: `msg-${Date.now()}-ai`,
           source: "ai",
-          content: aiResponse.content,
+          content: response.content,
           timestamp: Date.now(),
           badge: "AI"
         };
@@ -125,7 +124,7 @@ export const AssistantPanel = ({
         const errorMessage: HelpMessage = {
           id: `msg-${Date.now()}-ai-error`,
           source: "verified",
-          content: `AI request failed: ${aiResponse.error || "Unknown error"}. Showing deterministic answer above.`,
+          content: `AI request failed: ${response?.error || "Unknown error"}. Showing deterministic answer above.`,
           timestamp: Date.now(),
           badge: "Verified"
         };
@@ -143,7 +142,7 @@ export const AssistantPanel = ({
     } finally {
       setIsLoading(false);
     }
-  }, [messages, aiApiKey, aiIncludeFindings, findings]);
+  }, [messages, aiApiKey, aiIncludeFindings, findings, aiHasSeenConsent, onRequestConsent]);
 
   const handleSuggestionClick = (suggestion: QuickSuggestion): void => {
     if (suggestion.category === "finding" && suggestion.id.startsWith("finding-")) {
