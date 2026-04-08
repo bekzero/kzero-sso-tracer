@@ -1,4 +1,4 @@
-import type { CaptureSession, Finding } from "../shared/models";
+import type { CaptureSession } from "../shared/models";
 
 const escape = (value: string): string => {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {

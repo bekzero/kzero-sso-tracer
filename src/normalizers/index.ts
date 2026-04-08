@@ -1,4 +1,3 @@
-import { decodeJwt } from "../parsers/jwt";
 import { attachTokenArtifacts, parseFragmentOrQuery } from "../parsers/oidc";
 import { decodeSamlArtifact } from "../parsers/saml";
 import type { NormalizedEvent, NormalizedOidcEvent, NormalizedSamlEvent, RawCaptureEvent } from "../shared/models";

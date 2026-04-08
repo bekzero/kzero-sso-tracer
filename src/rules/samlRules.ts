@@ -84,7 +84,7 @@ const detectSamlFlow = (
     return { success: "none", captureCompleteness: "unknown" };
   }
 
-  const samlEvents = events.filter(isSaml);
+  const _samlEvents = events.filter(isSaml);
   const relayState = responseEvent.relayState;
   let relayStateUrl: URL | undefined;
   if (relayState) {

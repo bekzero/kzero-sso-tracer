@@ -1,4 +1,4 @@
-import type { CaptureSession, NormalizedEvent } from "../shared/models";
+import type { CaptureSession } from "../shared/models";
 
 interface HarEntry {
   startedDateTime: string;

@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS_V4: Settings = {
   ai: { ...DEFAULT_AI_SETTINGS }
 };
 
-const DEFAULT_SETTINGS_V3: Settings = {
+const _DEFAULT_SETTINGS_V3: Settings = {
   autoStartOnTabSwitch: false,
   maxHistoryItems: 30,
   redactionStrictness: "strict",
@@ -58,7 +58,7 @@ const DEFAULT_SETTINGS_V3: Settings = {
   ai: { ...DEFAULT_AI_SETTINGS }
 };
 
-const DEFAULT_SETTINGS_V2: Settings = {
+const _DEFAULT_SETTINGS_V2: Settings = {
   autoStartOnTabSwitch: false,
   maxHistoryItems: 30,
   redactionStrictness: "strict",
@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS_V2: Settings = {
   ai: { ...DEFAULT_AI_SETTINGS }
 };
 
-const DEFAULT_SETTINGS_V1: Settings = {
+const _DEFAULT_SETTINGS_V1: Settings = {
   autoStartOnTabSwitch: false,
   maxHistoryItems: 30,
   redactionStrictness: "strict",

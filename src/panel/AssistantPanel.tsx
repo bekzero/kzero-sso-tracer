@@ -3,7 +3,6 @@ import type { CaptureSession, Finding } from "../shared/models";
 import { RULE_CATALOG } from "../shared/ruleCatalog";
 import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, type QuickSuggestion, type HelpMessage } from "../help";
 import { isAIDisabledLocally } from "../help/ai/policy";
-import { getSettings, saveSettings } from "../shared/settings";
 
 interface AssistantPanelProps {
   session: CaptureSession | null;
@@ -35,7 +34,7 @@ export const AssistantPanel = ({
   const [suggestions, setSuggestions] = useState<QuickSuggestion[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 

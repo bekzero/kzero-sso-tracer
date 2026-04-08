@@ -147,7 +147,7 @@ export function isVendorVerified(vendor: string): boolean {
   return guide?.verified === true;
 }
 
-export function formatVendorNotice(vendor: string, protocol: "saml" | "oidc" | "both"): string {
+export function formatVendorNotice(vendor: string, _protocol: "saml" | "oidc" | "both"): string {
   const detected = detectVendor(vendor);
   if (!detected) return "";
   

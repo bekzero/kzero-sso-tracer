@@ -9,6 +9,7 @@ export function getLocalSettings(): LocalSettings {
       return JSON.parse(stored);
     }
   } catch {
+    // Silently return defaults if localStorage unavailable
   }
   return { aiDisabled: false };
 }
@@ -23,5 +24,6 @@ export function setLocalAISettings(disabled: boolean): void {
     settings.aiDisabled = disabled;
     localStorage.setItem("local_settings", JSON.stringify(settings));
   } catch {
+    // Silently fail if localStorage unavailable
   }
 }

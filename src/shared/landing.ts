@@ -12,7 +12,7 @@ const isKnownStaticHost = (host: string): boolean => {
   return KNOWN_STATIC_HOSTS.some((s) => h === s || h.endsWith("." + s));
 };
 
-export const isAppLanding = (event: NormalizedEvent, targetHosts?: Set<string>): boolean => {
+export const isAppLanding = (event: NormalizedEvent, _targetHosts?: Set<string>): boolean => {
   try {
     const url = new URL(event.url);
     const pathname = url.pathname;

@@ -67,7 +67,6 @@ const NOISE_QUERY_PATTERNS = [
 ];
 
 const OIDC_KINDS = ["discovery", "authorize", "callback", "token", "userinfo", "jwks", "logout"];
-const SAML_KINDS = ["saml-request", "saml-response"];
 
 const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === "SAML";
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === "OIDC";
@@ -98,6 +97,7 @@ export const isNoiseEvent = (event: NormalizedEvent): boolean => {
       return true;
     }
   } catch {
+    // ignore invalid URL
   }
 
   return false;
@@ -171,7 +171,6 @@ export const detectAuthBoundary = (events: NormalizedEvent[]): AuthBoundary => {
 
     authEvents.push(event);
 
-    const hostLower = event.host.toLowerCase();
     if (isSamlResponse(event)) {
       boundaryEvent = event;
       if (event.samlResponse?.issuer) {
@@ -179,6 +178,7 @@ export const detectAuthBoundary = (events: NormalizedEvent[]): AuthBoundary => {
           const issuerUrl = new URL(event.samlResponse.issuer);
           knownIdpHosts.add(issuerUrl.host);
         } catch {
+          // ignore invalid issuer URL
         }
       }
     }
@@ -190,6 +190,7 @@ export const detectAuthBoundary = (events: NormalizedEvent[]): AuthBoundary => {
           const redirectUrl = new URL(event.redirectUri);
           knownSpHosts.add(redirectUrl.host);
         } catch {
+          // ignore invalid redirect URI
         }
       }
     }
@@ -318,12 +319,14 @@ export const getAuthHosts = (events: NormalizedEvent[]): { idpHost?: string; spA
       try {
         hosts.idpHost = new URL(event.samlResponse.issuer).host;
       } catch {
+        // ignore invalid issuer URL
       }
     }
     if (event.relayState) {
       try {
         hosts.spAppHost = new URL(event.relayState).host;
       } catch {
+        // ignore invalid relay state URL
       }
     }
   }
@@ -334,12 +337,14 @@ export const getAuthHosts = (events: NormalizedEvent[]): { idpHost?: string; spA
       try {
         hosts.idpHost = new URL(event.issuer).host;
       } catch {
+        // ignore invalid issuer URL
       }
     }
     if (event.redirectUri && !hosts.spAppHost) {
       try {
         hosts.spAppHost = new URL(event.redirectUri).host;
       } catch {
+        // ignore invalid redirect URI
       }
     }
   }

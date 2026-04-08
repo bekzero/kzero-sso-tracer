@@ -1,4 +1,4 @@
-import { formatNavigationSteps, getFieldNavigation } from "./navigation";
+import { formatNavigationSteps } from "./navigation";
 import { getTermTooltip } from "./terminology";
 import { detectVendor, getVendorGuideUrl } from "./vendors";
 
@@ -267,7 +267,7 @@ export function buildClientAuthFix(enable: boolean, vendorName?: string): OidcSt
   return steps;
 }
 
-export function buildPkceFix(required: boolean, vendorName?: string): OidcStep[] {
+export function buildPkceFix(required: boolean, _vendorName?: string): OidcStep[] {
   const steps: OidcStep[] = [
     {
       text: "Go to your KZero dashboard > Select your tenant.",

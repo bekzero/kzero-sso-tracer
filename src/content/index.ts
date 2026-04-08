@@ -6,7 +6,7 @@ type UiFieldScanValue = { found: boolean; value?: string; kind?: string };
 const normalizeLabel = (value: string): string =>
   value
     .replace(/\s+/g, " ")
-    .replace(/[\*\?]+\s*$/g, "")
+    .replace(/[*?]+\s*$/g, "")
     .trim()
     .toLowerCase();
 

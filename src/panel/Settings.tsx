@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Settings, CaptureScope, AISettings } from "../shared/settings";
+import type { Settings, CaptureScope } from "../shared/settings";
 import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
 import { getDiscoveredAuthHosts } from "../capture/sessionStore";
 import { isAIDisabledLocally, setLocalAISettings } from "../help/ai/policy";

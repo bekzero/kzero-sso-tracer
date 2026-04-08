@@ -1,5 +1,5 @@
 import type { CaptureSession, NormalizedEvent, NormalizedSamlEvent, NormalizedOidcEvent, SanitizedExportBundle, SanitizedEvent, SanitizedOidcEvent as SanitizedOidcEventType, ExportMetadata, ExportMode } from "../shared/models";
-import { redactRecord, sanitizeRelayState, buildRedactionSummary, isEmailLike, generateExportSalt, sanitizeOidcEventUrls, sanitizeOidcEventPayload, sanitizeOidcTopLevelFields, sanitizeUrlParams } from "../shared/redaction";
+import { redactRecord, sanitizeRelayState, buildRedactionSummary, isEmailLike, generateExportSalt, sanitizeOidcTopLevelFields, sanitizeUrlParams } from "../shared/redaction";
 import { filterEventsByMode, detectAuthBoundary } from "./filtering";
 
 export interface SanitizedExportOptions {
@@ -13,7 +13,7 @@ const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === 
 const sanitizeOidcEvent = (
   event: NormalizedOidcEvent,
   salt: string,
-  mode: ExportMode
+  _mode: ExportMode
 ): SanitizedOidcEventType => {
   return sanitizeOidcTopLevelFields(event, salt);
 };

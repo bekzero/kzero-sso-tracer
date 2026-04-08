@@ -3,7 +3,7 @@ import { runFindingsEngine } from "../rules";
 import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent } from "../shared/models";
 import { nowId } from "../shared/utils";
 import { classifyEvent } from "./hostClassifier";
-import { getSettings, type CaptureScope } from "../shared/settings";
+import { getSettings } from "../shared/settings";
 import { logDebug } from "../shared/debugLog";
 
 const sessions = new Map<number, CaptureSession>();
@@ -68,7 +68,7 @@ const isHostAllowed = (host: string, allowedHosts: string[]): boolean => {
 
 const shouldCaptureEvent = async (raw: RawCaptureEvent): Promise<boolean> => {
   const settings = await getSettings();
-  const { classification, isAuthRelevant } = classifyEvent(raw);
+  const { classification } = classifyEvent(raw);
 
   if (settings.captureScope === "full") {
     return true;

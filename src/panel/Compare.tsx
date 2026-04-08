@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Finding, CaptureSession, Severity } from "../shared/models";
 
-const severityRank = (s: Severity): number => (s === "error" ? 3 : s === "warning" ? 2 : 1);
+const _severityRank = (_s: Severity): number => 0;
 
 interface ComparisonResult {
   left: CaptureSession | null;

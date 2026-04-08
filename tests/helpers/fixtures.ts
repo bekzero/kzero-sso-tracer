@@ -35,7 +35,7 @@ export const runRules = (events: NormalizedEvent[]): Finding[] => {
 
 export const validateSanitization = (
   fixture: SanitizedFixture,
-  filename: string
+  _filename: string
 ): string[] => {
   const issues: string[] = [];
   const json = JSON.stringify(fixture).toLowerCase();

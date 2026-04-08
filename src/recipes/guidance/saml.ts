@@ -239,7 +239,7 @@ export function buildSigningFix(action: "enable" | "disable", what: "assertions"
   return steps;
 }
 
-export function buildBindingFix(forcePost: boolean, vendorName?: string): SsoStep[] {
+export function buildBindingFix(forcePost: boolean, _vendorName?: string): SsoStep[] {
   const steps: SsoStep[] = [
     {
       text: "Go to your KZero dashboard, select your tenant.",

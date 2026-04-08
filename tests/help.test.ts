@@ -102,7 +102,7 @@ describe("help routing - natural phrasing", () => {
 
 describe("help routing - suggestion behavior", () => {
   it("returns general suggestions when no session", () => {
-    const ctx = buildHelpContext(null, []);
+    const _ctx = buildHelpContext(null, []);
     const suggestions = getDefaultSuggestions();
     
     expect(suggestions.length).toBeGreaterThan(0);

@@ -6,7 +6,6 @@ import { downloadShareableTrace, copyShareableLink } from "../export/shareableEx
 import type {
   CaptureHistoryItem,
   CaptureSession,
-  Finding,
   NormalizedEvent,
   NormalizedOidcEvent,
   NormalizedSamlEvent,
@@ -238,7 +237,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [showRaw, setShowRaw] = useState(false);
   const [history, setHistory] = useState<CaptureHistoryItem[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
-  const [isPopup, setIsPopup] = useState(false);
+  const [_isPopup, setIsPopup] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
   const [uiScan, setUiScan] = useState<{ results: Record<string, UiFieldScanValue> }>({ results: {} });
   const [onboardingDone, setOnboardingDone] = useState(false);
@@ -504,7 +503,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   };
 
   const clearHistory = (): void => {
-    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, (resp) => {
+    chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, (_resp) => {
       if (chrome.runtime.lastError) {
         return;
       }
@@ -691,7 +690,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
     return rows;
   }, [selectedEvent, selectedFinding]);
 
-  const tabTitle = targetTab?.title ?? (tabId >= 0 ? `Tab ${tabId}` : "No tab selected");
+  const _tabTitle = targetTab?.title ?? (tabId >= 0 ? `Tab ${tabId}` : "No tab selected");
   const latestEvent = session?.normalizedEvents[session.normalizedEvents.length - 1];
   const lastEventTime = latestEvent ? formatTime(latestEvent.timestamp) : "No events yet";
 

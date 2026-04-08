@@ -9,9 +9,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'No lint configured'",
+    "lint": "eslint src/ tests/",
     "format": "echo 'No format configured'",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.0",
@@ -26,8 +26,11 @@
     "@types/pako": "^2.0.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "archiver": "^7.0.1",
     "esbuild": "^0.25.1",
+    "eslint": "^8.57.1",
     "typescript": "^5.7.3",
     "vitest": "^3.1.1"
   }

@@ -1,4 +1,4 @@
-import type { RedactionCategory, RedactionAction, RedactionSummary, NormalizedOidcEvent, SanitizedOidcEvent } from "./models";
+import type { RedactionCategory, RedactionSummary, NormalizedOidcEvent, SanitizedOidcEvent } from "./models";
 
 const SECRET_KEYS = [
   "client_secret",
@@ -218,7 +218,8 @@ export const sanitizeOidcEventPayload = (obj: unknown, salt: string): unknown =>
   return obj;
 };
 
-const OIDC_REMOVE_FIELDS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _OIDC_REMOVE_FIELDS = [
   "idToken",
   "accessTokenJwt", 
   "accessTokenOpaque",
@@ -226,7 +227,8 @@ const OIDC_REMOVE_FIELDS = [
   "sessionState"
 ] as const;
 
-const OIDC_HASH_FIELDS = ["state", "nonce", "code"] as const;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _OIDC_HASH_FIELDS = ["state", "nonce", "code"] as const;
 
 export const sanitizeOidcTopLevelFields = (
   event: NormalizedOidcEvent,

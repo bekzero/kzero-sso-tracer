@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { classifyEvent, isNoiseHost, isAuthPath, hasAuthParams } from "../src/capture/hostClassifier";
 import type { RawCaptureEvent } from "../src/shared/models";
 

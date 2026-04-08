@@ -2,29 +2,29 @@ import type { Finding, Owner } from "../shared/models";
 import { getFieldMapping } from "../mappings/fieldMappings";
 import type { TraceContext } from "./context";
 import type { FixRecipe } from "./types";
-import type { FixLink } from "./types";
+import type { FixLink } from "./types"; // eslint-disable-line @typescript-eslint/no-unused-vars
 import { 
   buildOidcNavigationSteps, 
   buildRedirectUriFix, 
   buildClientIdFix,
   buildDiscoveryUrlFix,
-  buildIssuerFix,
-  buildClientAuthFix,
+  buildIssuerFix, // eslint-disable-line @typescript-eslint/no-unused-vars
+  buildClientAuthFix, // eslint-disable-line @typescript-eslint/no-unused-vars
   detectOidcVendor,
-  getOidcFieldTooltip
+  getOidcFieldTooltip // eslint-disable-line @typescript-eslint/no-unused-vars
 } from "./guidance/oidc";
 import {
-  buildSamlNavigationSteps,
+  buildSamlNavigationSteps, // eslint-disable-line @typescript-eslint/no-unused-vars
   buildAcsUrlFix,
   buildEntityIdFix,
-  buildIssuerFix as buildSamlIssuerFix,
+  buildIssuerFix as buildSamlIssuerFix, // eslint-disable-line @typescript-eslint/no-unused-vars
   buildNameIdFix,
-  buildSigningFix,
-  buildBindingFix,
+  buildSigningFix, // eslint-disable-line @typescript-eslint/no-unused-vars
+  buildBindingFix, // eslint-disable-line @typescript-eslint/no-unused-vars
   detectSamlVendor,
-  getSamlFieldTooltip
+  getSamlFieldTooltip // eslint-disable-line @typescript-eslint/no-unused-vars
 } from "./guidance/saml";
-import { detectVendor, getDocUrl, formatVendorNotice } from "./guidance";
+import { getDocUrl, formatVendorNotice } from "./guidance";
 
 const urlExactMatchNote = "⚠️ Exact match matters: scheme, host, path, query (if used), and trailing slash.";
 
@@ -88,8 +88,8 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     case "OIDC_REDIRECT_URI_MISMATCH": {
       const expected = finding.expected;
       const observed = finding.observed;
-      const clientId = ctx.oidc.authorize?.clientId ?? ctx.oidc.token?.clientId;
-      const navSteps = buildOidcNavigationSteps(true);
+      const _clientId = ctx.oidc.authorize?.clientId ?? ctx.oidc.token?.clientId;
+      const _navSteps = buildOidcNavigationSteps(true);
       const fixSteps = buildRedirectUriFix(observed, expected, vendorName);
       
       return {
@@ -110,7 +110,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Update vendor \"Redirect URI / Callback URL\" to exactly: ${expected}`,
+              `Update vendor "Redirect URI / Callback URL" to exactly: ${expected}`,
               urlExactMatchNote,
               "If the vendor supports multiple redirect URIs, remove stale ones from other environments.",
               "Retry login after saving changes."
@@ -208,7 +208,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
     }
     case "OIDC_INVALID_CLIENT": {
       const clientId = ctx.oidc.authorize?.clientId ?? ctx.oidc.token?.clientId;
-      const fixSteps = buildClientIdFix(finding.observed, clientId || finding.expected, vendorName);
+      const _fixSteps = buildClientIdFix(finding.observed, clientId || finding.expected, vendorName);
       
       return {
         title: "Client authentication failed (invalid_client)",
@@ -286,7 +286,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Set vendor \"Entity ID\" / \"Audience URI\" / \"SP Entity ID\" to exactly: ${finding.expected}`,
+              `Set vendor "Entity ID" / "Audience URI" / "SP Entity ID" to exactly: ${finding.expected}`,
               "If vendor imported metadata, re-import to avoid truncation or stale values.",
               "⚠️ Entity IDs are case-sensitive - verify exact casing"
             ],
@@ -336,7 +336,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
             title: "Fix in vendor app (SP)",
             owner: "vendor SP",
             bullets: [
-              `Set vendor \"ACS URL\" / \"Assertion Consumer Service URL\" to exactly: ${acs}`,
+              `Set vendor "ACS URL" / "Assertion Consumer Service URL" to exactly: ${acs}`,
               urlExactMatchNote,
               "If vendor has multiple ACS entries, ensure the active/default one matches.",
               "Verify the vendor is using HTTPS (not HTTP) for the ACS URL."
@@ -1572,7 +1572,7 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
       steps.push(`Observed: ${finding.observed}.`);
 
       const isOidcRelated = finding.ruleId.startsWith("OIDC_");
-      const defaultDocLink = isOidcRelated ? oidcDocLink : docLink;
+      const _defaultDocLink = isOidcRelated ? oidcDocLink : docLink;
 
       return {
         title: finding.title,
