@@ -59,10 +59,10 @@ function classifyError(err: unknown, response?: Response): AIErrorInfo {
     return { kind: "timeout", message: "Request timed out. Please try again or check your connection." };
   }
 
-  if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
+  if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch") || errorMessage.includes("Content Security Policy")) {
     return { 
       kind: "fetch_error", 
-      message: "Network request failed. This may be due to firewall, VPN, or extension network restrictions. Your deterministic answer is shown above." 
+      message: "Network request was blocked. This may be due to firewall, VPN, proxy, or CSP restrictions. Your deterministic answer is shown above." 
     };
   }
 

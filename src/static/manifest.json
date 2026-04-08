@@ -6,6 +6,9 @@
   "minimum_chrome_version": "120",
   "permissions": ["storage", "webRequest", "sidePanel", "tabs", "alarms", "scripting"],
   "host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

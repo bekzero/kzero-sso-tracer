@@ -64,7 +64,7 @@ describe("openAIProvider", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Network request failed");
+      expect(result.error).toContain("Network request");
     });
 
     it("handles non-OK HTTP response", async () => {
