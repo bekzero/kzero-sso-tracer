@@ -8,9 +8,9 @@ describe("migrateSettings", () => {
     expect(result.hasSeenScopeNotice).toBe(true);
   });
 
-  it("existing user without version gets full capture and notice", () => {
+  it("existing user without version gets auth-only (privacy-safe default)", () => {
     const result = migrateSettings({});
-    expect(result.captureScope).toBe("full");
+    expect(result.captureScope).toBe("auth-only");
     expect(result.hasSeenScopeNotice).toBe(false);
   });
 

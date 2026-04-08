@@ -97,7 +97,7 @@ export const migrateSettings = (stored: Partial<Settings> | undefined): Settings
     return {
       ...DEFAULT_SETTINGS_V4,
       ...stored,
-      captureScope: stored.captureScope ?? "full",
+      captureScope: stored.captureScope ?? "auth-only",
       hasSeenScopeNotice: false,
       settingsVersion: SETTINGS_VERSION,
       debugEnabled: stored.debugEnabled ?? false,
