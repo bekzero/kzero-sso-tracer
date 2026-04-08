@@ -30,10 +30,15 @@ chrome.commands.onCommand.addListener((command) => {
   });
 });
 
-const broadcast = (_tabId: number, session: CaptureSession): void => {
-  for (const [, ports] of panelPorts) {
-    ports.forEach((port) => port.postMessage({ type: "SESSION_UPDATE", session }));
-  }
+const broadcast = (tabId: number, session: CaptureSession): void => {
+  const ports = panelPorts.get(tabId) ?? [];
+  ports.forEach((port) => {
+    try {
+      port.postMessage({ type: "SESSION_UPDATE", session });
+    } catch {
+      panelPorts.delete(tabId);
+    }
+  });
 };
 
 chrome.runtime.onConnect.addListener((port) => {

@@ -12,8 +12,6 @@ const HISTORY_KEY = "history:sessions";
 const MAX_EVENTS_PER_SESSION = 500;
 const MAX_SESSION_SIZE_BYTES = 512 * 1024;
 
-const GLOBAL_TAB_ID = 0;
-
 const storageGet = async <T>(key: string): Promise<T | undefined> => {
   const result = await chrome.storage.local.get(key);
   return result[key] as T | undefined;
@@ -106,34 +104,41 @@ const shouldCaptureEvent = async (raw: RawCaptureEvent): Promise<boolean> => {
   return true;
 };
 
-const sessionDiscoveredHosts = new Set<string>();
+const sessionDiscoveredHosts = new Map<number, Set<string>>();
 
-export const isGlobalCaptureActive = (): boolean => {
-  const globalSession = sessions.get(GLOBAL_TAB_ID);
-  return globalSession?.active ?? false;
+const getDiscoveredHostsForTab = (tabId: number): Set<string> => {
+  if (!sessionDiscoveredHosts.has(tabId)) {
+    sessionDiscoveredHosts.set(tabId, new Set());
+  }
+  return sessionDiscoveredHosts.get(tabId)!;
 };
 
-export const startCapture = async (_tabId: number): Promise<CaptureSession> => {
+export const isTabCaptureActive = (tabId: number): boolean => {
+  const tabSession = sessions.get(tabId);
+  return tabSession?.active ?? false;
+};
+
+export const startCapture = async (tabId: number): Promise<CaptureSession> => {
   const session: CaptureSession = {
-    tabId: GLOBAL_TAB_ID,
+    tabId,
     active: true,
     startedAt: Date.now(),
     rawEvents: [],
     normalizedEvents: [],
     findings: []
   };
-  sessions.set(GLOBAL_TAB_ID, session);
-  sessionDiscoveredHosts.clear();
-  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
-  void logDebug("capture", "Capture started (fresh session)", { tabId: session.tabId });
+  sessions.set(tabId, session);
+  getDiscoveredHostsForTab(tabId).clear();
+  void storageSet(SESSION_KEY(tabId), session);
+  void logDebug("capture", "Capture started", { tabId: session.tabId });
   return session;
 };
 
-export const stopCapture = (_tabId: number): CaptureSession => {
-  const session = ensureSession(GLOBAL_TAB_ID);
+export const stopCapture = (tabId: number): CaptureSession => {
+  const session = ensureSession(tabId);
   session.active = false;
   session.stoppedAt = Date.now();
-  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), session);
+  void storageSet(SESSION_KEY(tabId), session);
   void logDebug("capture", "Capture stopped", { 
     tabId: session.tabId, 
     eventCount: session.rawEvents.length,
@@ -148,52 +153,52 @@ export const stopCapture = (_tabId: number): CaptureSession => {
   return session;
 };
 
-export const clearSession = (_tabId: number): CaptureSession => {
-  const session = ensureSession(GLOBAL_TAB_ID);
+export const clearSession = (tabId: number): CaptureSession => {
+  const session = ensureSession(tabId);
   session.rawEvents = [];
   session.normalizedEvents = [];
   session.findings = [];
-  sessionDiscoveredHosts.clear();
-  void storageRemove(SESSION_KEY(GLOBAL_TAB_ID));
+  getDiscoveredHostsForTab(tabId).clear();
+  void storageRemove(SESSION_KEY(tabId));
   return session;
 };
 
 export const addRawEvent = async (tabId: number, raw: RawCaptureEvent): Promise<CaptureSession | undefined> => {
-  const globalSession = sessions.get(GLOBAL_TAB_ID);
-  if (!globalSession?.active) {
+  const tabSession = sessions.get(tabId);
+  if (!tabSession?.active) {
     return undefined;
   }
 
   if (!await shouldCaptureEvent(raw)) {
-    return globalSession;
+    return tabSession;
   }
 
-  if (globalSession.rawEvents.length >= MAX_EVENTS_PER_SESSION) return globalSession;
+  if (tabSession.rawEvents.length >= MAX_EVENTS_PER_SESSION) return tabSession;
 
-  const sessionSize = new Blob([JSON.stringify(globalSession)]).size;
+  const sessionSize = new Blob([JSON.stringify(tabSession)]).size;
   const rawSize = new Blob([JSON.stringify(raw)]).size;
   if (sessionSize + rawSize > MAX_SESSION_SIZE_BYTES) {
     void logDebug("capture", "Event dropped (session size limit)", { url: raw.url });
-    return globalSession;
+    return tabSession;
   }
 
   const { isAuthRelevant } = classifyEvent(raw);
   if (isAuthRelevant && raw.host) {
-    sessionDiscoveredHosts.add(raw.host);
+    getDiscoveredHostsForTab(tabId).add(raw.host);
   }
 
-  globalSession.rawEvents.push(raw);
+  tabSession.rawEvents.push(raw);
   const normalized = normalizeRawEvent(raw);
-  globalSession.normalizedEvents.push(normalized);
-  globalSession.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
+  tabSession.normalizedEvents.push(normalized);
+  tabSession.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
   
-  globalSession.findings = runFindingsEngine(globalSession.normalizedEvents);
-  void storageSet(SESSION_KEY(GLOBAL_TAB_ID), globalSession);
+  tabSession.findings = runFindingsEngine(tabSession.normalizedEvents);
+  void storageSet(SESSION_KEY(tabId), tabSession);
 
-  return globalSession;
+  return tabSession;
 };
 
-export const getSession = (_tabId: number): CaptureSession => ensureSession(GLOBAL_TAB_ID);
+export const getSession = (tabId: number): CaptureSession => ensureSession(tabId);
 
 const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
   if (!session.startedAt || !session.stoppedAt) {
@@ -240,5 +245,10 @@ export const loadHistoryItem = async (itemId: string): Promise<CaptureHistoryIte
   return history.find((item) => item.id === itemId);
 };
 
-export const getDiscoveredAuthHosts = (): string[] => 
-  Array.from(sessionDiscoveredHosts);
+export const getDiscoveredAuthHosts = (_tabId?: number): string[] => {
+  const allHosts = new Set<string>();
+  for (const hosts of sessionDiscoveredHosts.values()) {
+    hosts.forEach(h => allHosts.add(h));
+  }
+  return Array.from(allHosts);
+};
