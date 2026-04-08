@@ -1,5 +1,12 @@
 export type CaptureScope = "auth-only" | "auth-plus-allowlist" | "full";
 
+export interface AISettings {
+  enabled: boolean;
+  apiKey: string;
+  includeFindings: boolean;
+  hasSeenConsent: boolean;
+}
+
 export interface Settings {
   autoStartOnTabSwitch: boolean;
   maxHistoryItems: number;
@@ -11,9 +18,31 @@ export interface Settings {
   hasSeenScopeNotice: boolean;
   settingsVersion: number;
   debugEnabled: boolean;
+  ai: AISettings;
 }
 
-const SETTINGS_VERSION = 3;
+const SETTINGS_VERSION = 4;
+
+const DEFAULT_AI_SETTINGS: AISettings = {
+  enabled: false,
+  apiKey: "",
+  includeFindings: true,
+  hasSeenConsent: false
+};
+
+const DEFAULT_SETTINGS_V4: Settings = {
+  autoStartOnTabSwitch: false,
+  maxHistoryItems: 30,
+  redactionStrictness: "strict",
+  defaultDetailTab: "happened",
+  showOnboarding: true,
+  captureScope: "auth-only",
+  allowedHosts: [],
+  hasSeenScopeNotice: true,
+  settingsVersion: SETTINGS_VERSION,
+  debugEnabled: false,
+  ai: { ...DEFAULT_AI_SETTINGS }
+};
 
 const DEFAULT_SETTINGS_V3: Settings = {
   autoStartOnTabSwitch: false,
@@ -24,8 +53,9 @@ const DEFAULT_SETTINGS_V3: Settings = {
   captureScope: "auth-only",
   allowedHosts: [],
   hasSeenScopeNotice: true,
-  settingsVersion: SETTINGS_VERSION,
-  debugEnabled: false
+  settingsVersion: 3,
+  debugEnabled: false,
+  ai: { ...DEFAULT_AI_SETTINGS }
 };
 
 const DEFAULT_SETTINGS_V2: Settings = {
@@ -38,7 +68,8 @@ const DEFAULT_SETTINGS_V2: Settings = {
   allowedHosts: [],
   hasSeenScopeNotice: true,
   settingsVersion: SETTINGS_VERSION,
-  debugEnabled: false
+  debugEnabled: false,
+  ai: { ...DEFAULT_AI_SETTINGS }
 };
 
 const DEFAULT_SETTINGS_V1: Settings = {
@@ -51,28 +82,30 @@ const DEFAULT_SETTINGS_V1: Settings = {
   allowedHosts: [],
   hasSeenScopeNotice: false,
   settingsVersion: 1,
-  debugEnabled: false
+  debugEnabled: false,
+  ai: { ...DEFAULT_AI_SETTINGS }
 };
 
 const SETTINGS_KEY = "settings";
 
 export const migrateSettings = (stored: Partial<Settings> | undefined): Settings => {
   if (!stored) {
-    return { ...DEFAULT_SETTINGS_V3 };
+    return { ...DEFAULT_SETTINGS_V4 };
   }
 
   if (!stored.settingsVersion || stored.settingsVersion < SETTINGS_VERSION) {
     return {
-      ...DEFAULT_SETTINGS_V3,
+      ...DEFAULT_SETTINGS_V4,
       ...stored,
       captureScope: stored.captureScope ?? "full",
       hasSeenScopeNotice: false,
       settingsVersion: SETTINGS_VERSION,
-      debugEnabled: stored.debugEnabled ?? false
+      debugEnabled: stored.debugEnabled ?? false,
+      ai: stored.ai ? { ...DEFAULT_AI_SETTINGS, ...stored.ai } : { ...DEFAULT_AI_SETTINGS }
     };
   }
 
-  return { ...DEFAULT_SETTINGS_V3, ...stored };
+  return { ...DEFAULT_SETTINGS_V4, ...stored };
 };
 
 export const getSettings = async (): Promise<Settings> => {

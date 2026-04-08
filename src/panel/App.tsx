@@ -29,6 +29,7 @@ import Compare from "./Compare";
 import SettingsPanel from "./Settings";
 import ConfirmDialog from "./ConfirmDialog";
 import { TenantValidator } from "./TenantValidator";
+import { AssistantPanel } from "./AssistantPanel";
 
 interface AppProps {
   mode?: "devtools" | "sidepanel";
@@ -255,6 +256,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [includePostLogin, setIncludePostLogin] = useState(false);
   const [showRawWarning, setShowRawWarning] = useState(false);
   const [historyNotice, setHistoryNotice] = useState<"" | "saved">("");
+  const [showAssistant, setShowAssistant] = useState(false);
   const prevSessionActiveRef = useRef<boolean>(false);
 
   const narrowTab = leftTab;
@@ -1678,6 +1680,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           {history.length >= 2 && (
             <button className="btn btn-ghost" onClick={() => setShowCompare(true)} title="Compare two sessions">Compare</button>
           )}
+          <button className="btn btn-ghost" onClick={() => setShowAssistant(true)} title="Get help">Help</button>
           {session?.active && (
             <div className="live-badge">
               <span className="live-dot" />
@@ -1782,6 +1785,23 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           }}>Keep Full Capture</button>
         </div>
       )}
+
+      <AssistantPanel
+        session={session}
+        findings={session?.findings ?? []}
+        isOpen={showAssistant}
+        onToggle={() => setShowAssistant(!showAssistant)}
+        onSelectFinding={(ruleId) => {
+          const finding = session?.findings.find(f => f.ruleId === ruleId);
+          if (finding) {
+            setSelectedFindingId(finding.id);
+            setDetailTab("happened");
+          }
+        }}
+        aiEnabled={settings?.ai.enabled ?? false}
+        aiApiKey={settings?.ai.apiKey ?? ""}
+        aiIncludeFindings={settings?.ai.includeFindings ?? true}
+      />
 
     </div>
   );

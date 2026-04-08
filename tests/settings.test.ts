@@ -22,7 +22,7 @@ describe("migrateSettings", () => {
 
   it("upgrades old version properly", () => {
     const result = migrateSettings({ settingsVersion: 1, captureScope: "full" });
-    expect(result.settingsVersion).toBe(3);
+    expect(result.settingsVersion).toBe(4);
     expect(result.captureScope).toBe("full");
   });
 });

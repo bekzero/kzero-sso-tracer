@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import type { Settings, CaptureScope } from "../shared/settings";
+import type { Settings, CaptureScope, AISettings } from "../shared/settings";
 import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
 import { getDiscoveredAuthHosts } from "../capture/sessionStore";
+import { isAIDisabledByPolicy, setEnterpriseAIPolicy } from "../help/ai/policy";
 
 interface SettingsProps {
   onClose: () => void;
@@ -243,6 +244,111 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
           <button className="btn btn-danger" onClick={handleReset}>
             Reset to defaults
           </button>
+        </section>
+
+        <section className="settings-section">
+          <h3>AI Assistant</h3>
+          <p className="settings-note">
+            Enable optional AI help powered by OpenAI. Your API key is stored locally and never sent to our servers.
+          </p>
+          
+          {isAIDisabledByPolicy() ? (
+            <div className="settings-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
+              <p style={{ color: "var(--err)", fontSize: "13px" }}>
+                AI Assistant has been disabled by your organization.
+              </p>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => {
+                  setEnterpriseAIPolicy(false);
+                  window.location.reload();
+                }}
+                style={{ fontSize: "12px" }}
+              >
+                Override (if allowed)
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="settings-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.ai.enabled}
+                    onChange={(e) => update({ 
+                      ai: { ...settings.ai, enabled: e.target.checked }
+                    })}
+                  />
+                  <span className="settings-row-label">Enable AI Assistant</span>
+                </label>
+              </div>
+
+              {settings.ai.enabled && (
+                <>
+                  <div style={{ marginTop: "12px" }}>
+                    <label className="settings-row-label" style={{ display: "block", marginBottom: "6px" }}>
+                      OpenAI API Key
+                    </label>
+                    <input
+                      type="password"
+                      className="search"
+                      style={{ width: "100%", padding: "10px 12px" }}
+                      placeholder="sk-..."
+                      value={settings.ai.apiKey}
+                      onChange={(e) => update({ 
+                        ai: { ...settings.ai, apiKey: e.target.value }
+                      })}
+                    />
+                    <p className="settings-note" style={{ marginTop: "6px" }}>
+                      Your API key is stored locally in Chrome. We never see or store it.
+                    </p>
+                  </div>
+
+                  <div className="settings-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px", marginTop: "12px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={settings.ai.includeFindings}
+                        onChange={(e) => update({ 
+                          ai: { ...settings.ai, includeFindings: e.target.checked }
+                        })}
+                      />
+                      <span className="settings-row-label">Include current findings in AI context</span>
+                    </label>
+                    <p className="settings-note" style={{ marginTop: "0" }}>
+                      When enabled, AI can see your current findings to provide more relevant help.
+                    </p>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="settings-section">
+          <h3>Enterprise Policy</h3>
+          <p className="settings-note">
+            Administrative controls for this extension.
+          </p>
+          <div className="settings-row">
+            <div className="settings-row-info">
+              <span className="settings-row-label">AI Assistant</span>
+              <span className="settings-row-desc">
+                {isAIDisabledByPolicy() ? "Disabled by policy" : "Allowed"}
+              </span>
+            </div>
+            {!isAIDisabledByPolicy() && (
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => {
+                  setEnterpriseAIPolicy(true);
+                }}
+                style={{ fontSize: "12px", padding: "6px 12px" }}
+              >
+                Disable AI
+              </button>
+            )}
+          </div>
         </section>
       </div>
     </div>
