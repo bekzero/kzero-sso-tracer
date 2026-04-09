@@ -65,7 +65,7 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 **Export Options**:
 - **Summary**: Event counts, findings list, OIDC summary - minimal detail
 - **Sanitized**: Events with secrets removed or hashed - safe for sharing
-- **Raw**: Complete data including tokens and SAML payloads - sensitive
+- **Raw**: Full normalized data including decoded tokens and SAML payloads - includes all parsed artifacts but not raw capture bytes
 
 **Permissions**:
 - `<all_urls>` host permission: Required to capture traffic from any website

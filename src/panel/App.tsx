@@ -807,7 +807,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                             <span className="mono">{item.findingCount} findings</span>
                           </div>
                         </div>
-                        <div className="row-meta mono">Tab {item.tabId}</div>
+                        <div className="row-meta mono">
+                            {item.startedAt ? new Date(item.startedAt).toLocaleString() : "Unknown"} — Tab {item.tabId}
+                          </div>
                       </li>
                     ))}
                   </ul>
@@ -1221,7 +1223,9 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                       <span className="mono">{item.findingCount} findings</span>
                     </div>
                   </div>
-                  <div className="row-meta mono">Tab {item.tabId}</div>
+                  <div className="row-meta mono">
+                      {item.startedAt ? new Date(item.startedAt).toLocaleString() : "Unknown"} — Tab {item.tabId}
+                    </div>
                 </li>
               ))}
             </ul>
