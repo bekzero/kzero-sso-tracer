@@ -1,6 +1,4 @@
-import { getSettings } from "./settings";
-
-const DEBUG_KEY = "debug:logs";
+const debugLogs: Array<{ timestamp: number; source: string; message: string; data?: unknown }> = [];
 const MAX_DEBUG_ENTRIES = 500;
 
 export interface DebugLogEntry {
@@ -10,39 +8,16 @@ export interface DebugLogEntry {
   data?: unknown;
 }
 
-export const logDebug = async (source: string, message: string, data?: unknown): Promise<void> => {
-  try {
-    const settings = await getSettings();
-    if (!settings.debugEnabled) {
-      return;
-    }
-    
-    const result = await chrome.storage.local.get(DEBUG_KEY);
-    const logs = (result[DEBUG_KEY] as DebugLogEntry[]) ?? [];
-    
-    const entry: DebugLogEntry = {
-      timestamp: Date.now(),
-      source,
-      message,
-      data
-    };
-    
-    const updated = [entry, ...logs].slice(0, MAX_DEBUG_ENTRIES);
-    await chrome.storage.local.set({ [DEBUG_KEY]: updated });
-  } catch {
-    // Silently fail - debug logging should never break functionality
-  }
+export const logDebug = async (_source: string, _message: string, _data?: unknown): Promise<void> => {
+  // Debug logging is now memory-only for security
+  // To re-enable persistent logging, add a proper debug viewer UI
+  // that respects user consent and doesn't persist sensitive data
 };
 
 export const getDebugLogs = async (): Promise<DebugLogEntry[]> => {
-  try {
-    const result = await chrome.storage.local.get(DEBUG_KEY);
-    return (result[DEBUG_KEY] as DebugLogEntry[]) ?? [];
-  } catch {
-    return [];
-  }
+  return debugLogs.slice(0, MAX_DEBUG_ENTRIES);
 };
 
 export const clearDebugLogs = async (): Promise<void> => {
-  await chrome.storage.local.remove(DEBUG_KEY);
+  debugLogs.length = 0;
 };

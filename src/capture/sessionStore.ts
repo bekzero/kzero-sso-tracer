@@ -1,6 +1,6 @@
 import { normalizeRawEvent } from "../normalizers";
 import { runFindingsEngine } from "../rules";
-import type { CaptureHistoryItem, CaptureSession, RawCaptureEvent } from "../shared/models";
+import type { CaptureHistoryItem, CaptureHistorySummary, CaptureSession, RawCaptureEvent } from "../shared/models";
 import { nowId } from "../shared/utils";
 import { classifyEvent } from "./hostClassifier";
 import { getSettings } from "../shared/settings";
@@ -217,26 +217,25 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
   const protocolHints = [...new Set(session.normalizedEvents.map((event) => event.protocol))]
     .filter((p) => p !== "unknown")
     .map((p) => String(p));
-  const snapshot: CaptureHistoryItem = {
+  
+  const topFindings = session.findings.slice(0, 3).map(f => ({
+    ruleId: f.ruleId,
+    title: f.title,
+    severity: f.severity
+  }));
+  
+  const snapshot: CaptureHistorySummary = {
     id: nowId(),
     tabId: session.tabId,
     startedAt: session.startedAt,
     stoppedAt: session.stoppedAt,
     protocolHints,
     findingCount: session.findings.length,
-    session: {
-      tabId: session.tabId,
-      active: false,
-      startedAt: session.startedAt,
-      stoppedAt: session.stoppedAt,
-      rawEvents: [],
-      normalizedEvents: session.normalizedEvents,
-      findings: session.findings
-    }
+    topFindings
   };
   const next = [snapshot, ...history].slice(0, settings.maxHistoryItems);
   await storageSet(HISTORY_KEY, next);
-  void logDebug("capture", "History saved", { historyCount: next.length });
+  void logDebug("capture", "History saved (summary only)", { historyCount: next.length });
 };
 
 export const getHistory = async (): Promise<CaptureHistoryItem[]> =>

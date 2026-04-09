@@ -121,7 +121,7 @@ export const setupMessageHandlers = (): void => {
           sendError(respond, "History item not found");
           return;
         }
-        sendOk(respond, { session: item.session });
+        sendOk(respond, { session: undefined });
       });
       return true;
     }

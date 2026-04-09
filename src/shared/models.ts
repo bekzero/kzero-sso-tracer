@@ -149,15 +149,18 @@ export interface CaptureSession {
   findings: Finding[];
 }
 
-export interface CaptureHistoryItem {
+export interface CaptureHistorySummary {
   id: string;
   tabId: number;
   startedAt?: number;
   stoppedAt?: number;
   protocolHints: string[];
   findingCount: number;
-  session: CaptureSession;
+  topFindings?: Array<{ ruleId: string; title: string; severity: string }>;
+  session?: CaptureSession;
 }
+
+export type CaptureHistoryItem = CaptureHistorySummary;
 
 export type ExportMode = "summary" | "sanitized" | "raw";
 

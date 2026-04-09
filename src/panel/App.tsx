@@ -431,9 +431,11 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       if (chrome.runtime.lastError) {
         return;
       }
-      if (resp?.session) {
-        setSession(resp.session as CaptureSession);
+      if (resp?.historySummary) {
         setSelectedHistoryId(id);
+        setSession(null);
+        setSelectedEventId(null);
+        setSelectedFindingId(null);
       }
     });
   };
@@ -1165,7 +1167,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       </div>
       {leftTab === "compare" && (
         <Compare
-          history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+          history={history.map(h => ({ ...h, session: { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
           onClose={() => setShowCompare(false)}
         />
       )}
@@ -1479,7 +1481,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       {narrowTab === "compare" ? (
         <section className="pane pane-fill">
           <Compare
-            history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+            history={history.map(h => ({ ...h, session: { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
             onClose={() => setShowCompare(false)}
           />
         </section>
@@ -1676,7 +1678,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv"); }}>CSV (findings only)</button>
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("csv-summary"); }}>CSV (summary)</button>
                   <button onClick={() => { setExportMenuOpen(false); setPendingExport("shareable"); }}>Shareable trace (.txt)</button>
-                  <button onClick={() => { setExportMenuOpen(false); setPendingExport("shareable-link"); }}>Shareable link (clipboard)</button>
                 </div>
               )}
             </div>
@@ -1719,7 +1720,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
       <main className={classNames("main", isNarrow ? "main-narrow" : "main-wide")}>
         {showCompare ? (
           <Compare
-            history={history.map(h => ({ ...h, session: h.session ?? { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
+            history={history.map(h => ({ ...h, session: { tabId: h.tabId, active: false, rawEvents: [], normalizedEvents: [], findings: [] } }))}
             onClose={() => setShowCompare(false)}
           />
         ) : isNarrow ? narrowLayout : wideLayout}
