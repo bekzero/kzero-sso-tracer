@@ -1,5 +1,5 @@
 {
-  "name": "kzero-federation-tracer",
+  "name": "kzero-sso-tracer",
   "version": "0.2.0",
   "private": true,
   "description": "KZero-specific SAML/OIDC federation diagnostics Chrome extension",

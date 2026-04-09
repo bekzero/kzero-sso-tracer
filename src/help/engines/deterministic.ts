@@ -318,41 +318,18 @@ export function getQuickSuggestions(ctx: HelpContext): QuickSuggestion[] {
     });
   }
 
-  if (suggestions.length < 3) {
-    suggestions.push({
-      id: "troubleshoot-login",
-      label: "Why is my login failing?",
-      category: "troubleshooting",
-      icon: "🔧"
-    });
-  }
+  suggestions.push({
+    id: "troubleshoot-login",
+    label: "Why is my login failing?",
+    category: "troubleshooting",
+    icon: "🔧"
+  });
 
   suggestions.push({
     id: "concept-redirect",
     label: "What is a Redirect URI?",
     category: "concept",
     icon: "🔗"
-  });
-
-  suggestions.push({
-    id: "concept-issuer",
-    label: "What is an Issuer?",
-    category: "concept",
-    icon: "🏷️"
-  });
-
-  suggestions.push({
-    id: "concept-saml",
-    label: "How does SAML work?",
-    category: "concept",
-    icon: "📖"
-  });
-
-  suggestions.push({
-    id: "concept-oidc",
-    label: "How does OIDC work?",
-    category: "concept",
-    icon: "📖"
   });
 
   return suggestions;
