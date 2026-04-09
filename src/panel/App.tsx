@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildSanitizedExport, buildRawExport, buildSummaryExport } from "../export";
 import { downloadHar } from "../export/harExport";
 import { downloadFindingsCsv, downloadSummaryCsv } from "../export/csvExport";
-import { downloadShareableTrace, copyShareableLink } from "../export/shareableExport";
+import { downloadShareableTrace } from "../export/shareableExport";
 import type {
   CaptureHistoryItem,
   CaptureSession,
@@ -247,7 +247,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
   const [showCompare, setShowCompare] = useState(false);
   const [showTabPicker, setShowTabPicker] = useState(false);
   const [availableTabs, setAvailableTabs] = useState<Array<{ id: number; title: string; url: string }>>([]);
-  type ExportFormat = "json" | "har" | "csv" | "csv-summary" | "shareable" | "shareable-link";
+  type ExportFormat = "json" | "har" | "csv" | "csv-summary" | "shareable";
   const [pendingExport, setPendingExport] = useState<ExportFormat | null>(null);
   const [pendingInjection, setPendingInjection] = useState<{ labels: string[] } | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -491,9 +491,6 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
         break;
       case "shareable":
         downloadShareableTrace(session);
-        break;
-      case "shareable-link":
-        await copyShareableLink(session);
         break;
     }
   };

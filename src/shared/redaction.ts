@@ -377,9 +377,36 @@ export const redactRecord = (
 ): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(record)) {
-    out[k] = redactValue(k, v, counts);
+    out[k] = redactValueRecursive(k, v, counts);
   }
   return out;
+};
+
+const redactValueRecursive = (
+  key: string,
+  value: unknown,
+  counts: Map<string, number>
+): unknown => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      return value.map((item) => redactValueRecursive(key, item, counts));
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = redactValueRecursive(k, v, counts);
+    }
+    return out;
+  }
+
+  return redactValue(key, value, counts);
 };
 
 export const sanitizeRelayState = (relayState: string): string => {
@@ -412,7 +439,7 @@ export const sanitizeRelayState = (relayState: string): string => {
     url.search = safeParams.toString();
     return url.toString();
   } catch {
-    return relayState;
+    return "***";
   }
 };
 

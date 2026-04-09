@@ -250,7 +250,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
         <section className="settings-section">
           <h3>AI Assistant</h3>
           <p className="settings-note">
-            Enable optional AI help powered by OpenAI. Your API key is stored locally in your browser - not on any server.
+            Enable optional AI help powered by OpenAI. Your API key is held in memory only for this browser session - it is not stored persistently.
           </p>
           
           {isAIDisabledLocally() ? (

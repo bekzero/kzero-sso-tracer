@@ -318,26 +318,14 @@ export function getQuickSuggestions(ctx: HelpContext): QuickSuggestion[] {
     });
   }
 
-  suggestions.push({
-    id: "concept-saml",
-    label: "How does SAML work?",
-    category: "concept",
-    icon: "📖"
-  });
-
-  suggestions.push({
-    id: "concept-oidc",
-    label: "How does OIDC work?",
-    category: "concept",
-    icon: "📖"
-  });
-
-  suggestions.push({
-    id: "troubleshoot-login",
-    label: "Why is my login failing?",
-    category: "troubleshooting",
-    icon: "🔧"
-  });
+  if (suggestions.length < 3) {
+    suggestions.push({
+      id: "troubleshoot-login",
+      label: "Why is my login failing?",
+      category: "troubleshooting",
+      icon: "🔧"
+    });
+  }
 
   suggestions.push({
     id: "concept-redirect",
@@ -351,6 +339,20 @@ export function getQuickSuggestions(ctx: HelpContext): QuickSuggestion[] {
     label: "What is an Issuer?",
     category: "concept",
     icon: "🏷️"
+  });
+
+  suggestions.push({
+    id: "concept-saml",
+    label: "How does SAML work?",
+    category: "concept",
+    icon: "📖"
+  });
+
+  suggestions.push({
+    id: "concept-oidc",
+    label: "How does OIDC work?",
+    category: "concept",
+    icon: "📖"
   });
 
   return suggestions;

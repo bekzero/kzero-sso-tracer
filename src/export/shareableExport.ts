@@ -46,14 +46,6 @@ export const encodeShareableTrace = (trace: ShareableTrace): string => {
   return utf8ToBase64(json);
 };
 
-export const buildShareableLink = (session: CaptureSession | null): string | null => {
-  const trace = buildShareableTrace(session);
-  if (!trace) return null;
-  const encoded = encodeShareableTrace(trace);
-  const viewerUrl = chrome.runtime.getURL("viewer.html");
-  return `${viewerUrl}?trace=${encodeURIComponent(encoded)}`;
-};
-
 export const downloadShareableTrace = (session: CaptureSession | null): void => {
   const trace = buildShareableTrace(session);
   if (!trace) return;
@@ -65,11 +57,4 @@ export const downloadShareableTrace = (session: CaptureSession | null): void => 
   a.download = `kzero-trace-shareable-${trace.tabId}-${Date.now()}.txt`;
   a.click();
   URL.revokeObjectURL(url);
-};
-
-export const copyShareableLink = async (session: CaptureSession | null): Promise<string | null> => {
-  const link = buildShareableLink(session);
-  if (!link) return null;
-  await navigator.clipboard.writeText(link);
-  return link;
 };
