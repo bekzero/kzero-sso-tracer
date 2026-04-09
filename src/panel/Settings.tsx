@@ -3,6 +3,7 @@ import type { Settings, CaptureScope } from "../shared/settings";
 import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
 import { getDiscoveredAuthHosts } from "../capture/sessionStore";
 import { isAIDisabledLocally, setLocalAISettings } from "../help/ai/policy";
+import { setSessionApiKey, getSessionApiKey, hasSessionApiKey } from "../help/ai/sessionKey";
 
 interface SettingsProps {
   onClose: () => void;
@@ -314,20 +315,18 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                 <>
                   <div style={{ marginTop: "12px" }}>
                     <label className="settings-row-label" style={{ display: "block", marginBottom: "6px" }}>
-                      OpenAI API Key
+                      OpenAI API Key (session-only)
                     </label>
                     <input
                       type="password"
                       className="search"
                       style={{ width: "100%", padding: "10px 12px" }}
                       placeholder="sk-..."
-                      value={settings.ai.apiKey}
-                      onChange={(e) => update({ 
-                        ai: { ...settings.ai, apiKey: e.target.value }
-                      })}
+                      value={getSessionApiKey() ?? ""}
+                      onChange={(e) => setSessionApiKey(e.target.value)}
                     />
                     <p className="settings-note" style={{ marginTop: "6px" }}>
-                      Stored locally in this browser only. Not encrypted - anyone with access to this browser can view it.
+                      Stored in memory only for this session. Cleared when this browser tab closes.
                     </p>
                   </div>
 

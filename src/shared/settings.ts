@@ -2,7 +2,6 @@ export type CaptureScope = "auth-only" | "auth-plus-allowlist" | "full";
 
 export interface AISettings {
   enabled: boolean;
-  apiKey: string;
   includeFindings: boolean;
   hasSeenConsent: boolean;
 }
@@ -25,7 +24,6 @@ const SETTINGS_VERSION = 4;
 
 const DEFAULT_AI_SETTINGS: AISettings = {
   enabled: false,
-  apiKey: "",
   includeFindings: true,
   hasSeenConsent: false
 };

@@ -24,6 +24,7 @@ import { getFieldMapping } from "../mappings/fieldMappings";
 import { KZeroWordmark } from "./KZeroLogo";
 import type { Settings } from "../shared/settings";
 import { getSettings, saveSettings } from "../shared/settings";
+import { getSessionApiKey } from "../help/ai/sessionKey";
 import Compare from "./Compare";
 import SettingsPanel from "./Settings";
 import ConfirmDialog from "./ConfirmDialog";
@@ -1798,7 +1799,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
           }
         }}
         aiEnabled={settings?.ai.enabled ?? false}
-        aiApiKey={settings?.ai.apiKey ?? ""}
+        aiApiKey={getSessionApiKey() ?? ""}
         aiIncludeFindings={settings?.ai.includeFindings ?? true}
         aiHasSeenConsent={settings?.ai.hasSeenConsent ?? false}
         onRequestConsent={() => setShowSettings(true)}
