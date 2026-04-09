@@ -5,15 +5,16 @@
 #    - Create a Google Cloud project at https://console.cloud.google.com
 #    - Enable the "Chrome Web Store API" API
 #    - Create an OAuth 2.0 client ID (Web application type)
-#    - Install chrome-webstore-upload CLI: npm install -g chrome-webstore-upload-cli
+#    - Copy the client ID and client secret as GitHub Secrets
 #    - Run: chrome-webstore-upload authenticate <YOUR_EXTENSION_ID>
 #      (this saves a refresh token to ~/.config/chrome-webstore-upload/credentials.json)
-#    - Copy the token content as a GitHub Secret named WEBSTORE_REFRESH_TOKEN
-#    - Add WEBSTORE_EXTENSION_ID as a secret too
+#    - Copy the refresh token content as a GitHub Secret
 #
 # 2. Add GitHub Secrets:
-#    - WEBSTORE_REFRESH_TOKEN   — the refresh token from step 1
-#    - WEBSTORE_EXTENSION_ID    — your Chrome Web Store extension ID (e.g. "abcdefghijklmnop")
+#    - CHROME_EXTENSION_ID   — your Chrome Web Store extension ID (e.g. "abcdefghijklmnop")
+#    - CHROME_CLIENT_ID     — OAuth 2.0 client ID
+#    - CHROME_CLIENT_SECRET — OAuth 2.0 client secret
+#    - CHROME_REFRESH_TOKEN — refresh token from authenticate step
 #
 # 3. Uncomment the `on: workflow_dispatch` block below and push.
 #
@@ -53,23 +54,30 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Web Store CLI
-        run: npm install -g chrome-webstore-upload-cli
-
-      - name: Upload to Chrome Web Store
-        env:
-          EXTENSION_ID: ${{ secrets.WEBSTORE_EXTENSION_ID }}
-          REFRESH_TOKEN: ${{ secrets.WEBSTORE_REFRESH_TOKEN }}
+      - name: Upload extension package
         run: |
-          echo "Uploading dist.zip to Chrome Web Store (ID: $EXTENSION_ID)..."
-          RESULT=$(chrome-webstore-upload upload \
+          npx -y chrome-webstore-upload-cli@3.4.0 upload \
+            --source dist.zip \
             --extension-id "$EXTENSION_ID" \
-            --refresh-token "$REFRESH_TOKEN" \
-            --file dist.zip \
-            --auto-publish)
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN"
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
 
-          echo "Upload result: $RESULT"
-
-          # Also print the new version info
-          echo "Fetching item info..."
-          chrome-webstore-upload get "$EXTENSION_ID" --refresh-token "$REFRESH_TOKEN" || true
+      - name: Publish extension
+        if: ${{ inputs.publish == true || inputs.publish == 'true' }}
+        run: |
+          npx -y chrome-webstore-upload-cli@3.4.0 publish \
+            --extension-id "$EXTENSION_ID" \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN"
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
