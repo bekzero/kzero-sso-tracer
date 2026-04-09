@@ -1035,7 +1035,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                     </>
                   ) : (
                     <div className="empty">
-                      <div className="note">No step-by-step guide available for this finding yet.</div>
+                      <div className="note">No guided fix is available for this finding yet. Review the Evidence tab, compare the linked event, or export a sanitized trace for deeper investigation.</div>
                       <div className="note">Try the <strong>What Happened</strong> tab for a plain-English explanation.</div>
                       <div className="note">Try the <strong>Evidence</strong> tab to see the raw data.</div>
                     </div>
@@ -1365,7 +1365,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
                     </>
                   ) : (
                     <div className="empty">
-                      <div className="note">No step-by-step guide available yet.</div>
+                      <div className="note">No guided fix is available for this finding yet. Review the Evidence tab, compare the linked event, or export a sanitized trace for deeper investigation.</div>
                       <div className="note">Try <strong>What Happened</strong> for an explanation.</div>
                     </div>
                   )
@@ -1706,7 +1706,7 @@ export const App = ({ mode = "sidepanel" }: AppProps): JSX.Element => {
               <option key={r.ruleId} value={r.ruleId}>{r.ruleId}</option>
             ))}
           </select>
-          <label className="filter-label">Show raw technical details:</label>
+          <label className="filter-label" title="May reveal tokens, identifiers, and assertion contents">Show sensitive raw values:</label>
           <input type="checkbox" checked={showRaw} onChange={(e) => setShowRaw(e.target.checked)} />
         </div>
         {selectedFinding?.eventId && (

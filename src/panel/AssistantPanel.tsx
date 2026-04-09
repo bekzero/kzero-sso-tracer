@@ -119,11 +119,11 @@ export const AssistantPanel = ({
           badge: "AI"
         };
         setMessages(prev => [...prev, aiMessage]);
-      } else {
+        } else {
         const errorMessage: HelpMessage = {
           id: `msg-${Date.now()}-ai-error`,
           source: "verified",
-          content: `AI request failed: ${response?.error || "Unknown error"}. Showing deterministic answer above.`,
+          content: `AI couldn't respond. Your local trace-based answer is still available below.`,
           timestamp: Date.now(),
           badge: "Verified"
         };
@@ -133,7 +133,7 @@ export const AssistantPanel = ({
       const errorMessage: HelpMessage = {
         id: `msg-${Date.now()}-ai-error`,
         source: "verified",
-        content: "AI request failed. Showing deterministic answer above.",
+        content: "AI couldn't respond. Your local trace-based answer is still available below.",
         timestamp: Date.now(),
         badge: "Verified"
       };
@@ -259,9 +259,9 @@ export const AssistantPanel = ({
                 <p className="assistant-welcome">SSO Assistant</p>
                 <p className="assistant-welcome-sub">
                   {hasFindings 
-                    ? "Ask a question to get deterministic help"
-                    : "Start a capture to get personalized help based on your findings"}
-                  {aiAvailable && <span style={{ display: "block", marginTop: "4px", color: "var(--vendor)", fontSize: "12px" }}>AI available - click 'Ask AI' after your question</span>}
+                    ? "Ask about this trace to get local, evidence-based help."
+                    : "Start a capture, reproduce the sign-in, then ask what failed."}
+                  {aiAvailable && <span style={{ display: "block", marginTop: "4px", color: "var(--vendor)", fontSize: "12px" }}>Need a broader explanation? Expand with AI after asking.</span>}
                 </p>
               </div>
             ) : (
@@ -306,7 +306,7 @@ export const AssistantPanel = ({
                 onClick={handleAskAI}
                 disabled={isLoading || messages.filter(m => m.source === "user").length === 0}
               >
-                🤖 Ask AI
+                🤖 Expand with AI
               </button>
             </div>
           )}
