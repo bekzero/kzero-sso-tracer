@@ -106,13 +106,6 @@ export const openAIProvider: AIProvider = {
 
     let response: Response | undefined;
     
-    void logDebug("ai", "Preparing OpenAI request", {
-      keyLength: apiKey?.length ?? 0,
-      keyPrefix: apiKey ? apiKey.substring(0, 3) : "none",
-      hasWhitespace: apiKey ? /\s/.test(apiKey) : false,
-      isTrimmed: apiKey ? apiKey === apiKey.trim() : false
-    });
-    
     try {
       void logDebug("ai", "Sending request to OpenAI", { endpoint: OPENAI_ENDPOINT });
       

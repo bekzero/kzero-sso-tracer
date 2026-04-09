@@ -250,8 +250,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     void logDebug("background", "REQUEST_AI received", { 
       questionLength: question?.length,
       hasFindings: Boolean(findings && findings.length > 0),
-      apiKeyLength: apiKey?.length ?? 0,
-      apiKeyPrefix: apiKey ? apiKey.substring(0, 3) : "none"
+      hasApiKey: Boolean(apiKey && apiKey.trim().length > 0)
     });
     
     import("../help/ai/provider").then(({ callAI }) => {

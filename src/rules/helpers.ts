@@ -20,8 +20,12 @@ export interface FindingInput {
   disqualifyingEvidence?: string[];
 }
 
-// Note: numeric confidence values are legacy-calibrated and may need audit.
-// Review rules with obviously overrated/underrated confidence in future.
+// Confidence calibration assumptions:
+// - High (>=0.80): Strong evidence, clear error patterns, direct trace of auth flow
+// - Medium (>=0.55): Probable issues, indirect evidence, plausible failure modes
+// - Low (<0.55): Weak signals, speculation, or incomplete traces
+// These thresholds are legacy-calibrated and may need future audit.
+// Review rules with obviously overrated/underrated confidence when calibrate()
 
 const deriveConfidenceLevel = (confidence: number): "high" | "medium" | "low" => {
   if (confidence >= 0.80) return "high";
