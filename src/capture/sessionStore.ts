@@ -129,8 +129,7 @@ export const startCapture = async (tabId: number): Promise<CaptureSession> => {
   };
   sessions.set(tabId, session);
   getDiscoveredHostsForTab(tabId).clear();
-  void storageSet(SESSION_KEY(tabId), session);
-  void logDebug("capture", "Capture started", { tabId: session.tabId });
+  void logDebug("capture", "Capture started (memory-only)", { tabId: session.tabId });
   return session;
 };
 
@@ -138,7 +137,6 @@ export const stopCapture = (tabId: number): CaptureSession => {
   const session = ensureSession(tabId);
   session.active = false;
   session.stoppedAt = Date.now();
-  void storageSet(SESSION_KEY(tabId), session);
   void logDebug("capture", "Capture stopped", { 
     tabId: session.tabId, 
     eventCount: session.rawEvents.length,
@@ -146,10 +144,11 @@ export const stopCapture = (tabId: number): CaptureSession => {
     stoppedAt: session.stoppedAt
   });
   void persistHistoryItem(session).then(() => {
-    void logDebug("capture", "History item persisted", { tabId: session.tabId });
+    void logDebug("capture", "History item persisted (sanitized)", { tabId: session.tabId });
   }).catch((err) => {
     void logDebug("capture", "History persist failed", { error: String(err) });
   });
+  sessions.delete(tabId);
   return session;
 };
 
@@ -193,7 +192,6 @@ export const addRawEvent = async (tabId: number, raw: RawCaptureEvent): Promise<
   tabSession.normalizedEvents.sort((a, b) => a.timestamp - b.timestamp);
   
   tabSession.findings = runFindingsEngine(tabSession.normalizedEvents);
-  void storageSet(SESSION_KEY(tabId), tabSession);
 
   return tabSession;
 };
@@ -226,7 +224,15 @@ const persistHistoryItem = async (session: CaptureSession): Promise<void> => {
     stoppedAt: session.stoppedAt,
     protocolHints,
     findingCount: session.findings.length,
-    session: JSON.parse(JSON.stringify(session)) as CaptureSession
+    session: {
+      tabId: session.tabId,
+      active: false,
+      startedAt: session.startedAt,
+      stoppedAt: session.stoppedAt,
+      rawEvents: [],
+      normalizedEvents: session.normalizedEvents,
+      findings: session.findings
+    }
   };
   const next = [snapshot, ...history].slice(0, settings.maxHistoryItems);
   await storageSet(HISTORY_KEY, next);
