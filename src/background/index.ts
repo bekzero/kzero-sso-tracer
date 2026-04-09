@@ -11,7 +11,12 @@ const contentPorts = new Map<number, chrome.runtime.Port>();
 chrome.alarms.create("keepalive", { periodInMinutes: 0.25 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== "keepalive") return;
-  void getSession(0);
+  chrome.tabs.query({ currentWindow: true, active: true }, (tabs) => {
+    const tabId = tabs[0]?.id;
+    if (typeof tabId === "number") {
+      getSession(tabId);
+    }
+  });
 });
 
 chrome.runtime.onInstalled.addListener(() => {
