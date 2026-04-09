@@ -58,6 +58,8 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 
 **Local-First**: All captured data stays in the browser. No telemetry, no external transmission.
 
+**AI Assistant (Optional)**: If you enable the optional AI Assistant, your question and current findings (if enabled) are sent to OpenAI for processing. This is opt-in only and disabled by default. No other data is transmitted externally.
+
 **Redaction Defaults**: The UI masks secrets by default (tokens, SAML artifacts, credentials). Users can toggle to see raw values.
 
 **Export Options**:

@@ -3,7 +3,7 @@ import type { Settings, CaptureScope } from "../shared/settings";
 import { getSettings, saveSettings, resetSettings, isValidHostname, normalizeHostname } from "../shared/settings";
 import { getDiscoveredAuthHosts } from "../capture/sessionStore";
 import { isAIDisabledLocally, setLocalAISettings } from "../help/ai/policy";
-import { setSessionApiKey, getSessionApiKey, hasSessionApiKey } from "../help/ai/sessionKey";
+import { setSessionApiKey, getSessionApiKey } from "../help/ai/sessionKey";
 
 interface SettingsProps {
   onClose: () => void;
