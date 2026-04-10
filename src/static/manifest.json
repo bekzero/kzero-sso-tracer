@@ -32,12 +32,6 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["viewer.js"],
-      "matches": ["<all_urls>"]
-    }
-  ],
   "commands": {
     "toggle-capture": {
       "suggested_key": { "default": "Alt+Shift+S", "mac": "Option+Shift+S" },

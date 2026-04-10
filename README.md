@@ -11,21 +11,25 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 ## What It Captures / Analyzes
 
 **Network Capture:**
+
 - HTTP requests/responses via Chrome DevTools network API
 - SAML POST form submissions via content script listener
 - webRequest errors for unreachable/TLS failures
 
 **Protocol Parsing:**
+
 - SAML XML (base64, DEFLATE, XML parsing)
 - OIDC parameters (authorize, callback, token endpoints)
 - JWT tokens (header and payload decoding)
 
 **Rules Engine:**
+
 - Deterministic checks for common misconfigurations
 - Findings with severity, confidence level, and owner attribution
 - Step-by-step fix guidance with KZero field mapping
 
 **Exports:**
+
 - Summary export (event counts, findings list, OIDC summary)
 - Sanitized export (events with secrets redacted/hashed)
 - Raw export (full unmodified data for debugging)
@@ -34,7 +38,7 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 
 - Does not capture cookies
 - Does not intercept all browser network traffic (limited by MV3)
-- Does not send data to any external server
+- Does not send data to any external server (except optional AI assistant uses OpenAI API when you provide a key)
 - Is not a general-purpose packet sniffer
 - Does not replace IdP or vendor server-side logs
 - Does not guarantee capture of every auth flow edge case
@@ -44,7 +48,7 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 
 - **DevTools Integration**: KZero SSO Tracer tab in Chrome DevTools
 - **Side Panel**: Review sessions without keeping DevTools open
-- **Capture Scope Settings**: 
+- **Capture Scope Settings**:
   - Auth-only (default): captures IdP, SP, and auth endpoints
   - Auth + allowlist: auth-only plus custom allowed hosts
   - Full capture: captures all network traffic
@@ -63,14 +67,16 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 **Redaction Defaults**: The UI masks secrets by default (tokens, SAML artifacts, credentials). Users can toggle to see raw values.
 
 **Export Options**:
+
 - **Summary**: Event counts, findings list, OIDC summary - minimal detail
 - **Sanitized**: Events with secrets removed or hashed - safe for sharing
 - **Raw**: Full normalized data including decoded tokens and SAML payloads - includes all parsed artifacts but not raw capture bytes
 
 **Permissions**:
+
 - `<all_urls>` host permission: Required to capture traffic from any website
 - webRequest: Required to catch errors that may not appear in DevTools
-- storage: Required for session persistence and settings
+- storage: Required for settings and history (summary-only)
 
 **Sensitive Data Warning**: Raw exports contain full tokens, SAML assertions, and user identifiers. Handle with care.
 
@@ -122,6 +128,7 @@ The extension uses Chrome's DevTools Network API as the primary capture mechanis
 ```
 
 Key directories:
+
 - `src/rules/` - Finding rules (samlRules.ts, oidcRules.ts, crossRules.ts)
 - `src/parsers/` - Protocol decoders (saml.ts, oidc.ts, jwt.ts)
 - `src/export/` - Export format handlers
@@ -146,6 +153,7 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 ## How to Use It
 
 **Starting a Trace:**
+
 1. Navigate to the vendor application login page
 2. Open DevTools (F12) → KZero SSO Tracer tab
 3. Click Start capture (or press Alt+Shift+S)
@@ -153,6 +161,7 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 5. Click Stop capture (or press Alt+Shift+S again)
 
 **Analyzing Findings:**
+
 - The Findings list shows issues detected in your auth flow
 - Each finding has severity (error/warning/info), confidence level, and owner
 - Click a finding to see:
@@ -162,11 +171,13 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
   - Artifacts (decoded SAML/XML, token details)
 
 **Exporting:**
+
 - Click Export in the panel header
 - Choose mode: Summary, Sanitized, or Raw
-- Choose format: JSON, HAR, CSV, or shareable link
+- Choose format: JSON, HAR, or CSV
 
 **Settings:**
+
 - Click the gear icon (or press Alt+Shift+P)
 - Configure capture scope (auth-only / auth + allowlist / full)
 - Manage allowed hosts for auth+allowlist mode
@@ -174,19 +185,21 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 
 ## Export Modes and Redaction Behavior
 
-| Mode | What's Included | Secrets |
-|------|----------------|---------|
-| Summary | Event counts, findings list, OIDC metadata | None - minimal export |
+| Mode      | What's Included                             | Secrets                                                                     |
+| --------- | ------------------------------------------- | --------------------------------------------------------------------------- |
+| Summary   | Event counts, findings list, OIDC metadata  | None - minimal export                                                       |
 | Sanitized | Normalized events with URL params sanitized | Removed (access_token, id_token, code, etc.) or hashed with per-export salt |
-| Raw | Complete raw events and artifacts | Full - no redaction |
+| Raw       | Complete raw events and artifacts           | Full - no redaction                                                         |
 
 **Sanitized mode**:
+
 - OIDC tokens removed entirely (access_token, refresh_token, id_token, code)
 - State, nonce, session_state replaced with salted hash for correlation
 - SAML artifacts preserved but secrets masked in UI
 - Nested URL-like fields (callbackUrl, finalUrl) also sanitized
 
 **Redaction strictness levels** (Settings):
+
 - Strict: Aggressive masking of all detected secrets
 - Moderate: Mask tokens but show some metadata
 - Off: Show all values in UI (still requires explicit toggle)
@@ -208,12 +221,14 @@ npm run clean
 ```
 
 **Adding a new rule:**
+
 1. Add rule logic in `src/rules/samlRules.ts`, `src/rules/oidcRules.ts`, or `src/rules/crossRules.ts`
 2. Use `makeFinding()` helper from `src/rules/helpers.ts`
 3. Add field mapping in `src/mappings/fieldMappings.ts`
 4. Add tests in `tests/samlRules.test.ts` or similar
 
 **Adding a new parser:**
+
 1. Add parser in `src/parsers/`
 2. Update normalizer in `src/normalizers/index.ts` to use it
 
@@ -225,6 +240,7 @@ npm run test:watch  # Watch mode for development
 ```
 
 Test categories:
+
 - `tests/rules.test.ts` - Rules engine
 - `tests/saml.test.ts` - SAML parser
 - `tests/oidc.test.ts` - OIDC parser
@@ -236,27 +252,32 @@ Test categories:
 ## Troubleshooting
 
 **Extension not capturing:**
+
 - Check that extension is enabled in chrome://extensions
 - Verify you're using Chrome 120+
 - Try reloading the page after starting capture
 - Check browser console for errors
 
 **Missing events / late capture:**
+
 - Capture must start BEFORE navigating to login page
 - If AuthnRequest is missing, the flow may be IdP-initiated or capture started late
 - The extension can only see network traffic that Chrome exposes to DevTools
 
 **Findings seem noisy:**
+
 - Use auth-only mode to filter out analytics/tracking
 - Review capture scope setting in Settings
 - Some findings (like SAML_CAPTURE_STARTED_LATE) are informational, not errors
 
 **Export confusion:**
+
 - Summary is safe for general sharing
 - Sanitized is recommended for troubleshooting with colleagues
 - Raw contains secrets - handle carefully
 
 **Conflicting findings:**
+
 - Findings are deduplicated by ruleId + observed + expected
 - Filter by ruleId using the search box
 
@@ -277,6 +298,7 @@ Test categories:
 ## Contributing / Maintenance Notes
 
 **Where to add code:**
+
 - New rules → `src/rules/` (samlRules.ts, oidcRules.ts, crossRules.ts)
 - New parsers → `src/parsers/`
 - New UI components → `src/panel/`
@@ -284,17 +306,20 @@ Test categories:
 - Tests → `tests/` (mirror src structure)
 
 **Rules guidelines:**
+
 - Findings must be evidence-backed, not invented
 - Use numeric confidence (0.0-1.0) - confidenceLevel is auto-derived
 - If ambiguous, include isAmbiguous: true with ambiguityNote or traceGaps
 - Prefer specific findings over generic warnings
 
 **Testing guidelines:**
+
 - Add tests for new rules in the appropriate test file
 - Use fixtures from tests/fixtures/ for real-world examples
 - Run `npm test` before committing
 
 **Release process:**
+
 1. Update version in package.json and manifest.json
 2. Run `npm run build`
 3. Test in Chrome

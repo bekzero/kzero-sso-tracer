@@ -6,7 +6,7 @@
 - `chrome.webRequest.onErrorOccurred`: fills critical gap for unreachable/TLS/WAF-style failures that may never produce a successful DevTools request finish event.
 - `content_scripts` submit listener: captures hidden SAML POST form payloads (`SAMLRequest`/`SAMLResponse`) when browser-submitted forms are the key artifact.
 - `chrome.runtime` messaging + `Port`: low-latency session updates from background to DevTools panel.
-- `chrome.storage.local`: local-only persistence of current tab sessions for resilience while DevTools is open.
+- `chrome.storage.local`: local-only storage for settings and history summaries (active capture is memory-only).
 - `chrome.sidePanel`: optional review surface for saved traces without requiring DevTools to stay open.
 
 ## Capture tradeoffs
@@ -23,7 +23,7 @@
 4. Deterministic rules generate findings with owner/severity/confidence and KZero field mapping.
 5. Panel renders timeline, findings, and artifact inspector with redaction defaults.
 6. Side panel can load persisted session history snapshots for later triage.
-6. Sanitized export bundles normalized events and findings without raw secrets by default.
+7. Sanitized export bundles normalized events and findings without raw secrets by default.
 
 ## Security posture
 

@@ -1,9 +1,9 @@
-import { addRawEvent } from "../capture/sessionStore";
-import { parseQueryString, toHeaderMap } from "../shared/utils";
-import type { RawCaptureEvent } from "../shared/models";
-import { nowId } from "../shared/utils";
-import { getSettings } from "../shared/settings";
-import { sendToPanel } from "./ports";
+import { addRawEvent } from '../capture/sessionStore';
+import { parseQueryString, toHeaderMap } from '../shared/utils';
+import type { RawCaptureEvent } from '../shared/models';
+import { nowId } from '../shared/utils';
+import { getSettings } from '../shared/settings';
+import { sendToPanel } from './ports';
 
 const makeWebRequestEvent = (
   tabId: number,
@@ -19,7 +19,7 @@ const makeWebRequestEvent = (
 ): RawCaptureEvent => ({
   id: nowId(),
   tabId,
-  source: errorText ? "webrequest-error" : "webrequest",
+  source: errorText ? 'webrequest-error' : 'webrequest',
   timestamp: Date.now(),
   url,
   method,
@@ -34,7 +34,7 @@ const makeWebRequestEvent = (
     try {
       return new URL(url).host;
     } catch {
-      return "";
+      return '';
     }
   })()
 });
@@ -50,15 +50,15 @@ export const setupWebRequestListeners = (): void => {
         details.statusCode,
         undefined,
         details.responseHeaders ? toHeaderMap(details.responseHeaders) : undefined,
-        parseQueryString(details.url.split("?")[1] ?? "")
+        parseQueryString(details.url.split('?')[1] ?? '')
       );
-      addRawEvent(details.tabId, event).then(session => {
+      addRawEvent(details.tabId, event).then((session) => {
         if (session) {
-          sendToPanel(details.tabId, { type: "SESSION_UPDATE", session });
+          sendToPanel(details.tabId, { type: 'SESSION_UPDATE', session });
         }
       });
     },
-    { urls: ["<all_urls>"] }
+    { urls: ['<all_urls>'] }
   );
 
   chrome.webRequest.onBeforeRequest.addListener(
@@ -68,7 +68,7 @@ export const setupWebRequestListeners = (): void => {
       if (details.requestBody?.raw?.[0]?.bytes) {
         const bytes = details.requestBody.raw[0].bytes as ArrayBuffer;
         if (bytes.byteLength > 100 * 1024) {
-          postBody = "[body truncated — exceeds 100KB]";
+          postBody = '[body truncated — exceeds 100KB]';
         } else {
           postBody = String.fromCharCode(...new Uint8Array(bytes));
         }
@@ -76,33 +76,28 @@ export const setupWebRequestListeners = (): void => {
       const event: RawCaptureEvent = {
         id: nowId(),
         tabId: details.tabId,
-        source: "webrequest",
+        source: 'webrequest',
         timestamp: Date.now(),
         url: details.url,
         method: details.method,
         postBody,
-        queryParams: parseQueryString(details.url.split("?")[1] ?? ""),
+        queryParams: parseQueryString(details.url.split('?')[1] ?? ''),
         host: (() => {
           try {
             return new URL(details.url).host;
           } catch {
-            return "";
+            return '';
           }
         })()
       };
-      getSettings().then(settings => {
-        if (settings.debugEnabled) {
-          void chrome.storage.local.set({ _debug_last_event: event });
-        }
-      });
-      addRawEvent(details.tabId, event).then(session => {
+      addRawEvent(details.tabId, event).then((session) => {
         if (session) {
-          sendToPanel(details.tabId, { type: "SESSION_UPDATE", session });
+          sendToPanel(details.tabId, { type: 'SESSION_UPDATE', session });
         }
       });
     },
-    { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] },
-    ["requestBody"]
+    { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame'] },
+    ['requestBody']
   );
 
   chrome.webRequest.onErrorOccurred.addListener(
@@ -115,35 +110,38 @@ export const setupWebRequestListeners = (): void => {
         undefined,
         undefined,
         undefined,
-        parseQueryString(details.url.split("?")[1] ?? ""),
+        parseQueryString(details.url.split('?')[1] ?? ''),
         details.error
       );
-      addRawEvent(details.tabId, event).then(session => {
+      addRawEvent(details.tabId, event).then((session) => {
         if (session) {
-          sendToPanel(details.tabId, { type: "SESSION_UPDATE", session });
+          sendToPanel(details.tabId, { type: 'SESSION_UPDATE', session });
         }
       });
     },
-    { urls: ["<all_urls>"] }
+    { urls: ['<all_urls>'] }
   );
 };
 
-export const makeRawEventFromDevtools = (tabId: number, payload: {
-  url: string;
-  method?: string;
-  statusCode?: number;
-  requestHeaders?: Array<{ name: string; value?: string }>;
-  responseHeaders?: Array<{ name: string; value?: string }>;
-  queryString?: Array<{ name: string; value: string }>;
-  postData?: string;
-  responseBody?: string;
-  redirectURL?: string;
-  startedDateTime?: string;
-  time?: number;
-}): RawCaptureEvent => ({
+export const makeRawEventFromDevtools = (
+  tabId: number,
+  payload: {
+    url: string;
+    method?: string;
+    statusCode?: number;
+    requestHeaders?: Array<{ name: string; value?: string }>;
+    responseHeaders?: Array<{ name: string; value?: string }>;
+    queryString?: Array<{ name: string; value: string }>;
+    postData?: string;
+    responseBody?: string;
+    redirectURL?: string;
+    startedDateTime?: string;
+    time?: number;
+  }
+): RawCaptureEvent => ({
   id: nowId(),
   tabId,
-  source: "devtools-network",
+  source: 'devtools-network',
   timestamp: payload.startedDateTime ? Date.parse(payload.startedDateTime) : Date.now(),
   url: payload.url,
   method: payload.method,
@@ -151,7 +149,9 @@ export const makeRawEventFromDevtools = (tabId: number, payload: {
   requestHeaders: toHeaderMap(payload.requestHeaders ?? []),
   responseHeaders: toHeaderMap(payload.responseHeaders ?? []),
   queryParams: parseQueryString(
-    (payload.queryString ?? []).map((entry) => `${encodeURIComponent(entry.name)}=${encodeURIComponent(entry.value)}`).join("&")
+    (payload.queryString ?? [])
+      .map((entry) => `${encodeURIComponent(entry.name)}=${encodeURIComponent(entry.value)}`)
+      .join('&')
   ),
   postBody: payload.postData,
   responseBody: payload.responseBody,
@@ -161,7 +161,7 @@ export const makeRawEventFromDevtools = (tabId: number, payload: {
     try {
       return new URL(payload.url).host;
     } catch {
-      return "";
+      return '';
     }
   })()
 });
