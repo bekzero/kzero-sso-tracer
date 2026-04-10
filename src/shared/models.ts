@@ -1,11 +1,20 @@
-export type ProtocolType = "SAML" | "OIDC" | "network" | "unknown";
-export type Severity = "info" | "warning" | "error";
-export type Owner = "KZero" | "vendor SP" | "network" | "browser" | "user data" | "unknown" | "analysis" | "verification" | "docs";
+export type ProtocolType = 'SAML' | 'OIDC' | 'network' | 'unknown';
+export type Severity = 'info' | 'warning' | 'error';
+export type Owner =
+  | 'KZero'
+  | 'vendor SP'
+  | 'network'
+  | 'browser'
+  | 'user data'
+  | 'unknown'
+  | 'analysis'
+  | 'verification'
+  | 'docs';
 
 export interface RawCaptureEvent {
   id: string;
   tabId: number;
-  source: "devtools-network" | "content-form" | "webrequest" | "webrequest-error";
+  source: 'devtools-network' | 'content-form' | 'webrequest' | 'webrequest-error';
   timestamp: number;
   url: string;
   method?: string;
@@ -37,8 +46,8 @@ export interface BaseNormalizedEvent {
 }
 
 export interface NormalizedSamlEvent extends BaseNormalizedEvent {
-  protocol: "SAML";
-  binding: "redirect" | "post" | "unknown";
+  protocol: 'SAML';
+  binding: 'redirect' | 'post' | 'unknown';
   samlRequest?: SamlArtifact;
   samlResponse?: SamlArtifact;
   relayState?: string;
@@ -71,16 +80,16 @@ export interface JwtDecoded {
 }
 
 export interface NormalizedOidcEvent extends BaseNormalizedEvent {
-  protocol: "OIDC";
+  protocol: 'OIDC';
   kind:
-    | "discovery"
-    | "authorize"
-    | "callback"
-    | "token"
-    | "userinfo"
-    | "jwks"
-    | "logout"
-    | "unknown";
+    | 'discovery'
+    | 'authorize'
+    | 'callback'
+    | 'token'
+    | 'userinfo'
+    | 'jwks'
+    | 'logout'
+    | 'unknown';
   issuer?: string;
   clientId?: string;
   redirectUri?: string;
@@ -107,7 +116,7 @@ export interface NormalizedOidcEvent extends BaseNormalizedEvent {
   claimsLocales?: string;
   idTokenHint?: string;
   postLogoutRedirectUri?: string;
-  flowType?: "auth-code" | "implicit" | "hybrid" | "unknown";
+  flowType?: 'auth-code' | 'implicit' | 'hybrid' | 'unknown';
 }
 
 export type NormalizedEvent = BaseNormalizedEvent | NormalizedSamlEvent | NormalizedOidcEvent;
@@ -131,7 +140,7 @@ export interface Finding {
   evidence: string[];
   likelyFix: SuggestedFix;
   confidence: number;
-  confidenceLevel: "high" | "medium" | "low";
+  confidenceLevel: 'high' | 'medium' | 'low';
   isAmbiguous?: boolean;
   ambiguityNote?: string;
   traceGaps?: string[];
@@ -162,10 +171,10 @@ export interface CaptureHistorySummary {
 
 export type CaptureHistoryItem = CaptureHistorySummary;
 
-export type ExportMode = "summary" | "sanitized" | "raw";
+export type ExportMode = 'summary' | 'sanitized' | 'raw';
 
-export type RedactionAction = "masked" | "hashed" | "truncated" | "removed";
-export type RedactionCategory = "email" | "secret" | "org_id" | "user_id" | "other";
+export type RedactionAction = 'masked' | 'hashed' | 'truncated' | 'removed';
+export type RedactionCategory = 'email' | 'secret' | 'org_id' | 'user_id' | 'other';
 
 export interface RedactionSummary {
   category: RedactionCategory;
@@ -207,20 +216,50 @@ export interface SanitizedExportBundle {
   notice: string;
   tabId: number;
   events: SanitizedEvent[];
-  findings: Finding[];
+  findings: SanitizedFinding[];
   metadata: ExportMetadata;
+}
+
+export interface SanitizedFinding {
+  id: string;
+  ruleId: string;
+  severity: Severity;
+  protocol: ProtocolType;
+  likelyOwner: Owner;
+  title: string;
+  explanation: string;
+  confidence: number;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  eventId?: string;
+  likelyFix?: {
+    kzeroFields: string[];
+    vendorFields: string[];
+    action: string;
+  };
 }
 
 export type SanitizedEvent = SanitizedOidcEvent | SanitizedSamlEvent | SanitizedGenericEvent;
 
-export interface SanitizedOidcEvent extends Omit<NormalizedOidcEvent, "state" | "nonce" | "code" | "idToken" | "accessTokenJwt" | "accessTokenOpaque" | "codeVerifier" | "sessionState" | "url"> {
+export interface SanitizedOidcEvent
+  extends Omit<
+    NormalizedOidcEvent,
+    | 'state'
+    | 'nonce'
+    | 'code'
+    | 'idToken'
+    | 'accessTokenJwt'
+    | 'accessTokenOpaque'
+    | 'codeVerifier'
+    | 'sessionState'
+    | 'url'
+  > {
   state?: string;
   nonce?: string;
   code?: string;
   url?: string;
 }
 
-export interface SanitizedSamlEvent extends Omit<NormalizedSamlEvent, "url" | "samlResponse"> {
+export interface SanitizedSamlEvent extends Omit<NormalizedSamlEvent, 'url' | 'samlResponse'> {
   url?: string;
   samlResponse?: SamlArtifact;
 }

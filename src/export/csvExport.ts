@@ -1,5 +1,4 @@
 import type { CaptureSession } from '../shared/models';
-import { mask } from '../shared/redaction';
 
 const escape = (value: string): string => {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -9,18 +8,6 @@ const escape = (value: string): string => {
 };
 
 const escapeRow = (values: string[]): string => values.map(escape).join(',');
-
-const SENSITIVE_PATTERNS = [
-  /state|code|token|nonce|relaystate|samlrequest|samlresponse|nameid|access_token|id_token|refresh_token|verifier/i
-];
-
-const sanitizeField = (value: string): string => {
-  if (!value) return value;
-  if (SENSITIVE_PATTERNS.some((p) => p.test(value))) {
-    return mask(value, 2, 2);
-  }
-  return value;
-};
 
 export const buildFindingsCsv = (session: CaptureSession | null): string => {
   if (!session) return '';
@@ -34,8 +21,6 @@ export const buildFindingsCsv = (session: CaptureSession | null): string => {
       'Protocol',
       'Title',
       'Explanation',
-      'Expected',
-      'Observed',
       'Confidence',
       'Linked Event'
     ])
@@ -50,8 +35,6 @@ export const buildFindingsCsv = (session: CaptureSession | null): string => {
         f.protocol,
         f.title,
         f.explanation,
-        sanitizeField(f.expected ?? ''),
-        sanitizeField(f.observed ?? ''),
         String(f.confidence),
         f.eventId ?? ''
       ])
