@@ -25,7 +25,6 @@ import { KZeroWordmark } from './KZeroLogo';
 import type { Settings } from '../shared/settings';
 import { getSettings, saveSettings } from '../shared/settings';
 import { getSessionApiKey } from '../help/ai/sessionKey';
-import Compare from './Compare';
 import SettingsPanel from './Settings';
 import ConfirmDialog from './ConfirmDialog';
 import { TenantValidator } from './TenantValidator';
@@ -257,7 +256,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<
-    'timeline' | 'history' | 'findings' | 'detail' | 'compare' | 'validator'
+    'timeline' | 'history' | 'findings' | 'detail' | 'validator'
   >('findings');
   const [detailTab, setDetailTab] = useState<'fix' | 'happened' | 'evidence' | 'artifacts' | 'xml'>(
     'happened'
@@ -275,7 +274,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
   const [showTabPicker, setShowTabPicker] = useState(false);
   const [availableTabs, setAvailableTabs] = useState<
     Array<{ id: number; title: string; url: string }>
@@ -872,14 +870,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
               >
                 Validator
               </button>
-              {history.length >= 2 && (
-                <button
-                  className={classNames('tab', leftTab === 'compare' && 'active')}
-                  onClick={() => setLeftTab('compare')}
-                >
-                  Compare
-                </button>
-              )}
             </div>
           </div>
           {leftTab === 'timeline' ? (
@@ -1532,9 +1522,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
           </div>
         </section>
       </div>
-      {leftTab === 'compare' && history.length >= 2 && (
-        <Compare history={history} onClose={() => setShowCompare(false)} />
-      )}
     </>
   );
 
@@ -1571,14 +1558,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
         >
           Detail
         </button>
-        {history.length >= 2 && (
-          <button
-            className={classNames('tab', narrowTab === 'compare' && 'active')}
-            onClick={() => setLeftTab('compare')}
-          >
-            Compare
-          </button>
-        )}
       </div>
 
       {narrowTab === 'timeline' || narrowTab === 'history' ? (
@@ -2027,18 +2006,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
           <TenantValidator session={session} />
         </section>
       ) : null}
-
-      {narrowTab === 'compare' && history.length >= 2 ? (
-        <section className="pane pane-fill">
-          <Compare history={history} onClose={() => setShowCompare(false)} />
-        </section>
-      ) : narrowTab === 'compare' ? (
-        <section className="pane pane-fill">
-          <div className="empty">
-            Need at least 2 sessions to compare. Start a capture and save sessions to history.
-          </div>
-        </section>
-      ) : null}
     </>
   );
 
@@ -2300,15 +2267,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
               )}
             </div>
           )}
-          {history.length >= 2 && (
-            <button
-              className="btn btn-ghost"
-              onClick={() => setShowCompare(true)}
-              title="Compare two sessions"
-            >
-              Compare
-            </button>
-          )}
           <button className="btn btn-ghost" onClick={() => setShowAssistant(true)} title="Get help">
             Help
           </button>
@@ -2381,25 +2339,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
       </div>
 
       <main className={classNames('main', isNarrow ? 'main-narrow' : 'main-wide')}>
-        {showCompare ? (
-          <Compare
-            history={history.map((h) => ({
-              ...h,
-              session: {
-                tabId: h.tabId,
-                active: false,
-                rawEvents: [],
-                normalizedEvents: [],
-                findings: []
-              }
-            }))}
-            onClose={() => setShowCompare(false)}
-          />
-        ) : isNarrow ? (
-          narrowLayout
-        ) : (
-          wideLayout
-        )}
+        {isNarrow ? narrowLayout : wideLayout}
       </main>
 
       {showSettings && settings && (
