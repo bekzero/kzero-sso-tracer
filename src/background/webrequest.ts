@@ -2,7 +2,6 @@ import { addRawEvent } from '../capture/sessionStore';
 import { parseQueryString, toHeaderMap } from '../shared/utils';
 import type { RawCaptureEvent } from '../shared/models';
 import { nowId } from '../shared/utils';
-import { getSettings } from '../shared/settings';
 import { sendToPanel } from './ports';
 
 const makeWebRequestEvent = (

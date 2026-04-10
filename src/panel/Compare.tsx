@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { CaptureHistoryItem, Severity } from '../shared/models';
-
-const _severityRank = (_s: Severity): number => 0;
+import type { CaptureHistoryItem } from '../shared/models';
 
 interface ComparisonResult {
   left: CaptureHistoryItem | null;
@@ -44,20 +42,6 @@ export const compareHistoryItems = (
     }
   };
 };
-
-const SeverityDot = ({ severity }: { severity: Severity }): JSX.Element => (
-  <span
-    className="severity-dot"
-    style={{
-      background: severity === 'error' ? '#ff5a67' : severity === 'warning' ? '#ffb020' : '#4dd1ff',
-      width: 8,
-      height: 8,
-      borderRadius: '50%',
-      display: 'inline-block',
-      flexShrink: 0
-    }}
-  />
-);
 
 interface CompareProps {
   history: CaptureHistoryItem[];
