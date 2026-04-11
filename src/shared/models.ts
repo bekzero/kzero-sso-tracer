@@ -166,7 +166,6 @@ export interface CaptureHistorySummary {
   protocolHints: string[];
   findingCount: number;
   topFindings?: Array<{ ruleId: string; title: string; severity: string }>;
-  session?: CaptureSession;
 }
 
 export type CaptureHistoryItem = CaptureHistorySummary;
