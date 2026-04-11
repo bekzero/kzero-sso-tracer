@@ -59,10 +59,7 @@ beforeEach(() => {
     hasSeenScopeNotice: true
   };
   vi.clearAllMocks();
-  initialized = false;
 });
-
-let initialized = false;
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -80,9 +77,7 @@ describe('sessionStore storage behavior', () => {
     mockStorage['history:sessions'] = [];
 
     vi.resetModules();
-    const { startCapture, isTabCaptureActive, getSession } = await import(
-      '../src/capture/sessionStore'
-    );
+    const { isTabCaptureActive, getSession } = await import('../src/capture/sessionStore');
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -177,7 +172,7 @@ describe('sessionStore storage behavior', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     const tabId = 888 + Date.now();
-    const session = await startCapture(tabId);
+    await startCapture(tabId);
 
     await addRawEvent(
       tabId,
