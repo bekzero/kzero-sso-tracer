@@ -288,7 +288,7 @@ describe('buildSanitizedExport', () => {
 });
 
 describe('buildRawExport', () => {
-  it('preserves complete trace', () => {
+  it('exports normalized events (processed artifacts)', () => {
     const session = createMockSession([createSamlResponseEvent()]);
     const result = buildRawExport(session);
     expect(result).not.toBeNull();
@@ -299,6 +299,26 @@ describe('buildRawExport', () => {
         kind: 'saml-response'
       })
     );
+  });
+
+  it('does not include rawEvents in export payload', () => {
+    const session = createMockSession([createSamlResponseEvent()]);
+    session.rawEvents = [
+      {
+        id: 'raw-1',
+        tabId: 1,
+        timestamp: 1000,
+        url: 'http://test.com',
+        source: 'devtools-network'
+      }
+    ] as unknown as import('../src/shared/models').RawCaptureEvent[];
+
+    const result = buildRawExport(session);
+    expect(result).not.toBeNull();
+    expect(result?.events).toBeDefined();
+    expect(result?.events.length).toBe(1);
+    expect((result as any).rawEvents).toBeUndefined();
+    expect(result?.events[0].id).toBe('evt-1');
   });
 
   it('includes metadata.mode = raw but no redaction metadata', () => {

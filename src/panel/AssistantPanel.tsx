@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
-import type { CaptureSession, Finding } from "../shared/models";
-import { RULE_CATALOG } from "../shared/ruleCatalog";
-import { buildHelpContext, getQuickSuggestions, getDefaultSuggestions, getExplanationForIntent, mapQueryToIntent, type QuickSuggestion, type HelpMessage } from "../help";
-import { isAIDisabledLocally } from "../help/ai/policy";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
+import type { CaptureSession, Finding } from '../shared/models';
+import { RULE_CATALOG } from '../shared/ruleCatalog';
+import {
+  buildHelpContext,
+  getQuickSuggestions,
+  getDefaultSuggestions,
+  getExplanationForIntent,
+  mapQueryToIntent,
+  type QuickSuggestion,
+  type HelpMessage
+} from '../help';
+import { isAIDisabledLocally } from '../help/ai/policy';
 
 interface AssistantPanelProps {
   session: CaptureSession | null;
@@ -24,12 +32,12 @@ export const AssistantPanel = ({
   onToggle,
   onSelectFinding,
   aiEnabled = false,
-  aiApiKey = "",
+  aiApiKey = '',
   aiIncludeFindings = true,
   aiHasSeenConsent = false,
   onRequestConsent
 }: AssistantPanelProps): JSX.Element => {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<HelpMessage[]>([]);
   const [suggestions, setSuggestions] = useState<QuickSuggestion[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -51,7 +59,7 @@ export const AssistantPanel = ({
   }, [isOpen, session]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
@@ -65,7 +73,7 @@ export const AssistantPanel = ({
 
     const userMessage: HelpMessage = {
       id: `msg-${Date.now()}`,
-      source: "user",
+      source: 'user',
       content: query.trim(),
       timestamp: Date.now()
     };
@@ -75,14 +83,14 @@ export const AssistantPanel = ({
 
     const deterministicMessage: HelpMessage = {
       id: `msg-${Date.now()}-det`,
-      source: "verified",
+      source: 'verified',
       content: deterministicResponse,
       timestamp: Date.now(),
-      badge: "Verified"
+      badge: 'Verified'
     };
 
-    setMessages(prev => [...prev, userMessage, deterministicMessage]);
-    setQuery("");
+    setMessages((prev) => [...prev, userMessage, deterministicMessage]);
+    setQuery('');
     const newSuggestions = currentSuggestions.slice(0, 4);
     setSuggestions(newSuggestions);
   }, [query, ctx, currentSuggestions]);
@@ -95,7 +103,7 @@ export const AssistantPanel = ({
       return;
     }
 
-    const lastUserMessage = messages.filter(m => m.source === "user").pop();
+    const lastUserMessage = messages.filter((m) => m.source === 'user').pop();
     if (!lastUserMessage || !aiApiKey) return;
 
     setIsLoading(true);
@@ -103,7 +111,7 @@ export const AssistantPanel = ({
 
     try {
       const response = await chrome.runtime.sendMessage({
-        type: "REQUEST_AI",
+        type: 'REQUEST_AI',
         question: lastUserMessage.content,
         findings: aiIncludeFindings ? findings : undefined,
         includeFindings: aiIncludeFindings,
@@ -113,85 +121,87 @@ export const AssistantPanel = ({
       if (response?.ok && response.success && response.content) {
         const aiMessage: HelpMessage = {
           id: `msg-${Date.now()}-ai`,
-          source: "ai",
+          source: 'ai',
           content: response.content,
           timestamp: Date.now(),
-          badge: "AI"
+          badge: 'AI'
         };
-        setMessages(prev => [...prev, aiMessage]);
-        } else {
+        setMessages((prev) => [...prev, aiMessage]);
+      } else {
         const errorMessage: HelpMessage = {
           id: `msg-${Date.now()}-ai-error`,
-          source: "verified",
-          content: `AI couldn't respond. Your local trace-based answer is still available below.`,
+          source: 'verified',
+          content: `AI couldn't respond. Your rule-based trace answer is still available below.`,
           timestamp: Date.now(),
-          badge: "Verified"
+          badge: 'Verified'
         };
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages((prev) => [...prev, errorMessage]);
       }
     } catch {
       const errorMessage: HelpMessage = {
         id: `msg-${Date.now()}-ai-error`,
-        source: "verified",
-        content: "AI couldn't respond. Your local trace-based answer is still available below.",
+        source: 'verified',
+        content: "AI couldn't respond. Your rule-based trace answer is still available below.",
         timestamp: Date.now(),
-        badge: "Verified"
+        badge: 'Verified'
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   }, [messages, aiApiKey, aiIncludeFindings, findings, aiHasSeenConsent, onRequestConsent]);
 
   const handleSuggestionClick = (suggestion: QuickSuggestion): void => {
-    if (suggestion.category === "finding" && suggestion.id.startsWith("finding-")) {
-      const ruleId = suggestion.id.replace("finding-", "");
-      
-      const matchingFinding = findings.find(f => f.ruleId === ruleId);
-      
+    if (suggestion.category === 'finding' && suggestion.id.startsWith('finding-')) {
+      const ruleId = suggestion.id.replace('finding-', '');
+
+      const matchingFinding = findings.find((f) => f.ruleId === ruleId);
+
       if (matchingFinding && onSelectFinding) {
         onSelectFinding(ruleId);
         return;
       }
 
-      const ruleDoc = RULE_CATALOG.find(r => r.ruleId === ruleId);
-      const explanation = ruleDoc 
-        ? `${ruleDoc.short} ${ruleDoc.why}` 
-        : "This issue was not detected in your current session.";
-      
+      const ruleDoc = RULE_CATALOG.find((r) => r.ruleId === ruleId);
+      const explanation = ruleDoc
+        ? `${ruleDoc.short} ${ruleDoc.why}`
+        : 'This issue was not detected in your current session.';
+
       const assistantMessage: HelpMessage = {
         id: `msg-${Date.now()}-${suggestion.id}`,
-        source: "verified",
-        content: matchingFinding ? explanation : `${explanation}\n\nStart a capture to detect this issue, or the issue may already be resolved.`,
+        source: 'verified',
+        content: matchingFinding
+          ? explanation
+          : `${explanation}\n\nStart a capture to detect this issue, or the issue may already be resolved.`,
         timestamp: Date.now(),
-        badge: "Verified"
+        badge: 'Verified'
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
       return;
     }
 
-    if (suggestion.category === "concept" || suggestion.category === "troubleshooting") {
+    if (suggestion.category === 'concept' || suggestion.category === 'troubleshooting') {
       const intent = mapQueryToIntent(suggestion.label, ctx);
       const responseText = getExplanationForIntent(intent, ctx);
 
       const assistantMessage: HelpMessage = {
         id: `msg-${Date.now()}-${suggestion.id}`,
-        source: "verified",
+        source: 'verified',
         content: responseText,
         timestamp: Date.now(),
-        badge: "Verified"
+        badge: 'Verified'
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Enter" && !isLoading) {
+    if (e.key === 'Enter' && !isLoading) {
       handleSubmit();
     }
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       onToggle();
     }
   };
@@ -215,13 +225,13 @@ export const AssistantPanel = ({
   }
 
   return (
-    <div className={`assistant-panel ${isExpanded ? "expanded" : "collapsed"}`}>
+    <div className={`assistant-panel ${isExpanded ? 'expanded' : 'collapsed'}`}>
       <div className="assistant-header">
         <div className="assistant-header-left">
           <span className="assistant-icon">?</span>
           <span className="assistant-title">Assistant</span>
           {aiAvailable && (
-            <span className="assistant-ai-toggle active" style={{ marginLeft: "8px" }}>
+            <span className="assistant-ai-toggle active" style={{ marginLeft: '8px' }}>
               <span className="assistant-ai-toggle-dot" />
               AI
             </span>
@@ -233,7 +243,7 @@ export const AssistantPanel = ({
               className="assistant-expand-btn"
               onClick={handleClearChat}
               title="Clear chat"
-              style={{ fontSize: "12px", width: "auto", padding: "0 8px" }}
+              style={{ fontSize: '12px', width: 'auto', padding: '0 8px' }}
             >
               Clear
             </button>
@@ -241,9 +251,9 @@ export const AssistantPanel = ({
           <button
             className="assistant-expand-btn"
             onClick={handleToggleExpand}
-            title={isExpanded ? "Collapse" : "Expand"}
+            title={isExpanded ? 'Collapse' : 'Expand'}
           >
-            {isExpanded ? "▼" : "▲"}
+            {isExpanded ? '▼' : '▲'}
           </button>
           <button className="assistant-close-btn" onClick={onToggle} title="Close">
             ×
@@ -258,17 +268,30 @@ export const AssistantPanel = ({
               <div className="assistant-empty">
                 <p className="assistant-welcome">SSO Assistant</p>
                 <p className="assistant-welcome-sub">
-                  {hasFindings 
-                    ? "Ask about this trace to get local, evidence-based help."
-                    : "Start a capture, reproduce the sign-in, then ask what failed."}
-                  {aiAvailable && <span style={{ display: "block", marginTop: "4px", color: "var(--vendor)", fontSize: "12px" }}>Need a broader explanation? Expand with AI after asking.</span>}
+                  {hasFindings
+                    ? 'Ask about this trace to get rule-based, evidence-based help.'
+                    : 'Start a capture, reproduce the sign-in, then ask what failed.'}
+                  {aiAvailable && (
+                    <span
+                      style={{
+                        display: 'block',
+                        marginTop: '4px',
+                        color: 'var(--vendor)',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Need a broader explanation? Expand with AI after asking.
+                    </span>
+                  )}
                 </p>
               </div>
             ) : (
-              messages.map(msg => (
+              messages.map((msg) => (
                 <div key={msg.id} className={`assistant-message assistant-message-${msg.source}`}>
                   {msg.badge && (
-                    <span className={`assistant-badge assistant-badge-${msg.source === "ai" ? "ai" : "verified"}`}>
+                    <span
+                      className={`assistant-badge assistant-badge-${msg.source === 'ai' ? 'ai' : 'verified'}`}
+                    >
                       {msg.badge}
                     </span>
                   )}
@@ -293,18 +316,15 @@ export const AssistantPanel = ({
           </div>
 
           {messages.length === 0 && (
-            <QuickSuggestionsComponent
-              suggestions={suggestions}
-              onSelect={handleSuggestionClick}
-            />
+            <QuickSuggestionsComponent suggestions={suggestions} onSelect={handleSuggestionClick} />
           )}
 
           {messages.length > 0 && aiAvailable && (
             <div className="assistant-ai-prompt">
-              <button 
+              <button
                 className="assistant-ai-prompt-btn"
                 onClick={handleAskAI}
-                disabled={isLoading || messages.filter(m => m.source === "user").length === 0}
+                disabled={isLoading || messages.filter((m) => m.source === 'user').length === 0}
               >
                 🤖 Expand with AI
               </button>
@@ -316,9 +336,9 @@ export const AssistantPanel = ({
               ref={inputRef}
               type="text"
               className="assistant-input"
-              placeholder={aiAvailable ? "Ask a question..." : "Ask a question..."}
+              placeholder={aiAvailable ? 'Ask a question...' : 'Ask a question...'}
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
             />
@@ -341,12 +361,15 @@ interface QuickSuggestionsComponentProps {
   onSelect: (suggestion: QuickSuggestion) => void;
 }
 
-const QuickSuggestionsComponent = ({ suggestions, onSelect }: QuickSuggestionsComponentProps): JSX.Element => {
+const QuickSuggestionsComponent = ({
+  suggestions,
+  onSelect
+}: QuickSuggestionsComponentProps): JSX.Element => {
   return (
     <div className="quick-suggestions">
       <div className="quick-suggestions-label">Quick questions</div>
       <div className="quick-suggestions-list">
-        {suggestions.map(suggestion => (
+        {suggestions.map((suggestion) => (
           <button
             key={suggestion.id}
             className="quick-suggestion-chip"

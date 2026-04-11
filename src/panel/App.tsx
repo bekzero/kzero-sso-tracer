@@ -1345,8 +1345,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                     <div className="empty">
                       <div className="note">
                         No guided fix is available for this finding yet. Review the Evidence tab,
-                        compare the linked event, or export a sanitized trace for deeper
-                        investigation.
+                        export a sanitized trace for deeper analysis investigation.
                       </div>
                       <div className="note">
                         Try the <strong>What Happened</strong> tab for a plain-English explanation.
@@ -1861,8 +1860,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                     <div className="empty">
                       <div className="note">
                         No guided fix is available for this finding yet. Review the Evidence tab,
-                        compare the linked event, or export a sanitized trace for deeper
-                        investigation.
+                        export a sanitized trace for deeper analysis investigation.
                       </div>
                       <div className="note">
                         Try <strong>What Happened</strong> for an explanation.
@@ -2217,7 +2215,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                     >
                       <option value="summary">Summary (safest)</option>
                       <option value="sanitized">Sanitized trace (recommended)</option>
-                      <option value="raw">Full raw trace (sensitive)</option>
+                      <option value="raw">Detailed trace (sensitive)</option>
                     </select>
                   </div>
                   {exportMode === 'sanitized' && (
@@ -2369,9 +2367,9 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
 
       {showRawWarning && (
         <ConfirmDialog
-          title="Export full raw trace?"
-          message="⚠️ This export contains complete authentication data including raw SAML/XML payloads, full tokens and secrets, and user identifiers. This should only be shared with trusted internal teams for troubleshooting. Continue with Full raw export?"
-          confirmLabel="Export Full Raw"
+          title="Export detailed trace?"
+          message="⚠️ This export contains complete authentication data including decoded SAML/XML payloads, full tokens and secrets, and user identifiers. This should only be shared with trusted internal teams for troubleshooting. Continue with Detailed trace export?"
+          confirmLabel="Export Detailed"
           onConfirm={() => {
             setShowRawWarning(false);
             setExportMode('raw');

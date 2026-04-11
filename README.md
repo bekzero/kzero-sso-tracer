@@ -32,13 +32,13 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 
 - Summary export (event counts, findings list, OIDC summary)
 - Sanitized export (events with secrets redacted/hashed)
-- Raw export (full unmodified data for debugging)
+- Detailed trace export (normalized data for debugging)
 
 ## What It Does NOT Do
 
 - Does not capture cookies
 - Does not intercept all browser network traffic (limited by MV3)
-- Does not send data to any external server (except optional AI assistant uses OpenAI API when you provide a key)
+- Does not send data to any external server, except when optional OpenAI assistance is enabled. In that case, the extension sends your question and, if enabled, your current findings to OpenAI.
 - Is not a general-purpose packet sniffer
 - Does not replace IdP or vendor server-side logs
 - Does not guarantee capture of every auth flow edge case
@@ -70,7 +70,7 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 
 - **Summary**: Event counts, findings list, OIDC summary - minimal detail
 - **Sanitized**: Events with secrets removed or hashed - safe for sharing
-- **Raw**: Full normalized data including decoded tokens and SAML payloads - includes all parsed artifacts but not raw capture bytes
+- **Detailed**: Full normalized data including decoded tokens and SAML payloads - parsed artifacts only, not original raw capture
 
 **Permissions**:
 
@@ -78,7 +78,7 @@ It is designed specifically for KZero customers debugging their IdP-to-SP federa
 - webRequest: Required to catch errors that may not appear in DevTools
 - storage: Required for settings and history (summary-only)
 
-**Sensitive Data Warning**: Raw exports contain full tokens, SAML assertions, and user identifiers. Handle with care.
+**Sensitive Data Warning**: Detailed exports contain full tokens, SAML assertions, and user identifiers. Handle with care.
 
 ## How It Works
 
@@ -110,7 +110,7 @@ The extension uses Chrome's DevTools Network API as the primary capture mechanis
 │   ├── capture/            # sessionStore, hostClassifier
 │   ├── content/            # Content script (form listener)
 │   ├── devtools/           # DevTools panel entry
-│   ├── export/             # Export modules (summary/sanitized/raw)
+│   ├── export/             # Export modules (summary/sanitized/detailed)
 │   ├── mappings/           # KZero field mappings
 │   ├── normalizers/        # Event classification
 │   ├── panel/              # React UI (main panel)
@@ -173,7 +173,7 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 **Exporting:**
 
 - Click Export in the panel header
-- Choose mode: Summary, Sanitized, or Raw
+- Choose mode: Summary, Sanitized, or Detailed
 - Choose format: JSON, HAR, or CSV
 
 **Settings:**
@@ -189,7 +189,7 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 | --------- | ------------------------------------------- | --------------------------------------------------------------------------- |
 | Summary   | Event counts, findings list, OIDC metadata  | None - minimal export                                                       |
 | Sanitized | Normalized events with URL params sanitized | Removed (access_token, id_token, code, etc.) or hashed with per-export salt |
-| Raw       | Complete raw events and artifacts           | Full - no redaction                                                         |
+| Detailed  | Complete normalized events and artifacts    | Full - no redaction                                                         |
 
 **Sanitized mode**:
 
@@ -210,7 +210,7 @@ The extension icon appears in Chrome's toolbar. Click it to open the side panel,
 # Install dependencies
 npm install
 
-# Watch mode - rebuild on changes
+# Build extension (run after any code change)
 npm run build
 
 # Run tests
@@ -218,6 +218,15 @@ npm test
 
 # Clean dist folder
 npm run clean
+
+# Type check
+npm run typecheck
+
+# Lint
+npm run lint
+
+# Full check (typecheck + lint + test)
+npm run check
 ```
 
 **Adding a new rule:**
@@ -274,7 +283,7 @@ Test categories:
 
 - Summary is safe for general sharing
 - Sanitized is recommended for troubleshooting with colleagues
-- Raw contains secrets - handle carefully
+- Detailed contains secrets - handle carefully
 
 **Conflicting findings:**
 
@@ -291,7 +300,7 @@ Test categories:
 
 - **Response bodies**: Not all response bodies are available. Binary responses, CORS restrictions, and some CDN responses may not be captured.
 
-- **Raw export sensitivity**: Raw exports contain full tokens and SAML assertions. Do not share raw exports externally.
+- **Detailed trace sensitivity**: Detailed exports contain full tokens and SAML assertions. Do not share detailed exports externally.
 
 - **No IdP/vendor logs**: The extension cannot see server-side logs. Some issues require checking KZero admin console or vendor SP logs.
 

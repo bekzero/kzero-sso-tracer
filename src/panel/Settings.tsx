@@ -271,8 +271,8 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
         <section className="settings-section">
           <h3>AI Assistant</h3>
           <p className="settings-note">
-            Enable optional AI help powered by OpenAI. Your API key is held in memory only for this
-            browser session - it is not stored persistently.
+            Enable optional AI help powered by OpenAI. Your API key is stored in browser memory
+            only, not saved persistently, and is sent to OpenAI with each AI request.
           </p>
 
           {isAIDisabledLocally() ? (
@@ -352,7 +352,7 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                       className="settings-row-label"
                       style={{ display: 'block', marginBottom: '6px' }}
                     >
-                      OpenAI API Key (session-only)
+                      OpenAI API Key
                     </label>
                     <input
                       type="password"
@@ -363,7 +363,8 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                       onChange={(e) => setSessionApiKey(e.target.value)}
                     />
                     <p className="settings-note" style={{ marginTop: '6px' }}>
-                      Stored in memory only for this session. Cleared when this browser tab closes.
+                      Stored in browser memory only and not saved persistently. Sent to OpenAI with
+                      each AI request.
                     </p>
                   </div>
 
@@ -398,7 +399,8 @@ const SettingsPanel = ({ onClose, onSave }: SettingsProps): JSX.Element => {
                       </span>
                     </label>
                     <p className="settings-note" style={{ marginTop: '0' }}>
-                      When enabled, AI can see your current findings to provide more relevant help.
+                      When enabled, your findings are sent to OpenAI with your question. Disabled by
+                      default.
                     </p>
                   </div>
                 </>
