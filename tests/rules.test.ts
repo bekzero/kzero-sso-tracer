@@ -416,13 +416,13 @@ describe('findings engine', () => {
     const findings = runFindingsEngine(events as any);
     const top = findings[0];
     const missingResponse = findings.find((f) => f.ruleId === 'SAML_MISSING_RESPONSE');
-    const acsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH');
+    const acsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE');
 
     // With the new logic, when destination !== recipient, ACS mismatch is detected
     // and the generic KZero rejection is suppressed
     expect(acsMismatch).toBeDefined();
     expect(acsMismatch!.severity).toBe('error');
-    expect(top.ruleId).toBe('SAML_PREAUTHN_ACS_MISMATCH');
+    expect(top.ruleId).toBe('SAML_PREAUTHN_CONFIG_ISSUE');
 
     expect(missingResponse).toBeDefined();
     expect(missingResponse!.severity).toBe('info');
@@ -524,8 +524,8 @@ describe('findings engine', () => {
       // No SAMLResponse yet
     ];
     const findings = runFindingsEngine(events as any);
-    // Expect a pre-response ACS mismatch finding
-    const preAcsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH');
+    // Expect a pre-response config issue finding
+    const preAcsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE');
     expect(preAcsMismatch).toBeDefined();
     // Generic KZero rejection should be suppressed for same context (eventId = preReq1)
     const genericRejection = findings.find(
@@ -574,10 +574,9 @@ describe('findings engine', () => {
       }
     ];
     const findings = runFindingsEngine(events as any);
-    const genericRejection = findings.find(
-      (f) => f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO'
-    );
-    expect(genericRejection).toBeDefined();
+    // The new pre-response config issue should fire for any pre-response KZero 4xx
+    const configIssue = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE');
+    expect(configIssue).toBeDefined();
   });
 
   it('pre-response ACS mismatch uses assertionConsumerServiceURL primary signal', () => {
@@ -617,17 +616,17 @@ describe('findings engine', () => {
       }
     ];
     const findings = runFindingsEngine(events as any);
-    const preAcsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH');
+    const preAcsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE');
     expect(preAcsMismatch).toBeDefined();
     const genericRejection = findings.find(
       (f) => f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO'
     );
-    // Suppressed for same eventId if pre-auth ACS mismatch exists
+    // Suppressed for same eventId if pre-auth config issue exists
     if (genericRejection) {
       expect(genericRejection.eventId).not.toBe('preReqA');
     }
-    // Top finding should be the pre-auth ACS mismatch for the same context
-    expect(findings[0].ruleId).toBe('SAML_PREAUTHN_ACS_MISMATCH');
+    // Top finding should be the pre-auth config issue for the same context
+    expect(findings[0].ruleId).toBe('SAML_PREAUTHN_CONFIG_ISSUE');
   });
 
   it('unrelated contexts do not suppress each other', () => {
@@ -671,9 +670,9 @@ describe('findings engine', () => {
     ];
     const findings = runFindingsEngine(events as any);
 
-    // Context A has destination !== recipient, so ACS mismatch should fire and suppress generic
+    // Context A has issuer and destination, so pre-response config issue should fire and suppress generic
     const acsForA = findings.find(
-      (f) => f.eventId === 'reqA' && f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH'
+      (f) => f.eventId === 'reqA' && f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE'
     );
     expect(acsForA).toBeDefined();
 

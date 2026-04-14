@@ -43,7 +43,7 @@ export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
   const acsEventIds = new Set<string>();
   for (const f of deduped) {
     if (
-      (f.ruleId === 'SAML_ACS_RECIPIENT_MISMATCH' || f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH') &&
+      (f.ruleId === 'SAML_ACS_RECIPIENT_MISMATCH' || f.ruleId === 'SAML_PREAUTHN_CONFIG_ISSUE') &&
       f.eventId
     ) {
       acsEventIds.add(f.eventId);

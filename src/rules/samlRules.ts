@@ -199,53 +199,40 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
       })
     );
 
-    // NEW: Pre-response ACS mismatch finding. Trigger only if there's an actual ACS URL mismatch
-    // (not just the presence of these fields). Check if assertionConsumerServiceURL differs from
-    // destination/recipient, or if destination differs from recipient.
-    const acsUrl = requestEvent.samlRequest?.assertionConsumerServiceURL;
-    const dest = requestEvent.samlRequest?.destination;
-    const recip = requestEvent.samlRequest?.recipient;
-    const hasAcsMismatch =
-      (acsUrl && dest && acsUrl !== dest) ||
-      (acsUrl && recip && acsUrl !== recip) ||
-      (dest && recip && dest !== recip);
-    if (hasAcsMismatch) {
-      findings.push(
-        makeFinding({
-          ruleId: 'SAML_PREAUTHN_ACS_MISMATCH',
-          severity: 'error',
-          protocol: 'SAML',
-          likelyOwner: 'vendor SP',
-          title: 'Likely ACS URL mismatch blocked the sign-in request',
-          explanation:
-            'KZero blocked the sign-in request because the ACS URL in the request did not exactly match the configured SAML reply URL. Check the ACS URL first. Check these KZero settings first. Then check the service provider settings. Requested ACS URL from this sign-in attempt: ' +
-            acs +
-            '. This should match your configured ACS URL exactly. Even one extra character, a wrong hostname, a path difference, an environment mismatch, or a trailing slash can break sign-in.',
-          observed: `KZero SAML endpoint returned HTTP ${kzeroSamlEndpoint4xx.statusCode ?? 'unknown'}`,
-          expected: 'KZero accepts the AuthnRequest and proceeds to login/SAMLResponse',
-          evidence: [requestEvent.url, kzeroSamlEndpoint4xx.url],
-          action:
-            'Refer to the ACS URL in the AuthnRequest and compare with the vendor ACS endpoint. Ensure exact match (including hostname, path, and trailing slashes).',
-          confidence: 0.96,
-          disqualifyingEvidence: [
-            'SAMLResponse not yet produced',
-            'KZero endpoint returns HTTP 200'
-          ],
-          eventId: requestEvent.id
-        })
-      );
-      // Temporary diagnostic for runtime verification
-      // eslint-disable-next-line no-console
-      console.debug(
-        '[diag] SAML_PREAUTHN_ACS_MISMATCH emitted for event',
-        requestEvent.id,
-        'acsSignal=',
-        requestEvent.samlRequest?.assertionConsumerServiceURL ??
-          requestEvent.samlRequest?.destination ??
-          requestEvent.samlRequest?.recipient ??
-          '(not captured)'
-      );
-    }
+    // Pre-response config issue - replaces the overfiring ACS mismatch rule.
+    // KZero returned 400 before any SAMLResponse was generated. This typically indicates
+    // a client configuration issue such as incorrect Client ID, Entity ID (Issuer), or ACS URL.
+    // Provide generic guidance that covers all three without overclaiming any single cause.
+    findings.push(
+      makeFinding({
+        ruleId: 'SAML_PREAUTHN_CONFIG_ISSUE',
+        severity: 'error',
+        protocol: 'SAML',
+        likelyOwner: 'vendor SP',
+        title: 'KZero rejected the sign-in request before sending a SAML response',
+        explanation:
+          'KZero returned an error before a SAMLResponse was generated. This typically indicates a client configuration issue in the service provider setup. Check all three: (1) Client ID / SP Entity ID matches the KZero integration, (2) Entity ID / Issuer in the AuthnRequest matches KZero configuration, (3) ACS URL in the request matches the configured SAML Reply URL. Even one misconfigured value can cause KZero to reject the request.',
+        observed: `KZero SAML endpoint returned HTTP ${kzeroSamlEndpoint4xx.statusCode ?? 'unknown'}`,
+        expected: 'KZero accepts the AuthnRequest and proceeds to login/SAMLResponse',
+        evidence: [requestEvent.url, kzeroSamlEndpoint4xx.url],
+        action:
+          'Open the KZero integration and verify: (1) Client ID matches exactly, (2) Entity ID / Issuer matches exactly, (3) ACS URL matches exactly. Check for wrong hostname, wrong tenant, wrong environment, extra slash, or outdated copied values.',
+        confidence: 0.9,
+        disqualifyingEvidence: [
+          'SAMLResponse captured after AuthnRequest',
+          'KZero endpoint returns HTTP 200'
+        ],
+        eventId: requestEvent.id
+      })
+    );
+    // Temporary diagnostic for runtime verification
+    // eslint-disable-next-line no-console
+    console.debug(
+      '[diag] SAML_PREAUTHN_CONFIG_ISSUE emitted for event',
+      requestEvent.id,
+      'issuer=',
+      requestEvent.samlRequest?.issuer ?? '(not captured)'
+    );
   }
 
   if (!responseEvent) {
