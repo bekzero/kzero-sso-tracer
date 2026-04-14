@@ -1,6 +1,6 @@
-import type { Finding, Owner, ProtocolType, Severity } from "../shared/models";
-import { getFieldMapping } from "../mappings/fieldMappings";
-import { nowId } from "../shared/utils";
+import type { Finding, Owner, ProtocolType, Severity } from '../shared/models';
+import { getFieldMapping } from '../mappings/fieldMappings';
+import { nowId } from '../shared/utils';
 
 export interface FindingInput {
   ruleId: string;
@@ -14,6 +14,7 @@ export interface FindingInput {
   evidence: string[];
   action: string;
   confidence: number;
+  eventId?: string;
   isAmbiguous?: boolean;
   ambiguityNote?: string;
   traceGaps?: string[];
@@ -27,15 +28,15 @@ export interface FindingInput {
 // These thresholds are legacy-calibrated and may need future audit.
 // Review rules with obviously overrated/underrated confidence when calibrate()
 
-const deriveConfidenceLevel = (confidence: number): "high" | "medium" | "low" => {
-  if (confidence >= 0.80) return "high";
-  if (confidence >= 0.55) return "medium";
-  return "low";
+const deriveConfidenceLevel = (confidence: number): 'high' | 'medium' | 'low' => {
+  if (confidence >= 0.8) return 'high';
+  if (confidence >= 0.55) return 'medium';
+  return 'low';
 };
 
 export const makeFinding = (input: FindingInput): Finding => {
   const fields = getFieldMapping(input.ruleId);
-  
+
   // Consistency guard: ambiguous findings should explain why
   if (input.isAmbiguous && !input.ambiguityNote && !input.traceGaps?.length) {
     console.warn(`Finding ${input.ruleId} is ambiguous but has no ambiguityNote or traceGaps`);
@@ -64,6 +65,7 @@ export const makeFinding = (input: FindingInput): Finding => {
     isAmbiguous: input.isAmbiguous,
     ambiguityNote: input.ambiguityNote,
     traceGaps: input.traceGaps,
-    disqualifyingEvidence: input.disqualifyingEvidence
+    disqualifyingEvidence: input.disqualifyingEvidence,
+    eventId: input.eventId
   };
 };

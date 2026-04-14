@@ -61,6 +61,7 @@ export interface SamlArtifact {
   destination?: string;
   audience?: string;
   recipient?: string;
+  assertionConsumerServiceURL?: string;
   inResponseTo?: string;
   nameId?: string;
   nameIdFormat?: string;
