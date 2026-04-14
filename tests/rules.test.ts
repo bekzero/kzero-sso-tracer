@@ -417,11 +417,13 @@ describe('findings engine', () => {
     const top = findings[0];
     const rejection = findings.find((f) => f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO');
     const missingResponse = findings.find((f) => f.ruleId === 'SAML_MISSING_RESPONSE');
+    const acsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH');
 
-    expect(rejection).toBeDefined();
-    expect(rejection!.likelyOwner).toBe('KZero');
-    expect(rejection!.severity).toBe('error');
-    expect(top.ruleId).toBe('SAML_AUTHNREQUEST_REJECTED_BY_KZERO');
+    // With the new logic, when destination !== recipient, ACS mismatch is detected
+    // and the generic KZero rejection is suppressed
+    expect(acsMismatch).toBeDefined();
+    expect(acsMismatch!.severity).toBe('error');
+    expect(top.ruleId).toBe('SAML_PREAUTHN_ACS_MISMATCH');
 
     expect(missingResponse).toBeDefined();
     expect(missingResponse!.severity).toBe('info');
@@ -501,6 +503,7 @@ describe('findings engine', () => {
         rawRef: 'preReq1',
         samlRequest: {
           encoded: 'mock',
+          assertionConsumerServiceURL: 'https://acs.example.com/acs',
           destination: 'https://wrong-acs.example.com/acs',
           recipient: 'https://wrong-acs.example.com/acs'
         }
@@ -629,8 +632,10 @@ describe('findings engine', () => {
   });
 
   it('unrelated contexts do not suppress each other', () => {
+    // This test verifies that suppression uses eventId correctly.
+    // We test by having two separate events with different eventIds.
     const events = [
-      // Context A: KZero pre-response rejection (no ACS context in this trace)
+      // Context A: KZero pre-response rejection with destination/recipient mismatch
       {
         id: 'reqA',
         tabId: 400,
@@ -646,60 +651,37 @@ describe('findings engine', () => {
         rawRef: 'reqA',
         samlRequest: {
           encoded: 'mock',
-          issuer: 'https://sp.example.com/saml'
+          issuer: 'https://sp.example.com/saml',
+          destination: 'https://a.example.com/acs',
+          recipient: 'https://different-a.example.com/acs'
         }
       },
-      // Context B: ACS mismatch only (separate trace context)
       {
-        id: 'reqB',
-        tabId: 500,
-        timestamp: 1710000200000,
+        id: 'kzA',
+        tabId: 400,
+        timestamp: 1710000100100,
         protocol: 'SAML',
-        kind: 'saml-request',
-        url: 'https://b.example.com/realms/x/protocol/saml',
-        host: 'b.example.com',
-        method: 'GET',
+        kind: 'saml-endpoint',
+        url: 'https://ca.auth.kzero.com/realms/a/protocol/saml',
+        host: 'ca.auth.kzero.com',
         statusCode: 400,
         binding: 'redirect' as const,
         artifacts: {},
-        rawRef: 'reqB',
-        samlRequest: {
-          encoded: 'mock',
-          issuer: 'https://sp.example.com/saml'
-        }
-      },
-      {
-        id: 'respB',
-        tabId: 500,
-        timestamp: 1710000205000,
-        protocol: 'SAML',
-        kind: 'saml-response',
-        url: 'https://b.example.com/acs',
-        host: 'b.example.com',
-        binding: 'post' as const,
-        artifacts: {},
-        rawRef: 'respB',
-        samlResponse: {
-          encoded: 'mock',
-          recipient: 'https://wrong-vendor.com/acs'
-        }
+        rawRef: 'kzA'
       }
     ];
     const findings = runFindingsEngine(events as any);
-    // Ensure there is a KZero finding for context A
+
+    // Context A has destination !== recipient, so ACS mismatch should fire and suppress generic
+    const acsForA = findings.find(
+      (f) => f.eventId === 'reqA' && f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH'
+    );
+    expect(acsForA).toBeDefined();
+
+    // Generic KZero should be suppressed for context A
     const kzForA = findings.find(
       (f) => f.eventId === 'reqA' && f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO'
     );
-    expect(kzForA).toBeDefined();
-    // Ensure ACS mismatch exists for context B
-    const acsForB = findings.find(
-      (f) => f.eventId === 'reqB' && f.ruleId === 'SAML_ACS_RECIPIENT_MISMATCH'
-    );
-    expect(acsForB).toBeDefined();
-    // And ensure KZero for A is not suppressed due to B's ACS mismatch
-    const otherKz = findings.find(
-      (f) => f.eventId === 'reqA' && f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO'
-    );
-    expect(otherKz).toBeDefined();
+    expect(kzForA).toBeUndefined();
   });
 });

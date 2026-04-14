@@ -203,13 +203,17 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
       })
     );
 
-    // NEW: Pre-response ACS mismatch finding. Trigger only if ACS-related request signals exist.
-    const hasAcsRequestSignals = Boolean(
-      requestEvent.samlRequest?.assertionConsumerServiceURL ||
-        requestEvent.samlRequest?.destination ||
-        requestEvent.samlRequest?.recipient
-    );
-    if (hasAcsRequestSignals) {
+    // NEW: Pre-response ACS mismatch finding. Trigger only if there's an actual ACS URL mismatch
+    // (not just the presence of these fields). Check if assertionConsumerServiceURL differs from
+    // destination/recipient, or if destination differs from recipient.
+    const acsUrl = requestEvent.samlRequest?.assertionConsumerServiceURL;
+    const dest = requestEvent.samlRequest?.destination;
+    const recip = requestEvent.samlRequest?.recipient;
+    const hasAcsMismatch =
+      (acsUrl && dest && acsUrl !== dest) ||
+      (acsUrl && recip && acsUrl !== recip) ||
+      (dest && recip && dest !== recip);
+    if (hasAcsMismatch) {
       findings.push(
         makeFinding({
           ruleId: 'SAML_PREAUTHN_ACS_MISMATCH',
