@@ -211,7 +211,7 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         likelyOwner: 'vendor SP',
         title: 'KZero rejected the sign-in request before sending a SAML response',
         explanation:
-          'KZero returned an error before a SAMLResponse was generated. This typically indicates a client configuration issue in the service provider setup. Check all three: (1) Client ID / SP Entity ID matches the KZero integration, (2) Entity ID / Issuer in the AuthnRequest matches KZero configuration, (3) ACS URL in the request matches the configured SAML Reply URL. Even one misconfigured value can cause KZero to reject the request.',
+          'KZero returned an error before a SAMLResponse was generated. This typically indicates a client configuration issue in the service provider setup. Check all three: (1) Client ID / SP Entity ID in the AuthnRequest matches your KZero configuration, (2) Entity ID / Issuer in the AuthnRequest matches KZero configuration, (3) ACS URL in the request matches the configured SAML Reply URL. Even one misconfigured value can cause KZero to reject the request.',
         observed: `KZero SAML endpoint returned HTTP ${kzeroSamlEndpoint4xx.statusCode ?? 'unknown'}`,
         expected: 'KZero accepts the AuthnRequest and proceeds to login/SAMLResponse',
         evidence: [requestEvent.url, kzeroSamlEndpoint4xx.url],
