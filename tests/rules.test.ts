@@ -415,7 +415,6 @@ describe('findings engine', () => {
 
     const findings = runFindingsEngine(events as any);
     const top = findings[0];
-    const rejection = findings.find((f) => f.ruleId === 'SAML_AUTHNREQUEST_REJECTED_BY_KZERO');
     const missingResponse = findings.find((f) => f.ruleId === 'SAML_MISSING_RESPONSE');
     const acsMismatch = findings.find((f) => f.ruleId === 'SAML_PREAUTHN_ACS_MISMATCH');
 

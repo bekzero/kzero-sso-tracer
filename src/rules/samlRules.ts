@@ -166,10 +166,6 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         )
       : undefined;
 
-  const hasAcsRecipientMismatch =
-    responseEvent?.samlResponse?.recipient &&
-    responseEvent.samlResponse.recipient !== responseEvent.url;
-
   // If a KZero pre-response rejection is observed for the request, emit it
   // only when there is no ACS mismatch context identified in the same trace.
   // This keeps the pre-response signal around when it's truly the primary issue,
