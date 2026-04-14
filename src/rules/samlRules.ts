@@ -236,34 +236,58 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   }
 
   if (!responseEvent) {
-    findings.push(
-      makeFinding({
-        ruleId: 'SAML_MISSING_RESPONSE',
-        severity: kzeroSamlEndpoint4xx ? 'info' : 'error',
-        protocol: 'SAML',
-        likelyOwner: kzeroSamlEndpoint4xx ? 'analysis' : 'vendor SP',
-        title: kzeroSamlEndpoint4xx
-          ? 'No SAMLResponse captured after KZero rejection'
-          : 'Missing SAMLResponse',
-        explanation: kzeroSamlEndpoint4xx
-          ? 'This is a supporting clue. The primary issue appears to be KZero rejecting the request before a response could be generated.'
-          : 'No SAMLResponse was captured in this trace.',
-        observed: 'SAMLResponse not found',
-        expected: 'SAMLResponse posted to ACS',
-        evidence: samlEvents.map((e) => e.url),
-        action: kzeroSamlEndpoint4xx
-          ? 'Focus on the KZero rejection finding first. After fixing that, confirm a SAMLResponse is generated and posted to ACS.'
-          : 'Confirm vendor ACS endpoint receives POST and browser is not blocked by extensions/CSP.',
-        confidence: kzeroSamlEndpoint4xx ? 0.66 : 0.88,
-        isAmbiguous: Boolean(kzeroSamlEndpoint4xx),
-        ambiguityNote: kzeroSamlEndpoint4xx
-          ? 'No SAMLResponse was captured, but the stronger evidence is a KZero endpoint 4xx before response generation.'
-          : undefined,
-        traceGaps: kzeroSamlEndpoint4xx
-          ? ['SAMLResponse payload not captured because login ended early']
-          : undefined
-      })
+    // Check if this might actually be a successful flow despite missing SAMLResponse
+    // Look for evidence of POST to vendor ACS callback and successful continuation
+    const acsPostEvents = events.filter(
+      (e) =>
+        e.protocol === 'SAML' &&
+        e.kind === 'saml-response' &&
+        e.statusCode &&
+        e.statusCode < 400 &&
+        e.url.includes('/saml-callback')
     );
+    const postAcsTimeWindow = acsPostEvents[0]?.timestamp ? acsPostEvents[0].timestamp : 0;
+    const successfulContinuation = events.some(
+      (e) =>
+        e.timestamp > postAcsTimeWindow &&
+        e.timestamp <= postAcsTimeWindow + 30000 &&
+        e.method === 'GET' &&
+        (!e.statusCode || e.statusCode < 400) &&
+        (e.host?.includes('kaseya.com') || e.host?.includes('one.kaseya.com'))
+    );
+    const likelySuccessfulFlow = acsPostEvents.length > 0 && successfulContinuation;
+
+    // If flow appears successful, suppress the missing response finding
+    if (!likelySuccessfulFlow) {
+      findings.push(
+        makeFinding({
+          ruleId: 'SAML_MISSING_RESPONSE',
+          severity: kzeroSamlEndpoint4xx ? 'info' : 'error',
+          protocol: 'SAML',
+          likelyOwner: kzeroSamlEndpoint4xx ? 'analysis' : 'vendor SP',
+          title: kzeroSamlEndpoint4xx
+            ? 'No SAMLResponse captured after KZero rejection'
+            : 'Missing SAMLResponse',
+          explanation: kzeroSamlEndpoint4xx
+            ? 'This is a supporting clue. The primary issue appears to be KZero rejecting the request before a response could be generated.'
+            : 'No SAMLResponse was captured in this trace.',
+          observed: 'SAMLResponse not found',
+          expected: 'SAMLResponse posted to ACS',
+          evidence: samlEvents.map((e) => e.url),
+          action: kzeroSamlEndpoint4xx
+            ? 'Focus on the KZero rejection finding first. After fixing that, confirm a SAMLResponse is generated and posted to ACS.'
+            : 'Confirm vendor ACS endpoint receives POST and browser is not blocked by extensions/CSP.',
+          confidence: kzeroSamlEndpoint4xx ? 0.66 : 0.88,
+          isAmbiguous: Boolean(kzeroSamlEndpoint4xx),
+          ambiguityNote: kzeroSamlEndpoint4xx
+            ? 'No SAMLResponse was captured, but the stronger evidence is a KZero endpoint 4xx before response generation.'
+            : undefined,
+          traceGaps: kzeroSamlEndpoint4xx
+            ? ['SAMLResponse payload not captured because login ended early']
+            : undefined
+        })
+      );
+    }
   }
 
   // REGRESSION: If requestEvent exists, never emit SAML_MISSING_REQUEST
