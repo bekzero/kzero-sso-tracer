@@ -218,12 +218,9 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
           likelyOwner: 'vendor SP',
           title: 'Likely ACS URL mismatch blocked the sign-in request',
           explanation:
-            'KZero blocked the sign-in request because the ACS URL in the request did not exactly match the configured SAML reply URL. ' +
-            'Check the ACS URL first. Check these KZero settings first. Then check the service provider settings. ' +
-            'Requested ACS URL from this sign-in attempt: ' +
+            'KZero blocked the sign-in request because the ACS URL in the request did not exactly match the configured SAML reply URL. Check the ACS URL first. Check these KZero settings first. Then check the service provider settings. Requested ACS URL from this sign-in attempt: ' +
             acs +
-            '. This should match your configured ACS URL exactly. ' +
-            'Even one extra character, a wrong hostname, a path difference, an environment mismatch, or a trailing slash can break sign-in.',
+            '. This should match your configured ACS URL exactly. Even one extra character, a wrong hostname, a path difference, an environment mismatch, or a trailing slash can break sign-in.',
           observed: `KZero SAML endpoint returned HTTP ${kzeroSamlEndpoint4xx.statusCode ?? 'unknown'}`,
           expected: 'KZero accepts the AuthnRequest and proceeds to login/SAMLResponse',
           evidence: [requestEvent.url, kzeroSamlEndpoint4xx.url],
