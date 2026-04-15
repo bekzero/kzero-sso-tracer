@@ -84,18 +84,28 @@ export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
     return true;
   });
 
-  // Post-processing: suppress SAML_MISSING_RESPONSE on successful SAML flows
-  // Detect successful flow: POST to saml-callback followed by GET to kaseya.com domain
+  // Post-processing: suppress findings on successful SAML flows
+  // When flow is successful, these findings are noise - suppress them entirely
+  const NOISE_ON_SUCCESS = [
+    'SAML_MISSING_RESPONSE',
+    'SAML_AUTHNREQUEST_SIGN_EXPECTATION_MISMATCH',
+    'WRONG_HOST_OR_ENVIRONMENT',
+    'NETWORK_TLS_REACHABILITY_SUSPECTED',
+    'SAML_POLICY_MISMATCH_CLUE',
+    'METADATA_COPY_PASTE_TRUNCATION',
+    'STALE_VALUES_FROM_ANOTHER_ENVIRONMENT'
+  ];
+
   const isSuccessfulSamlFlow = detectSuccessfulSamlFlow(events);
   let finalFindings: Finding[];
   if (isSuccessfulSamlFlow) {
     finalFindings = postFiltered
       .map((f) => {
-        if (f.ruleId === 'SAML_MISSING_RESPONSE') {
-          console.debug('[diag] Suppressed SAML_MISSING_RESPONSE due to successful flow detection');
+        if (NOISE_ON_SUCCESS.includes(f.ruleId)) {
+          console.debug(`[diag] Suppressed ${f.ruleId} due to successful flow detection`);
           return null;
         }
-        // Demote warning-level findings to info on successful flows
+        // Demote any remaining warning-level findings to info on successful flows
         if (f.severity === 'warning') {
           return { ...f, severity: 'info' as const, confidence: f.confidence * 0.6 };
         }

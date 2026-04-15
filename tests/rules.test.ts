@@ -805,11 +805,9 @@ describe('findings engine', () => {
     ];
     const findings = runFindingsEngine(events as any);
     const networkError = findings.find((f) => f.ruleId === 'NETWORK_TLS_REACHABILITY_SUSPECTED');
-    expect(networkError).toBeDefined();
-    expect(networkError!.severity).toBe('info');
+    expect(networkError).toBeUndefined();
 
     const wrongHost = findings.find((f) => f.ruleId === 'WRONG_HOST_OR_ENVIRONMENT');
-    expect(wrongHost).toBeDefined();
-    expect(wrongHost!.severity).toBe('info');
+    expect(wrongHost).toBeUndefined();
   });
 });
