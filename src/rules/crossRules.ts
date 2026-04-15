@@ -50,6 +50,8 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
       !e.host?.includes('keycloak')
   );
   const likelySuccessfulSamlFlow = acsPostEvents.length > 0 && successfulContinuation;
+  // Note: kept for potential future use, currently only index.ts does suppression
+  void likelySuccessfulSamlFlow;
 
   if (tenants.length > 1) {
     const uniqueTenants = new Set(tenants);
