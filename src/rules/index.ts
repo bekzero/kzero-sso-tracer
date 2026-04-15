@@ -15,18 +15,32 @@ const detectSuccessfulSamlFlow = (events: NormalizedEvent[]): boolean => {
     host: e.host?.toLowerCase() ?? ''
   }));
 
+  // Find POST to any saml-callback URL (vendor-agnostic pattern)
   const acsCallbackEvent = lowerUrlEvents.find(
     (e) => e.url.includes('/saml-callback') && e.method === 'POST'
   );
   if (!acsCallbackEvent) return false;
 
+  // Check for any subsequent GET to a non-KZero host within 30 seconds (vendor-agnostic)
   const callbackTimestamp = acsCallbackEvent.timestamp;
   const hasContinuation = lowerUrlEvents.some(
     (e) =>
-      e.timestamp > callbackTimestamp &&
-      e.timestamp <= callbackTimestamp + 30000 &&
-      e.method === 'GET' &&
-      e.host.includes('kaseya.com')
+      (e.timestamp > callbackTimestamp &&
+        e.timestamp <= callbackTimestamp + 30000 &&
+        e.method === 'GET' &&
+        e.host.includes('kaseya.com')) ||
+      e.host.includes('.kaseya.com') ||
+      e.host.includes('.zoho.com') ||
+      e.host.includes('.okta.com') ||
+      e.host.includes('.pingidentity.com') ||
+      e.host.includes('.auth0.com') ||
+      e.host.includes('.azure.com') ||
+      e.host.includes('.google.com') ||
+      e.host.includes('.onelogin.com') ||
+      e.host.includes('.idp.com') ||
+      (!e.host.endsWith('auth.kzero.com') &&
+        !e.host.endsWith('.auth.kzero.com') &&
+        !e.host.endsWith('keycloak'))
   );
 
   return hasContinuation;
@@ -84,30 +98,17 @@ export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
     return true;
   });
 
-  // Post-processing: suppress findings on successful SAML flows
-  // When flow is successful, these findings are noise - suppress them entirely
-  const NOISE_ON_SUCCESS = [
-    'SAML_MISSING_RESPONSE',
-    'SAML_AUTHNREQUEST_SIGN_EXPECTATION_MISMATCH',
-    'WRONG_HOST_OR_ENVIRONMENT',
-    'NETWORK_TLS_REACHABILITY_SUSPECTED',
-    'SAML_POLICY_MISMATCH_CLUE',
-    'METADATA_COPY_PASTE_TRUNCATION',
-    'STALE_VALUES_FROM_ANOTHER_ENVIRONMENT'
-  ];
-
+  // Post-processing: suppress only SAML_MISSING_RESPONSE on successful SAML flows
+  // SAML_MISSING_RESPONSE is a false positive when the flow succeeds (response went to vendor backend)
+  // Other findings (warnings, etc.) are kept as-is - they may be relevant issues
   const isSuccessfulSamlFlow = detectSuccessfulSamlFlow(events);
   let finalFindings: Finding[];
   if (isSuccessfulSamlFlow) {
     finalFindings = postFiltered
       .map((f) => {
-        if (NOISE_ON_SUCCESS.includes(f.ruleId)) {
-          console.debug(`[diag] Suppressed ${f.ruleId} due to successful flow detection`);
+        if (f.ruleId === 'SAML_MISSING_RESPONSE') {
+          console.debug(`[diag] Suppressed SAML_MISSING_RESPONSE - flow succeeded`);
           return null;
-        }
-        // Demote any remaining warning-level findings to info on successful flows
-        if (f.severity === 'warning') {
-          return { ...f, severity: 'info' as const, confidence: f.confidence * 0.6 };
         }
         return f;
       })

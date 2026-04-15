@@ -166,10 +166,11 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         )
       : undefined;
 
-  // Detect successful SAML flow: POST to saml-callback followed by GET to kaseya.com
+  // Detect successful SAML flow: POST to saml-callback followed by GET to non-KZero host
   // Note: The ACS callback event has protocol="unknown" kind="webrequest", not SAML protocol
+  // This is vendor-agnostic - works for any SAML vendor
   const acsPostEvents = events.filter(
-    (e) => e.method === 'POST' && e.url.includes('/saml-callback')
+    (e) => e.method === 'POST' && e.url.toLowerCase().includes('/saml-callback')
   );
   const postAcsTimeWindow = acsPostEvents[0]?.timestamp ? acsPostEvents[0].timestamp : 0;
   const successfulContinuation = events.some(
@@ -177,7 +178,9 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
       e.timestamp > postAcsTimeWindow &&
       e.timestamp <= postAcsTimeWindow + 30000 &&
       e.method === 'GET' &&
-      e.host?.includes('kaseya.com')
+      !e.host?.endsWith('auth.kzero.com') &&
+      !e.host?.endsWith('.auth.kzero.com') &&
+      !e.host?.includes('keycloak')
   );
   const likelySuccessfulSamlFlow = acsPostEvents.length > 0 && successfulContinuation;
 

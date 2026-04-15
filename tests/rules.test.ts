@@ -733,7 +733,7 @@ describe('findings engine', () => {
     expect(missingResponse).toBeUndefined();
   });
 
-  it('demotes warning findings to info on successful SAML flow', () => {
+  it('suppresses only SAML_MISSING_RESPONSE on successful SAML flow, keeps other warnings', () => {
     const events = [
       {
         id: 'req1',
@@ -804,10 +804,14 @@ describe('findings engine', () => {
       }
     ];
     const findings = runFindingsEngine(events as any);
+    // On successful SAML flow, only SAML_MISSING_RESPONSE is suppressed
+    // Other warnings are kept as-is - they may be relevant issues
     const networkError = findings.find((f) => f.ruleId === 'NETWORK_TLS_REACHABILITY_SUSPECTED');
-    expect(networkError).toBeUndefined();
+    expect(networkError).toBeDefined();
+    expect(networkError!.severity).toBe('warning');
 
     const wrongHost = findings.find((f) => f.ruleId === 'WRONG_HOST_OR_ENVIRONMENT');
-    expect(wrongHost).toBeUndefined();
+    expect(wrongHost).toBeDefined();
+    expect(wrongHost!.severity).toBe('warning');
   });
 });

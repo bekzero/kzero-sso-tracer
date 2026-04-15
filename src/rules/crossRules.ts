@@ -33,10 +33,11 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
   const findings: Finding[] = [];
   const tenants = extractTenants(events);
 
-  // Detect successful SAML flow: POST to saml-callback followed by GET to kaseya.com
+  // Detect successful SAML flow: POST to saml-callback followed by GET to non-KZero host
   // Note: The ACS callback event has protocol="unknown" kind="webrequest", not SAML protocol
+  // This is vendor-agnostic - works for any SAML vendor
   const acsPostEvents = events.filter(
-    (e) => e.method === 'POST' && e.url.includes('/saml-callback')
+    (e) => e.method === 'POST' && e.url.toLowerCase().includes('/saml-callback')
   );
   const postAcsTimeWindow = acsPostEvents[0]?.timestamp ? acsPostEvents[0].timestamp : 0;
   const successfulContinuation = events.some(
@@ -44,7 +45,9 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
       e.timestamp > postAcsTimeWindow &&
       e.timestamp <= postAcsTimeWindow + 30000 &&
       e.method === 'GET' &&
-      e.host?.includes('kaseya.com')
+      !e.host?.endsWith('auth.kzero.com') &&
+      !e.host?.endsWith('.auth.kzero.com') &&
+      !e.host?.includes('keycloak')
   );
   const likelySuccessfulSamlFlow = acsPostEvents.length > 0 && successfulContinuation;
 
@@ -80,24 +83,21 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
       !e.host.includes('localhost')
   );
   if (nonKzeroHosts.length > 0) {
-    // Demote to info if SAML flow appears successful
-    const demotedSeverity = likelySuccessfulSamlFlow ? 'info' : 'warning';
+    // Keep warnings at original severity - only SAML_MISSING_RESPONSE is suppressed in post-processing
     findings.push(
       makeFinding({
         ruleId: 'WRONG_HOST_OR_ENVIRONMENT',
-        severity: demotedSeverity,
+        severity: 'warning',
         protocol: 'unknown',
         likelyOwner: 'unknown',
         title: 'Potential wrong host or environment mix',
-        explanation: likelySuccessfulSamlFlow
-          ? 'Trace includes auth endpoints outside expected KZero host family, but SAML flow succeeded so this may be expected vendor behavior.'
-          : 'Trace includes auth endpoints outside expected KZero host family.',
+        explanation: 'Trace includes auth endpoints outside expected KZero host family.',
         observed: nonKzeroHosts.map((e) => e.host).join(', '),
         expected: 'Consistent endpoint family per environment',
         evidence: nonKzeroHosts.slice(0, 3).map((e) => e.url),
         action:
           'Check for copied values from another environment and confirm tenant endpoint family.',
-        confidence: likelySuccessfulSamlFlow ? 0.5 : 0.74
+        confidence: 0.74
       })
     );
   }
@@ -129,8 +129,6 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
       String(e.artifacts.discoveryError ?? '').length > 0
   );
   if (parseFailures.length > 0) {
-    // Demote confidence if SAML flow appears successful
-    const demotedConfidence = likelySuccessfulSamlFlow ? 0.45 : 0.61;
     findings.push(
       makeFinding({
         ruleId: 'METADATA_COPY_PASTE_TRUNCATION',
@@ -138,15 +136,14 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         protocol: 'unknown',
         likelyOwner: 'user data',
         title: 'Potential copy/paste truncation',
-        explanation: likelySuccessfulSamlFlow
-          ? 'Malformed metadata/payload parse errors detected, but SAML flow succeeded so these may be non-critical.'
-          : 'Malformed metadata or payload parse errors can indicate copied values were truncated.',
+        explanation:
+          'Malformed metadata or payload parse errors can indicate copied values were truncated.',
         observed: parseFailures.map((e) => e.url).join(', '),
         expected: 'Full metadata/payload values',
         evidence: parseFailures.slice(0, 3).map((e) => e.id),
         action:
           'Re-copy metadata URLs/XML from source and avoid manual edits in the middle of long values.',
-        confidence: demotedConfidence,
+        confidence: 0.61,
         isAmbiguous: true,
         ambiguityNote:
           'Parse errors could be from truncation, encoding issues, or actual malformed data. Look at the raw artifact to determine.',
@@ -213,25 +210,21 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
 
   const networkErrors = events.filter((e) => e.protocol === 'network');
   if (networkErrors.length > 0) {
-    const demotedSeverity = likelySuccessfulSamlFlow ? 'info' : 'warning';
-    const demotedConfidence = likelySuccessfulSamlFlow ? 0.5 : 0.86;
     findings.push(
       makeFinding({
         ruleId: 'NETWORK_TLS_REACHABILITY_SUSPECTED',
-        severity: demotedSeverity,
+        severity: 'warning',
         protocol: 'network',
         likelyOwner: 'network',
         title: 'Network/TLS/public accessibility suspicion',
-        explanation: likelySuccessfulSamlFlow
-          ? 'Network errors captured during auth flow, but SAML flow succeeded so may be non-critical.'
-          : 'Request-level network errors were captured during auth flow.',
+        explanation: 'Request-level network errors were captured during auth flow.',
         observed: networkErrors
           .map((e) => String(e.artifacts.errorText ?? 'network error'))
           .join(', '),
         expected: 'No network-level failures on auth endpoints',
         evidence: networkErrors.slice(0, 3).map((e) => e.url),
         action: 'Verify firewall, WAF, DNS, and TLS chain from browser and vendor backend paths.',
-        confidence: demotedConfidence
+        confidence: 0.86
       })
     );
   }
@@ -242,7 +235,6 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
   const nonKzeroMeaningfulHosts = meaningfulHosts.filter((h) => !h.endsWith('auth.kzero.com'));
   const mixedRealmHosts = meaningfulHosts.length > 5 && nonKzeroMeaningfulHosts.length > 2;
   if (mixedRealmHosts) {
-    const demotedConfidence = likelySuccessfulSamlFlow ? 0.4 : 0.52;
     findings.push(
       makeFinding({
         ruleId: 'STALE_VALUES_FROM_ANOTHER_ENVIRONMENT',
@@ -250,9 +242,8 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
         protocol: 'unknown',
         likelyOwner: 'user data',
         title: 'Suspected stale copied values from another environment',
-        explanation: likelySuccessfulSamlFlow
-          ? 'Auth flow touches many meaningful hosts, but SAML flow succeeded so likely normal vendor behavior.'
-          : 'Auth flow touches many meaningful hosts outside normal KZero + vendor paths, which can indicate copied endpoint values from another environment.',
+        explanation:
+          'Auth flow touches many meaningful hosts outside normal KZero + vendor paths, which can indicate copied endpoint values from another environment.',
         observed: `${meaningfulHosts.length} meaningful hosts in one auth trace`,
         expected: 'Small, consistent host set for one tenant integration',
         evidence: events
@@ -260,7 +251,7 @@ export const runCrossRules = (events: NormalizedEvent[]): Finding[] => {
           .slice(0, 5)
           .map((e) => e.url),
         action: 'Re-validate all endpoint URLs against the current environment and tenant.',
-        confidence: demotedConfidence,
+        confidence: 0.52,
         isAmbiguous: true,
         ambiguityNote:
           'High host count can be normal when analytics/CDN/status hosts are included. Treat this as supporting context, not primary root cause.'
