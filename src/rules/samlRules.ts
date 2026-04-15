@@ -166,6 +166,21 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         )
       : undefined;
 
+  // Detect successful SAML flow: POST to saml-callback followed by GET to kaseya.com
+  // Note: The ACS callback event has protocol="unknown" kind="webrequest", not SAML protocol
+  const acsPostEvents = events.filter(
+    (e) => e.method === 'POST' && e.url.includes('/saml-callback')
+  );
+  const postAcsTimeWindow = acsPostEvents[0]?.timestamp ? acsPostEvents[0].timestamp : 0;
+  const successfulContinuation = events.some(
+    (e) =>
+      e.timestamp > postAcsTimeWindow &&
+      e.timestamp <= postAcsTimeWindow + 30000 &&
+      e.method === 'GET' &&
+      e.host?.includes('kaseya.com')
+  );
+  const likelySuccessfulSamlFlow = acsPostEvents.length > 0 && successfulContinuation;
+
   // If a KZero pre-response rejection is observed for the request, emit it
   // only when there is no ACS mismatch context identified in the same trace.
   // This keeps the pre-response signal around when it's truly the primary issue,
@@ -238,13 +253,10 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   if (!responseEvent) {
     // Check if this might actually be a successful flow despite missing SAMLResponse
     // Look for evidence of POST to vendor ACS callback and successful continuation
+    // NOTE: We do NOT require explicit statusCode fields - successful flows often don't carry them
+    // Note: The ACS callback event has protocol="unknown" kind="webrequest", not SAML protocol
     const acsPostEvents = events.filter(
-      (e) =>
-        e.protocol === 'SAML' &&
-        e.kind === 'saml-response' &&
-        e.statusCode &&
-        e.statusCode < 400 &&
-        e.url.includes('/saml-callback')
+      (e) => e.method === 'POST' && e.url.includes('/saml-callback')
     );
     const postAcsTimeWindow = acsPostEvents[0]?.timestamp ? acsPostEvents[0].timestamp : 0;
     const successfulContinuation = events.some(
@@ -252,8 +264,7 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         e.timestamp > postAcsTimeWindow &&
         e.timestamp <= postAcsTimeWindow + 30000 &&
         e.method === 'GET' &&
-        (!e.statusCode || e.statusCode < 400) &&
-        (e.host?.includes('kaseya.com') || e.host?.includes('one.kaseya.com'))
+        e.host?.includes('kaseya.com')
     );
     const likelySuccessfulFlow = acsPostEvents.length > 0 && successfulContinuation;
 
@@ -751,6 +762,7 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
   }
 
   if (requestEvent?.samlRequest?.forceAuthn || requestEvent?.samlRequest?.allowCreate === false) {
+    const demotedConfidence = likelySuccessfulSamlFlow ? 0.45 : 0.58;
     findings.push(
       makeFinding({
         ruleId: 'SAML_POLICY_MISMATCH_CLUE',
@@ -758,12 +770,14 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         protocol: 'SAML',
         likelyOwner: 'vendor SP',
         title: 'NameID / ForceAuthn policy mismatch clue',
-        explanation: 'AuthnRequest policy flags can conflict with current IdP/SP expectations.',
+        explanation: likelySuccessfulSamlFlow
+          ? 'AuthnRequest policy flags noted, but SAML flow succeeded so likely not blocking.'
+          : 'AuthnRequest policy flags can conflict with current IdP/SP expectations.',
         observed: `ForceAuthn=${requestEvent.samlRequest.forceAuthn}, AllowCreate=${requestEvent.samlRequest.allowCreate}`,
         expected: 'Policy flags aligned with SP requirements',
         evidence: [requestEvent.url],
         action: 'Review Force authentication, Allow create, and NameID Policy Format values.',
-        confidence: 0.58
+        confidence: demotedConfidence
       })
     );
   }
@@ -773,6 +787,7 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
     requestEvent.samlRequest &&
     !requestEvent.url.includes('Signature=')
   ) {
+    const demotedConfidence = likelySuccessfulSamlFlow ? 0.5 : 0.68;
     findings.push(
       makeFinding({
         ruleId: 'SAML_AUTHNREQUEST_SIGN_EXPECTATION_MISMATCH',
@@ -780,12 +795,14 @@ export const runSamlRules = (events: NormalizedEvent[]): Finding[] => {
         protocol: 'SAML',
         likelyOwner: 'vendor SP',
         title: 'AuthnRequest signature may be missing',
-        explanation: 'Redirect binding request appears unsigned.',
+        explanation: likelySuccessfulSamlFlow
+          ? 'Unsigned redirect binding request noted, but SAML flow succeeded so likely not blocking.'
+          : 'Redirect binding request appears unsigned.',
         observed: 'Signature parameter not found',
         expected: 'Signed AuthnRequest when Want AuthnRequests signed is enabled',
         evidence: [requestEvent.url],
         action: 'Compare Want AuthnRequests signed with vendor signed request requirement.',
-        confidence: 0.68
+        confidence: demotedConfidence
       })
     );
   }

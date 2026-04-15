@@ -8,6 +8,30 @@ const ALWAYS_NOISE_RULES = ['SAML_DOCUMENT_SIGNATURE_MISSING', 'OIDC_ACCESS_TOKE
 const severityRank = (severity: Finding['severity']): number =>
   severity === 'error' ? 3 : severity === 'warning' ? 2 : 1;
 
+const detectSuccessfulSamlFlow = (events: NormalizedEvent[]): boolean => {
+  const lowerUrlEvents = events.map((e) => ({
+    ...e,
+    url: e.url.toLowerCase(),
+    host: e.host?.toLowerCase() ?? ''
+  }));
+
+  const acsCallbackEvent = lowerUrlEvents.find(
+    (e) => e.url.includes('/saml-callback') && e.method === 'POST'
+  );
+  if (!acsCallbackEvent) return false;
+
+  const callbackTimestamp = acsCallbackEvent.timestamp;
+  const hasContinuation = lowerUrlEvents.some(
+    (e) =>
+      e.timestamp > callbackTimestamp &&
+      e.timestamp <= callbackTimestamp + 30000 &&
+      e.method === 'GET' &&
+      e.host.includes('kaseya.com')
+  );
+
+  return hasContinuation;
+};
+
 const filterNoise = (findings: Finding[]): Finding[] => {
   return findings.filter((f) => {
     if (ALWAYS_NOISE_RULES.includes(f.ruleId as (typeof ALWAYS_NOISE_RULES)[number])) {
@@ -60,13 +84,36 @@ export const runFindingsEngine = (events: NormalizedEvent[]): Finding[] => {
     return true;
   });
 
+  // Post-processing: suppress SAML_MISSING_RESPONSE on successful SAML flows
+  // Detect successful flow: POST to saml-callback followed by GET to kaseya.com domain
+  const isSuccessfulSamlFlow = detectSuccessfulSamlFlow(events);
+  let finalFindings: Finding[];
+  if (isSuccessfulSamlFlow) {
+    finalFindings = postFiltered
+      .map((f) => {
+        if (f.ruleId === 'SAML_MISSING_RESPONSE') {
+          console.debug('[diag] Suppressed SAML_MISSING_RESPONSE due to successful flow detection');
+          return null;
+        }
+        // Demote warning-level findings to info on successful flows
+        if (f.severity === 'warning') {
+          return { ...f, severity: 'info' as const, confidence: f.confidence * 0.6 };
+        }
+        return f;
+      })
+      .filter((f): f is Finding => f !== null);
+  } else {
+    finalFindings = postFiltered;
+  }
+
   // Temporary diagnostic: surface how many findings remain after post-filter
   // eslint-disable-next-line no-console
   console.debug(
     '[diag] findings post-filter count after ACS suppression:',
-    filterNoise(postFiltered).length
+    filterNoise(finalFindings).length,
+    isSuccessfulSamlFlow ? '(successful SAML flow detected)' : ''
   );
-  return filterNoise(postFiltered).sort((a, b) => {
+  return filterNoise(finalFindings).sort((a, b) => {
     const severityDelta = severityRank(b.severity) - severityRank(a.severity);
     if (severityDelta !== 0) return severityDelta;
     return b.confidence - a.confidence;

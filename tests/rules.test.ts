@@ -682,4 +682,134 @@ describe('findings engine', () => {
     );
     expect(kzForA).toBeUndefined();
   });
+
+  it('suppresses SAML_MISSING_RESPONSE on successful SAML flow with saml-callback and continuation', () => {
+    const events = [
+      {
+        id: 'req1',
+        tabId: 400,
+        timestamp: 1710000100000,
+        protocol: 'SAML',
+        kind: 'saml-request',
+        url: 'https://ca.auth.kzero.com/realms/test/protocol/saml?SAMLRequest=xxx',
+        host: 'ca.auth.kzero.com',
+        method: 'GET',
+        binding: 'redirect' as const,
+        artifacts: {},
+        rawRef: 'req1',
+        samlRequest: {
+          encoded: 'xxx',
+          issuer: 'https://one.kaseya.com',
+          destination: 'https://ca.auth.kzero.com/realms/test/protocol/saml'
+        }
+      },
+      {
+        id: 'cb1',
+        tabId: 400,
+        timestamp: 1710000101000,
+        protocol: 'unknown',
+        kind: 'webrequest',
+        url: 'https://api-one.kaseya.com/api/v1/sso/saml-callback',
+        host: 'api-one.kaseya.com',
+        method: 'POST',
+        artifacts: {},
+        rawRef: 'cb1'
+      },
+      {
+        id: 'cont1',
+        tabId: 400,
+        timestamp: 1710000101500,
+        protocol: 'unknown',
+        kind: 'webrequest',
+        url: 'https://one.kaseya.com/third-party-sso?returnToUrl=https%3A%2F%2Fone.kaseya.com%2F',
+        host: 'one.kaseya.com',
+        method: 'GET',
+        artifacts: {},
+        rawRef: 'cont1'
+      }
+    ];
+    const findings = runFindingsEngine(events as any);
+    const missingResponse = findings.find((f) => f.ruleId === 'SAML_MISSING_RESPONSE');
+    expect(missingResponse).toBeUndefined();
+  });
+
+  it('demotes warning findings to info on successful SAML flow', () => {
+    const events = [
+      {
+        id: 'req1',
+        tabId: 401,
+        timestamp: 1710000200000,
+        protocol: 'SAML',
+        kind: 'saml-request',
+        url: 'https://ca.auth.kzero.com/realms/test/protocol/saml?SAMLRequest=xxx',
+        host: 'ca.auth.kzero.com',
+        method: 'GET',
+        binding: 'redirect' as const,
+        artifacts: {},
+        rawRef: 'req1',
+        samlRequest: {
+          encoded: 'xxx',
+          issuer: 'https://one.kaseya.com'
+        }
+      },
+      {
+        id: 'cb1',
+        tabId: 401,
+        timestamp: 1710000201000,
+        protocol: 'unknown',
+        kind: 'webrequest',
+        url: 'https://api-one.kaseya.com/api/v1/sso/saml-callback',
+        host: 'api-one.kaseya.com',
+        method: 'POST',
+        artifacts: {},
+        rawRef: 'cb1'
+      },
+      {
+        id: 'cont1',
+        tabId: 401,
+        timestamp: 1710000201500,
+        protocol: 'unknown',
+        kind: 'webrequest',
+        url: 'https://one.kaseya.com/home',
+        host: 'one.kaseya.com',
+        method: 'GET',
+        artifacts: {},
+        rawRef: 'cont1'
+      },
+      {
+        id: 'net1',
+        tabId: 401,
+        timestamp: 1710000200500,
+        protocol: 'network',
+        kind: 'webrequest',
+        url: 'https://some.external.api/data',
+        host: 'some.external.api',
+        method: 'GET',
+        statusCode: 0,
+        errorText: 'net::ERR_NAME_NOT_RESOLVED',
+        artifacts: { errorText: 'net::ERR_NAME_NOT_RESOLVED' },
+        rawRef: 'net1'
+      },
+      {
+        id: 'other1',
+        tabId: 401,
+        timestamp: 1710000200600,
+        protocol: 'unknown',
+        kind: 'webrequest',
+        url: 'https://other-vendor.com/api',
+        host: 'other-vendor.com',
+        method: 'GET',
+        artifacts: {},
+        rawRef: 'other1'
+      }
+    ];
+    const findings = runFindingsEngine(events as any);
+    const networkError = findings.find((f) => f.ruleId === 'NETWORK_TLS_REACHABILITY_SUSPECTED');
+    expect(networkError).toBeDefined();
+    expect(networkError!.severity).toBe('info');
+
+    const wrongHost = findings.find((f) => f.ruleId === 'WRONG_HOST_OR_ENVIRONMENT');
+    expect(wrongHost).toBeDefined();
+    expect(wrongHost!.severity).toBe('info');
+  });
 });
