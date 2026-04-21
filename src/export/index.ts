@@ -4,3 +4,16 @@ export { buildSummaryExport } from './summaryExport';
 export { downloadHar } from './harExport';
 export { downloadFindingsCsv, downloadSummaryCsv } from './csvExport';
 export { emailSessionToSupport, generateEmailExport } from './emailExport';
+export {
+  buildEducationalExport,
+  enrichEvent,
+  enrichSamlEvent,
+  enrichFinding,
+  buildFlowNarrative,
+  buildComparisonChecklist,
+  buildProtocolGlossary,
+  classifyNoise,
+  detectInitiationModel,
+  SCHEMA_VERSION,
+  EXPORT_VERSION
+} from './enrichment';

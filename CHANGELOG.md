@@ -4,9 +4,39 @@ All notable changes to **KZero Passwordless SSO Tracer** are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] — 2026-04-21
+
+### Added
+
+- **Educational export (SAML)** — Optional enriched export block with plain-English explanations:
+  - New `schemaVersion: "2.0.0"` and `exportVersion: "1.0.0"` for downstream detection
+  - `education` block available on sanitized and summary exports (opt-in via `includeEducational: true`)
+  - `narrative` section: story of the SAML flow with initiation model explanation
+  - `observedFacts`: literal values seen on the wire, clearly distinguished from inferences
+  - `inferredFindings`: findings with `basedOnObservedFields`, `notShownInTrace`, `unsupportedAssumptions`
+  - `manualChecks`: structured comparison checklist mapping observed values to common KZero field names
+  - `learningAids.enrichedEvents`: each SAML event with plain-English summaries and field explanations
+  - `learningAids.protocolGlossary`: reusable explainers for Issuer, ACS URL, Destination, etc.
+  - `noiseEvents`: non-auth requests labeled with `authRelevance` and `noiseReason`
+  - `notShownInTrace`: explicit list of KZero config values NOT visible in the trace
+  - Guards against implying knowledge of KZero configured values without explicit capture
+
+### Example educational export usage:
+
+```typescript
+const export = buildSanitizedExport(session, { includeEducational: true });
+// export.education contains:
+//   - educational.title: "SAML login failed"
+//   - narrative.initiationModel: "SP-initiated" | "IdP-initiated"
+//   - narrative.plainEnglishFlow: "1. App started SSO login..."
+//   - observedFacts: ["SAML AuthnRequest received from vendor-sp.example.com", ...]
+//   - manualChecks: [{ fieldGroup: "SP Entity ID", observedValue: "...", commonKZeroFieldNames: [...] }]
+```
+
 ## [0.2.0] — 2026-03-31
 
 ### Added
+
 - **Error boundaries** — React component errors are caught and displayed with a friendly fallback UI instead of a blank screen
 - **Keyboard shortcuts** — Registered via `chrome.commands`:
   - `S` — Start / stop capture
@@ -34,6 +64,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **CHANGELOG** — This file, tracking all changes
 
 ### Changed
+
 - Default narrow layout tab changed from "Timeline" to "Findings"
 - Timeline rows now show protocol via colored left border (pink = SAML, blue = OIDC, gray = unknown)
 - Filter dropdown styles fixed for dark theme contrast
@@ -43,6 +74,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.1.0] — 2026-03-30
 
 ### Added
+
 - Project scaffold: TypeScript, MV3 manifest, service worker, React panel
 - Global `webRequest` capture for SAML and OIDC flows (all tabs)
 - Content script: hidden form intercept, `form.submit()` override, MutationObserver

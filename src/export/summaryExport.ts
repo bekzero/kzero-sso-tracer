@@ -1,14 +1,22 @@
-import type { CaptureSession, SummaryExportBundle, ExportMetadata, NormalizedEvent, NormalizedOidcEvent } from "../shared/models";
-import { filterEventsByMode, detectAuthBoundary, getAuthHosts, isNoiseEvent } from "./filtering";
+import type {
+  CaptureSession,
+  SummaryExportBundle,
+  ExportMetadata,
+  NormalizedEvent,
+  NormalizedOidcEvent
+} from '../shared/models';
+import type { EducationalExport } from '../shared/models';
+import { filterEventsByMode, detectAuthBoundary, getAuthHosts, isNoiseEvent } from './filtering';
+import { buildEducationalExport } from './enrichment';
 
-const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === "OIDC";
+const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === 'OIDC';
 
-const extractOidcSummary = (events: NormalizedEvent[]): SummaryExportBundle["oidcSummary"] => {
+const extractOidcSummary = (events: NormalizedEvent[]): SummaryExportBundle['oidcSummary'] => {
   const oidc = events.filter(isOidc);
-  const authorize = oidc.find((e) => e.kind === "authorize");
-  const callback = oidc.find((e) => e.kind === "callback");
-  const token = oidc.find((e) => e.kind === "token");
-  const discovery = oidc.find((e) => e.kind === "discovery");
+  const authorize = oidc.find((e) => e.kind === 'authorize');
+  const callback = oidc.find((e) => e.kind === 'callback');
+  const token = oidc.find((e) => e.kind === 'token');
+  const discovery = oidc.find((e) => e.kind === 'discovery');
 
   const boundary = detectAuthBoundary(events);
 
@@ -25,14 +33,14 @@ const extractOidcSummary = (events: NormalizedEvent[]): SummaryExportBundle["oid
   };
 
   const redirectUri = authorize?.redirectUri;
-  const computedRedirectUri = typeof redirectUri === "string" ? extractRedirectUriHostPath(redirectUri) : undefined;
+  const computedRedirectUri =
+    typeof redirectUri === 'string' ? extractRedirectUriHostPath(redirectUri) : undefined;
 
-  const stateRoundTrip = authorize?.state && callback?.state 
-    ? authorize.state === callback.state 
-    : undefined;
+  const stateRoundTrip =
+    authorize?.state && callback?.state ? authorize.state === callback.state : undefined;
 
   return {
-    protocol: "OIDC",
+    protocol: 'OIDC',
     authorizeHost: authorize?.host,
     callbackHost: callback?.host,
     redirectUri: computedRedirectUri,
@@ -46,18 +54,26 @@ const extractOidcSummary = (events: NormalizedEvent[]): SummaryExportBundle["oid
     callbackHasError: !!callback?.error,
     callbackError: callback?.error,
     tokenExchangeVisible: !!token,
-    tokenResponseBodyVisible: !!(token?.artifacts?.responseBody),
+    tokenResponseBodyVisible: !!token?.artifacts?.responseBody,
     authBoundaryDetected: boundary.detected,
     landingHost: boundary.landingEvent?.host
   };
 };
 
-export const buildSummaryExport = (session: CaptureSession | null): SummaryExportBundle | null => {
+export interface SummaryExportOptions {
+  includeEducational: boolean;
+}
+
+export const buildSummaryExport = (
+  session: CaptureSession | null,
+  options?: Partial<SummaryExportOptions>
+): SummaryExportBundle | null => {
   if (!session) return null;
 
+  const includeEducational = options?.includeEducational ?? false;
   const boundary = detectAuthBoundary(session.normalizedEvents);
   const filteredEvents = filterEventsByMode(session.normalizedEvents, {
-    mode: "summary",
+    mode: 'summary',
     includePostLoginActivity: false
   });
 
@@ -66,12 +82,11 @@ export const buildSummaryExport = (session: CaptureSession | null): SummaryExpor
   const postLoginTrimmed = originalNoiseCount > filteredNoiseCount;
 
   const authHosts = getAuthHosts(session.normalizedEvents);
-  const duration = session.stoppedAt && session.startedAt
-    ? session.stoppedAt - session.startedAt
-    : undefined;
+  const duration =
+    session.stoppedAt && session.startedAt ? session.stoppedAt - session.startedAt : undefined;
 
   const metadata: ExportMetadata = {
-    mode: "summary",
+    mode: 'summary',
     generatedAt: new Date().toISOString(),
     includePostLoginActivity: false,
     authBoundaryDetected: boundary.detected,
@@ -80,17 +95,17 @@ export const buildSummaryExport = (session: CaptureSession | null): SummaryExpor
 
   const oidcSummary = extractOidcSummary(session.normalizedEvents);
 
-  return {
+  const result: SummaryExportBundle = {
     generatedAt: metadata.generatedAt,
-    product: "KZero Passwordless SSO Tracer",
+    product: 'KZero Passwordless SSO Tracer',
     tabId: session.tabId,
     metadata,
     summary: {
       eventCount: session.normalizedEvents.length,
       findingCount: session.findings.length,
-      problemCount: session.findings.filter((f) => f.severity === "error").length,
-      warningCount: session.findings.filter((f) => f.severity === "warning").length,
-      infoCount: session.findings.filter((f) => f.severity === "info").length,
+      problemCount: session.findings.filter((f) => f.severity === 'error').length,
+      warningCount: session.findings.filter((f) => f.severity === 'warning').length,
+      infoCount: session.findings.filter((f) => f.severity === 'info').length,
       duration
     },
     authHosts,
@@ -103,4 +118,10 @@ export const buildSummaryExport = (session: CaptureSession | null): SummaryExpor
     })),
     postLoginTrimmed
   };
+
+  if (includeEducational) {
+    result.education = buildEducationalExport(session.normalizedEvents, session.findings);
+  }
+
+  return result;
 };

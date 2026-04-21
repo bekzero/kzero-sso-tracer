@@ -21,10 +21,12 @@ import {
   sanitizeUrlParams
 } from '../shared/redaction';
 import { filterEventsByMode, detectAuthBoundary } from './filtering';
+import { buildEducationalExport } from './enrichment';
 
 export interface SanitizedExportOptions {
   mode: ExportMode;
   includePostLoginActivity: boolean;
+  includeEducational: boolean;
 }
 
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === 'OIDC';
@@ -106,6 +108,7 @@ export const buildSanitizedExport = (
 
   const mode = options?.mode ?? 'sanitized';
   const includePostLogin = options?.includePostLoginActivity ?? false;
+  const includeEducational = options?.includeEducational ?? false;
   const salt = generateExportSalt();
 
   const filteredEvents = filterEventsByMode(session.normalizedEvents, {
@@ -127,7 +130,7 @@ export const buildSanitizedExport = (
     redactionsApplied: buildRedactionSummary(counts)
   };
 
-  return {
+  const result: SanitizedExportBundle = {
     generatedAt: metadata.generatedAt,
     product: 'KZero Passwordless SSO Tracer',
     notice: 'Captured auth data stays local unless explicitly exported.',
@@ -136,4 +139,10 @@ export const buildSanitizedExport = (
     findings: sanitizedFindings,
     metadata
   };
+
+  if (includeEducational) {
+    result.education = buildEducationalExport(session.normalizedEvents, session.findings);
+  }
+
+  return result;
 };
