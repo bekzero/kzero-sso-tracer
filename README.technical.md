@@ -2,15 +2,6 @@
 
 A Chrome extension for debugging SAML and OIDC authentication issues in KZero Passwordless environments.
 
-## Which README should I read?
-
-| I'm...                                           | Read this file                                 |
-| ------------------------------------------------ | ---------------------------------------------- |
-| Not technical, just need to debug login problems | **[README.simple.md](README_simple.md)**       |
-| Technical or a developer                         | **[README.technical.md](README_technical.md)** |
-
----
-
 ## What This Tool Is For
 
 This extension captures, decodes, and analyzes browser-based authentication traffic to help troubleshoot SAML and OIDC login failures in KZero Passwordless deployments.
