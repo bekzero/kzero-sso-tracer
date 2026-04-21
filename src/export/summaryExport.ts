@@ -5,6 +5,8 @@ import type {
   NormalizedEvent,
   NormalizedOidcEvent
 } from '../shared/models';
+// EducationalExport is used in result object type but ESLint doesn't see that usage
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { EducationalExport } from '../shared/models';
 import { filterEventsByMode, detectAuthBoundary, getAuthHosts, isNoiseEvent } from './filtering';
 import { buildEducationalExport } from './enrichment';
