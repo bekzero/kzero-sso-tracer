@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildSanitizedExport, buildRawExport, buildSummaryExport } from '../export';
+import {
+  buildSanitizedExportFriendly,
+  buildRawExport,
+  buildSummaryExportFriendly
+} from '../export';
 import { downloadHar } from '../export/harExport';
 import { downloadFindingsCsv, downloadSummaryCsv } from '../export/csvExport';
 import { emailSessionToSupport } from '../export/emailExport';
@@ -501,13 +505,9 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
         if (exportMode === 'raw') {
           data = buildRawExport(session);
         } else if (exportMode === 'summary') {
-          data = buildSummaryExport(session, { includeEducational: true });
+          data = buildSummaryExportFriendly(session);
         } else {
-          data = buildSanitizedExport(session, {
-            mode: exportMode,
-            includePostLoginActivity: includePostLogin,
-            includeEducational: true
-          });
+          data = buildSanitizedExportFriendly(session);
         }
         if (!data) return;
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2201,7 +2201,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
               {exportMenuOpen && (
                 <div className="export-dropdown">
                   <div className="export-mode-selector">
-                    <label className="export-mode-label">Export mode:</label>
+                    <label className="export-mode-label">Export format:</label>
                     <select
                       className="export-mode-select"
                       value={exportMode}
@@ -2214,9 +2214,9 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                         }
                       }}
                     >
-                      <option value="summary">Summary (safest)</option>
-                      <option value="sanitized">Sanitized trace (recommended)</option>
-                      <option value="raw">Detailed trace (sensitive)</option>
+                      <option value="summary">Summary (non-technical users)</option>
+                      <option value="sanitized">Sanitized (technical users)</option>
+                      <option value="raw">Detailed (developers only)</option>
                     </select>
                   </div>
                   {exportMode === 'sanitized' && (

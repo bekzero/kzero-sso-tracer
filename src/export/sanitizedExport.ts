@@ -22,12 +22,70 @@ import {
 } from '../shared/redaction';
 import { filterEventsByMode, detectAuthBoundary } from './filtering';
 import { buildEducationalExport } from './enrichment';
+import { transformToFriendlyExport, type FriendlyExportBundle } from './friendlyExport';
 
 export interface SanitizedExportOptions {
   mode: ExportMode;
   includePostLoginActivity: boolean;
   includeEducational: boolean;
 }
+
+export type ExportFormat = 'sanitized' | 'friendly' | 'raw';
+
+export const buildSanitizedExport = (
+  session: CaptureSession | null,
+  options?: Partial<SanitizedExportOptions>
+): SanitizedExportBundle | null => {
+  if (!session) return null;
+
+  const mode = options?.mode ?? 'sanitized';
+  const includePostLogin = options?.includePostLoginActivity ?? false;
+  const includeEducational = options?.includeEducational ?? mode !== 'raw';
+  const salt = generateExportSalt();
+
+  const filteredEvents = filterEventsByMode(session.normalizedEvents, {
+    mode,
+    includePostLoginActivity: includePostLogin
+  });
+
+  const counts = new Map<string, number>();
+  const sanitizedEvents = filteredEvents.map((e) => sanitizeEvent(e, counts, salt, mode));
+  const sanitizedFindings = session.findings.map((f) => sanitizeFinding(f));
+
+  const boundary = detectAuthBoundary(session.normalizedEvents);
+
+  const metadata: ExportMetadata = {
+    mode,
+    generatedAt: new Date().toISOString(),
+    includePostLoginActivity: includePostLogin,
+    authBoundaryDetected: boundary.detected,
+    redactionsApplied: buildRedactionSummary(counts)
+  };
+
+  const result: SanitizedExportBundle = {
+    generatedAt: metadata.generatedAt,
+    product: 'KZero Passwordless SSO Tracer',
+    notice: 'Captured auth data stays local unless explicitly exported.',
+    tabId: session.tabId,
+    events: sanitizedEvents,
+    findings: sanitizedFindings,
+    metadata
+  };
+
+  if (includeEducational) {
+    result.education = buildEducationalExport(session.normalizedEvents, session.findings);
+  }
+
+  return result;
+};
+
+export const buildSanitizedExportFriendly = (
+  session: CaptureSession | null
+): FriendlyExportBundle | null => {
+  const sanitized = buildSanitizedExport(session);
+  if (!sanitized) return null;
+  return transformToFriendlyExport(sanitized);
+};
 
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === 'OIDC';
 const isSaml = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === 'SAML';
@@ -98,51 +156,4 @@ const sanitizeFinding = (finding: Finding): SanitizedFinding => {
         }
       : undefined
   };
-};
-
-export const buildSanitizedExport = (
-  session: CaptureSession | null,
-  options?: Partial<SanitizedExportOptions>
-): SanitizedExportBundle | null => {
-  if (!session) return null;
-
-  const mode = options?.mode ?? 'sanitized';
-  const includePostLogin = options?.includePostLoginActivity ?? false;
-  const includeEducational = options?.includeEducational ?? false;
-  const salt = generateExportSalt();
-
-  const filteredEvents = filterEventsByMode(session.normalizedEvents, {
-    mode,
-    includePostLoginActivity: includePostLogin
-  });
-
-  const counts = new Map<string, number>();
-  const sanitizedEvents = filteredEvents.map((e) => sanitizeEvent(e, counts, salt, mode));
-  const sanitizedFindings = session.findings.map((f) => sanitizeFinding(f));
-
-  const boundary = detectAuthBoundary(session.normalizedEvents);
-
-  const metadata: ExportMetadata = {
-    mode,
-    generatedAt: new Date().toISOString(),
-    includePostLoginActivity: includePostLogin,
-    authBoundaryDetected: boundary.detected,
-    redactionsApplied: buildRedactionSummary(counts)
-  };
-
-  const result: SanitizedExportBundle = {
-    generatedAt: metadata.generatedAt,
-    product: 'KZero Passwordless SSO Tracer',
-    notice: 'Captured auth data stays local unless explicitly exported.',
-    tabId: session.tabId,
-    events: sanitizedEvents,
-    findings: sanitizedFindings,
-    metadata
-  };
-
-  if (includeEducational) {
-    result.education = buildEducationalExport(session.normalizedEvents, session.findings);
-  }
-
-  return result;
 };

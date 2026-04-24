@@ -5,11 +5,9 @@ import type {
   NormalizedEvent,
   NormalizedOidcEvent
 } from '../shared/models';
-// EducationalExport is used in result object type but ESLint doesn't see that usage
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { EducationalExport } from '../shared/models';
 import { filterEventsByMode, detectAuthBoundary, getAuthHosts, isNoiseEvent } from './filtering';
 import { buildEducationalExport } from './enrichment';
+import { transformToFriendlyExport, type FriendlyExportBundle } from './friendlyExport';
 
 const isOidc = (e: NormalizedEvent): e is NormalizedOidcEvent => e.protocol === 'OIDC';
 
@@ -72,7 +70,7 @@ export const buildSummaryExport = (
 ): SummaryExportBundle | null => {
   if (!session) return null;
 
-  const includeEducational = options?.includeEducational ?? false;
+  const includeEducational = options?.includeEducational ?? true;
   const boundary = detectAuthBoundary(session.normalizedEvents);
   const filteredEvents = filterEventsByMode(session.normalizedEvents, {
     mode: 'summary',
@@ -126,4 +124,12 @@ export const buildSummaryExport = (
   }
 
   return result;
+};
+
+export const buildSummaryExportFriendly = (
+  session: CaptureSession | null
+): FriendlyExportBundle | null => {
+  const summary = buildSummaryExport(session, { includeEducational: true });
+  if (!summary) return null;
+  return transformToFriendlyExport(summary);
 };

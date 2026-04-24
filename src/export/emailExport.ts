@@ -1,18 +1,14 @@
 import type { CaptureSession } from '../shared/models';
-import { buildSanitizedExport } from './sanitizedExport';
+import { buildSanitizedExportFriendly } from './sanitizedExport';
 
 export const generateEmailExport = (session: CaptureSession | null): Blob | null => {
   if (!session) return null;
 
-  const sanitized = buildSanitizedExport(session, {
-    mode: 'sanitized',
-    includePostLoginActivity: false,
-    includeEducational: true
-  });
+  const friendly = buildSanitizedExportFriendly(session);
 
-  if (!sanitized) return null;
+  if (!friendly) return null;
 
-  const content = JSON.stringify(sanitized, null, 2);
+  const content = JSON.stringify(friendly, null, 2);
   return new Blob([content], { type: 'application/json' });
 };
 
@@ -22,7 +18,7 @@ export const emailSessionToSupport = (session: CaptureSession | null): void => {
 
   const timestamp = Date.now();
   const tabId = session?.tabId ?? 'unknown';
-  const filename = `kzero-session-${tabId}-${timestamp}.json`;
+  const filename = `kzero-trace-${tabId}-${timestamp}.json`;
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

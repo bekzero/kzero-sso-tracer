@@ -4,6 +4,60 @@ All notable changes to **KZero Passwordless SSO Tracer** are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] — 2026-04-24
+
+### Added
+
+- **Friendly JSON export format** — Non-technical-first structure for IT admins and support staff:
+
+  - New top-level fields: `didTheLoginWork`, `copyThisTextToSendToSomeone`, `howToFixIt`, `whatWentWrong`
+  - Action items appear first in the JSON (lines 1-50), not buried at line 257+
+  - Emojis in status values: `✅ YES`, `❌ NO`, `⚠️ INCOMPLETE`
+  - Clear "STOP HERE" signal before technical details
+  - `technicalDetailsForEngineers` wrapper clearly separates non-technical from technical content
+
+- **Clear export mode labels** in UI:
+  - "Summary (non-technical users)" — for IT admins, support staff
+  - "Sanitized (technical users)" — for developers troubleshooting
+  - "Detailed (developers only)" — for deep technical analysis
+
+### Changed
+
+- JSON exports now use friendly structure by default for summary and sanitized modes
+- Email exports use friendly structure for attachments
+- `includeEducational` now defaults to `true` for non-raw exports
+
+### Example new friendly export structure:
+
+```json
+{
+  "didTheLoginWork": "❌ NO - destination URL doesn't match",
+  "copyThisTextToSendToSomeone": "SSO failed for user@company.com at 2:34 PM...",
+  "howToFixIt": {
+    "whereToGoInKZeroAdmin": "KZero Admin → Applications → [App] → SAML Settings",
+    "step1_lookFor": "Look for 'Destination URL' field",
+    "step2_compareWith": "Compare to value shown in 'whatWentWrong'",
+    "step3_changeThis": "Change the KZero value to match what the app sent"
+  },
+  "whatWentWrong": {
+    "simpleStory": "The app asked KZero to log you in, but KZero said no...",
+    "stepByStep": [...]
+  },
+  "howToReadThisFile": {
+    "ifYouJustNeedToFixIt": "Read 'howToFixIt'",
+    "ifYouNeedToSendThisToSomeone": "Copy 'copyThisTextToSendToSomeone'",
+    "forEngineersOnly": "Everything in 'technicalDetailsForEngineers' below"
+  },
+  "technicalDetailsForEngineers": {
+    "note": "STOP HERE if you are non-technical...",
+    "events": [...],
+    "findings": [...],
+    "metadata": {...},
+    "education": {...}
+  }
+}
+```
+
 ## [0.3.0] — 2026-04-24
 
 ### Added
