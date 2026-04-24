@@ -501,11 +501,12 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
         if (exportMode === 'raw') {
           data = buildRawExport(session);
         } else if (exportMode === 'summary') {
-          data = buildSummaryExport(session);
+          data = buildSummaryExport(session, { includeEducational: true });
         } else {
           data = buildSanitizedExport(session, {
             mode: exportMode,
-            includePostLoginActivity: includePostLogin
+            includePostLoginActivity: includePostLogin,
+            includeEducational: true
           });
         }
         if (!data) return;

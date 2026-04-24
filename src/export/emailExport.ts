@@ -6,7 +6,8 @@ export const generateEmailExport = (session: CaptureSession | null): Blob | null
 
   const sanitized = buildSanitizedExport(session, {
     mode: 'sanitized',
-    includePostLoginActivity: false
+    includePostLoginActivity: false,
+    includeEducational: true
   });
 
   if (!sanitized) return null;
