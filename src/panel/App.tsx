@@ -2214,9 +2214,9 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                         }
                       }}
                     >
-                      <option value="summary">Summary (non-technical users)</option>
-                      <option value="sanitized">Sanitized (technical users)</option>
-                      <option value="raw">Detailed (developers only)</option>
+                      <option value="summary">Quick Fix - for IT admins to get started</option>
+                      <option value="sanitized">Full Report - complete technical details</option>
+                      <option value="raw">Debug Data - raw info for developers</option>
                     </select>
                   </div>
                   {exportMode === 'sanitized' && (
@@ -2236,7 +2236,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                       setPendingExport('json');
                     }}
                   >
-                    Download JSON
+                    Download - for support email
                   </button>
                   <button
                     onClick={() => {
@@ -2244,7 +2244,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                       setPendingExport('har');
                     }}
                   >
-                    HAR (browser DevTools)
+                    Network Data - for browser DevTools
                   </button>
                   <button
                     onClick={() => {
@@ -2252,7 +2252,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                       setPendingExport('csv');
                     }}
                   >
-                    CSV (findings only)
+                    Problems Only - spreadsheet
                   </button>
                   <button
                     onClick={() => {
@@ -2260,7 +2260,7 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
                       setPendingExport('csv-summary');
                     }}
                   >
-                    CSV (summary)
+                    Summary Only - spreadsheet
                   </button>
                 </div>
               )}

@@ -11,21 +11,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Friendly JSON export format** — Non-technical-first structure for IT admins and support staff:
 
   - New top-level fields: `didTheLoginWork`, `copyThisTextToSendToSomeone`, `howToFixIt`, `whatWentWrong`
-  - Action items appear first in the JSON (lines 1-50), not buried at line 257+
+  - Action items appear first in the JSON, not buried in technical sections
   - Emojis in status values: `✅ YES`, `❌ NO`, `⚠️ INCOMPLETE`
   - Clear "STOP HERE" signal before technical details
   - `technicalDetailsForEngineers` wrapper clearly separates non-technical from technical content
 
-- **Clear export mode labels** in UI:
-  - "Summary (non-technical users)" — for IT admins, support staff
-  - "Sanitized (technical users)" — for developers troubleshooting
-  - "Detailed (developers only)" — for deep technical analysis
+- **Clear export menu labels** for non-technical users:
+
+  - "Quick Fix - for IT admins to get started" — for non-technical users who just need to fix a problem
+  - "Full Report - complete technical details" — for technical users who need full data
+  - "Debug Data - raw info for developers" — for developers who need raw information
+
+- **Action-oriented export button labels:**
+  - "Download - for support email"
+  - "Network Data - for browser DevTools"
+  - "Problems Only - spreadsheet"
+  - "Summary Only - spreadsheet"
 
 ### Changed
 
 - JSON exports now use friendly structure by default for summary and sanitized modes
 - Email exports use friendly structure for attachments
 - `includeEducational` now defaults to `true` for non-raw exports
+- Removed redundant `education` block from `technicalDetailsForEngineers` — friendly fields already contain all non-technical content
 
 ### Example new friendly export structure:
 

@@ -256,7 +256,6 @@ describe('transformToFriendlyExport', () => {
     expect(friendly?.technicalDetailsForEngineers.events).toEqual(sanitized.events);
     expect(friendly?.technicalDetailsForEngineers.findings).toEqual(sanitized.findings);
     expect(friendly?.technicalDetailsForEngineers.metadata).toEqual(sanitized.metadata);
-    expect(friendly?.technicalDetailsForEngineers.education).toEqual(sanitized.education);
   });
 
   it('returns null for null input', () => {
@@ -345,6 +344,5 @@ describe('friendly export structure', () => {
     expect(friendly.technicalDetailsForEngineers).toHaveProperty('events');
     expect(friendly.technicalDetailsForEngineers).toHaveProperty('findings');
     expect(friendly.technicalDetailsForEngineers).toHaveProperty('metadata');
-    expect(friendly.technicalDetailsForEngineers).toHaveProperty('education');
   });
 });

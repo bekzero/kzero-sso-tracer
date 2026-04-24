@@ -1,8 +1,4 @@
-import type {
-  SanitizedExportBundle,
-  SummaryExportBundle,
-  EducationalExport
-} from '../shared/models';
+import type { SanitizedExportBundle, SummaryExportBundle } from '../shared/models';
 
 export interface FriendlyStep {
   stepNumber: number;
@@ -49,7 +45,6 @@ export interface FriendlyExportBundle {
     events: unknown[];
     findings: unknown[];
     metadata: unknown;
-    education: EducationalExport | null;
   };
 }
 
@@ -131,8 +126,7 @@ const transformSanitizedToFriendly = (export_: SanitizedExportBundle): FriendlyE
       note: 'STOP HERE if you are non-technical. The information above is what you need.',
       events: export_.events,
       findings: export_.findings,
-      metadata: export_.metadata,
-      education: education ?? null
+      metadata: export_.metadata
     }
   };
 };
@@ -196,8 +190,7 @@ const transformSummaryToFriendly = (export_: SummaryExportBundle): FriendlyExpor
       note: 'STOP HERE if you are non-technical. The information above is what you need.',
       events: [],
       findings: export_.findings,
-      metadata: export_.metadata,
-      education: education ?? null
+      metadata: export_.metadata
     }
   };
 };
