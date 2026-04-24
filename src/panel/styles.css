@@ -6,7 +6,8 @@
   --border: rgba(255, 255, 255, 0.12);
   --text: rgba(255, 255, 255, 0.92);
   --muted: rgba(255, 255, 255, 0.68);
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
 
   --err: #ff5a67;
   --warn: #ffb020;
@@ -37,12 +38,11 @@ body {
 body {
   margin: 0;
   color: var(--text);
-  background:
-    radial-gradient(900px 520px at 12% 0%, rgba(248, 92, 58, 0.12), transparent 60%),
-    radial-gradient(900px 520px at 86% 10%, rgba(77, 209, 255, 0.10), transparent 60%),
+  background: radial-gradient(900px 520px at 12% 0%, rgba(248, 92, 58, 0.12), transparent 60%),
+    radial-gradient(900px 520px at 86% 10%, rgba(77, 209, 255, 0.1), transparent 60%),
     radial-gradient(900px 520px at 70% 80%, rgba(220, 54, 195, 0.08), transparent 60%),
     linear-gradient(180deg, var(--bg0), var(--bg1));
-  font-family: "Segoe UI Variable", "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+  font-family: 'Segoe UI Variable', 'SF Pro Text', 'SF Pro Display', 'Segoe UI', sans-serif;
 }
 
 .mono {
@@ -114,7 +114,7 @@ body {
 }
 
 .current-page::before {
-  content: "";
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -273,7 +273,7 @@ body {
 }
 
 .tab-picker-item.active .tab-picker-title::before {
-  content: "✓ ";
+  content: '✓ ';
   color: var(--brand-primary);
 }
 
@@ -831,8 +831,12 @@ select {
   flex-shrink: 0;
 }
 
-.preflight-dot.kzero { background: var(--kzero); }
-.preflight-dot.vendor { background: var(--vendor); }
+.preflight-dot.kzero {
+  background: var(--kzero);
+}
+.preflight-dot.vendor {
+  background: var(--vendor);
+}
 
 .preflight-label {
   flex: 1;
@@ -868,8 +872,15 @@ select {
 }
 
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
 }
 
 .capture-live-text {
@@ -1034,7 +1045,7 @@ select {
 }
 
 .doc-link::before {
-  content: "→";
+  content: '→';
   font-size: 11px;
 }
 
@@ -1287,7 +1298,7 @@ select {
   color: var(--text);
 }
 
-input[type="checkbox"] {
+input[type='checkbox'] {
   accent-color: var(--brand-primary);
 }
 
@@ -1459,7 +1470,9 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .scope-option:hover {
@@ -1785,6 +1798,26 @@ input[type="checkbox"] {
   background: rgba(255, 90, 103, 0.25);
 }
 
+.btn-support {
+  background: rgba(248, 92, 58, 0.15);
+  color: #f85c3a;
+  border: 1px solid rgba(248, 92, 58, 0.3);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-support:hover {
+  background: rgba(248, 92, 58, 0.25);
+}
+
+.btn-support:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Help overlay */
 .help-overlay {
   background: var(--bg1);
@@ -1987,9 +2020,15 @@ kbd {
   font-size: 12px;
 }
 
-.compare-finding.resolved { background: rgba(63, 224, 177, 0.06); }
-.compare-finding.new { background: rgba(255, 90, 103, 0.08); }
-.compare-finding.shared { background: rgba(167, 139, 250, 0.06); }
+.compare-finding.resolved {
+  background: rgba(63, 224, 177, 0.06);
+}
+.compare-finding.new {
+  background: rgba(255, 90, 103, 0.08);
+}
+.compare-finding.shared {
+  background: rgba(167, 139, 250, 0.06);
+}
 
 .compare-owner {
   margin-left: auto;
@@ -2017,8 +2056,13 @@ kbd {
 }
 
 @keyframes badge-glow {
-  0%, 100% { box-shadow: 0 2px 12px rgba(255, 90, 103, 0.3); }
-  50% { box-shadow: 0 2px 20px rgba(255, 90, 103, 0.5); }
+  0%,
+  100% {
+    box-shadow: 0 2px 12px rgba(255, 90, 103, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 20px rgba(255, 90, 103, 0.5);
+  }
 }
 
 .live-dot {
@@ -2026,13 +2070,28 @@ kbd {
   height: 8px;
   border-radius: 50%;
   background: #ff5a67;
-  box-shadow: 0 0 10px #ff5a67, 0 0 20px rgba(255, 90, 103, 0.6);
+  box-shadow:
+    0 0 10px #ff5a67,
+    0 0 20px rgba(255, 90, 103, 0.6);
   animation: pulse-red 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px #ff5a67, 0 0 20px rgba(255, 90, 103, 0.6); }
-  50% { opacity: 0.6; transform: scale(0.8); box-shadow: 0 0 5px #ff5a67, 0 0 10px rgba(255, 90, 103, 0.3); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 10px #ff5a67,
+      0 0 20px rgba(255, 90, 103, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.8);
+    box-shadow:
+      0 0 5px #ff5a67,
+      0 0 10px rgba(255, 90, 103, 0.3);
+  }
 }
 
 /* Error boundary */
@@ -2739,7 +2798,9 @@ kbd {
   border-top: 1px solid var(--border);
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
   z-index: 50;
-  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
 }
@@ -2938,7 +2999,7 @@ kbd {
 }
 
 .assistant-badge::before {
-  content: "";
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -3007,12 +3068,24 @@ kbd {
   animation: loadingDot 1.4s infinite ease-in-out both;
 }
 
-.assistant-loading-dot:nth-child(1) { animation-delay: -0.32s; }
-.assistant-loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.assistant-loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.assistant-loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
 
 @keyframes loadingDot {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-  40% { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .assistant-loading-text {
@@ -3268,6 +3341,13 @@ kbd {
 }
 
 @keyframes chevronPulse {
-  0%, 100% { transform: translateY(0); opacity: 0.7; }
-  50% { transform: translateY(2px); opacity: 1; }
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(2px);
+    opacity: 1;
+  }
 }

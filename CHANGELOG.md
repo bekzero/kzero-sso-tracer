@@ -35,6 +35,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `includeEducational` now defaults to `true` for non-raw exports
 - Removed redundant `education` block from `technicalDetailsForEngineers` — friendly fields already contain all non-technical content
 
+### Fixed
+
+- **Email to support** — Email now autofills recipient as support@kzero.com with full friendly text summary in body (no attachment needed)
+- **Contact Support button** — Replaced confusing "?" button with prominent "Contact Support" button directly in toolbar
+- **Non-technical UX** — Support contact is now prominent and discoverable, not hidden in dropdown menus
+
 ### Example new friendly export structure:
 
 ```json

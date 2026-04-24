@@ -12,7 +12,7 @@ export {
 } from './summaryExport';
 export { downloadHar } from './harExport';
 export { downloadFindingsCsv, downloadSummaryCsv } from './csvExport';
-export { emailSessionToSupport, generateEmailExport } from './emailExport';
+export { emailSessionToSupport, copyTraceToClipboard, getEmailBody } from './emailExport';
 export {
   buildEducationalExport,
   enrichEvent,

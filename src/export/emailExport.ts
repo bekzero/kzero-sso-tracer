@@ -1,36 +1,145 @@
 import type { CaptureSession } from '../shared/models';
 import { buildSanitizedExportFriendly } from './sanitizedExport';
 
-export const generateEmailExport = (session: CaptureSession | null): Blob | null => {
-  if (!session) return null;
+const formatFixSteps = (
+  friendly: NonNullable<ReturnType<typeof buildSanitizedExportFriendly>>
+): string => {
+  return `${friendly.howToFixIt.whereToGoInKZeroAdmin}
+  
+Step 1: ${friendly.howToFixIt.step1_lookFor}
+Step 2: ${friendly.howToFixIt.step2_compareWith}
+Step 3: ${friendly.howToFixIt.step3_changeThis}
 
+Why this matters: ${friendly.howToFixIt.whyThisMatters}`;
+};
+
+const formatWhatWentWrong = (
+  friendly: NonNullable<ReturnType<typeof buildSanitizedExportFriendly>>
+): string => {
+  let result = friendly.whatWentWrong.simpleStory + '\n\n';
+
+  if (friendly.whatWentWrong.stepByStep.length > 0) {
+    result += 'What happened:\n';
+    for (const step of friendly.whatWentWrong.stepByStep) {
+      result += `${step.stepNumber}. ${step.whatHappened}\n   ${step.plainEnglishDetail}\n`;
+    }
+  }
+
+  return result;
+};
+
+export const emailSessionToSupport = (session: CaptureSession | null): void => {
+  const friendly = buildSanitizedExportFriendly(session);
+
+  if (!friendly) return;
+
+  const timestamp = new Date().toLocaleString();
+
+  const subject = `KZero SSO Tracer - ${friendly.didTheLoginWork} - ${timestamp}`;
+
+  const body = `KZero SSO Tracer - Support Request
+===========================================
+
+Status: ${friendly.didTheLoginWork}
+Date: ${timestamp}
+${friendly.product}
+
+---
+PROBLEM SUMMARY
+---
+${friendly.whyItFailedOneSentence}
+
+---
+READY-TO-SEND SUMMARY
+---
+${friendly.copyThisTextToSendToSomeone}
+
+---
+WHAT WENT WRONG
+---
+${formatWhatWentWrong(friendly)}
+
+---
+HOW TO FIX THIS
+---
+${formatFixSteps(friendly)}
+
+---
+READING THIS TRACE
+---
+${friendly.howToReadThisFile.ifYouJustNeedToFixIt}
+${friendly.howToReadThisFile.ifYouNeedToSendThisToSomeone}
+${friendly.howToReadThisFile.ifYouWantToUnderstand}
+
+---
+For Engineers Only
+---
+The section "technicalDetailsForEngineers" in the JSON export contains raw trace data.
+
+---
+Need more help? Contact KZero support at support@kzero.com
+`;
+
+  const mailtoUrl = `mailto:support@kzero.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  window.open(mailtoUrl);
+};
+
+export const getEmailBody = (session: CaptureSession | null): string | null => {
   const friendly = buildSanitizedExportFriendly(session);
 
   if (!friendly) return null;
 
-  const content = JSON.stringify(friendly, null, 2);
-  return new Blob([content], { type: 'application/json' });
+  const timestamp = new Date().toLocaleString();
+
+  return `KZero SSO Tracer - Support Request
+===========================================
+
+Status: ${friendly.didTheLoginWork}
+Date: ${timestamp}
+${friendly.product}
+
+---
+PROBLEM SUMMARY
+---
+${friendly.whyItFailedOneSentence}
+
+---
+READY-TO-SEND SUMMARY
+---
+${friendly.copyThisTextToSendToSomeone}
+
+---
+WHAT WENT WRONG
+---
+${formatWhatWentWrong(friendly)}
+
+---
+HOW TO FIX THIS
+---
+${formatFixSteps(friendly)}
+
+---
+READING THIS TRACE
+---
+${friendly.howToReadThisFile.ifYouJustNeedToFixIt}
+${friendly.howToReadThisFile.ifYouNeedToSendThisToSomeone}
+${friendly.howToReadThisFile.ifYouWantToUnderstand}
+
+---
+For Engineers Only
+---
+The section "technicalDetailsForEngineers" in the JSON export contains raw trace data.
+
+---
+Need more help? Contact KZero support at support@kzero.com
+`;
 };
 
-export const emailSessionToSupport = (session: CaptureSession | null): void => {
-  const blob = generateEmailExport(session);
-  if (!blob) return;
+export const copyTraceToClipboard = (session: CaptureSession | null): boolean => {
+  const body = getEmailBody(session);
+  if (!body) return false;
 
-  const timestamp = Date.now();
-  const tabId = session?.tabId ?? 'unknown';
-  const filename = `kzero-trace-${tabId}-${timestamp}.json`;
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  const subject = encodeURIComponent(`KZero SSO Tracer Session - Tab ${tabId}`);
-  const body = encodeURIComponent(
-    "Hi KZero Support,\n\nI've attached my session trace for support review.\n\nPlease review the attached file.\n\nThanks!"
-  );
-
-  window.open(`mailto:?subject=${subject}&body=${body}`);
+  navigator.clipboard.writeText(body).catch(console.error);
+  return true;
 };

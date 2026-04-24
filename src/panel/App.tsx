@@ -292,7 +292,6 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
   const [showRawWarning, setShowRawWarning] = useState(false);
   const [historyNotice, setHistoryNotice] = useState<'' | 'saved'>('');
   const [showAssistant, setShowAssistant] = useState(false);
-  const [showHelpMenu, setShowHelpMenu] = useState(false);
   const prevSessionActiveRef = useRef<boolean>(false);
 
   const narrowTab = leftTab;
@@ -2269,32 +2268,18 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
           <button className="btn btn-ghost" onClick={() => setShowAssistant(true)} title="Get help">
             Help
           </button>
-          <div className="help-menu" style={{ position: 'relative' }}>
-            <button
-              className="btn btn-ghost"
-              onClick={() => setShowHelpMenu((o) => !o)}
-              title="More options"
-            >
-              ?
-            </button>
-            {showHelpMenu && (
-              <div className="export-dropdown" style={{ right: 0, minWidth: '220px' }}>
-                <button
-                  className={session ? '' : 'disabled'}
-                  onClick={() => {
-                    setShowHelpMenu(false);
-                    if (session) {
-                      emailSessionToSupport(session);
-                    }
-                  }}
-                  disabled={!session}
-                  style={{ width: '100%', textAlign: 'left' }}
-                >
-                  {session ? 'Email findings to KZero support' : 'No session to email'}
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            className={`btn ${session ? 'btn-support' : 'btn-ghost'}`}
+            onClick={() => {
+              if (session) {
+                emailSessionToSupport(session);
+              }
+            }}
+            disabled={!session}
+            title="Email trace to KZero support"
+          >
+            Contact Support
+          </button>
           {session?.active && (
             <div className="live-badge">
               <span className="live-dot" />
