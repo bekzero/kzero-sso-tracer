@@ -342,14 +342,20 @@ describe('buildEducationalExport', () => {
 
     expect(export_.schemaVersion).toBe(SCHEMA_VERSION);
     expect(export_.exportVersion).toBe(EXPORT_VERSION);
+    expect(export_.aboutThisFile).toBeDefined();
+    expect(export_.quickVerdict).toBeDefined();
+    expect(export_.recommendedPath).toBeDefined();
+    expect(export_.whatHappened).toBeDefined();
+    expect(export_.whatWentWrong).toBeDefined();
+    expect(export_.whatToCompare).toBeDefined();
+    expect(export_.firstAction).toBeDefined();
     expect(export_.educational).toBeDefined();
     expect(export_.narrative).toBeDefined();
     expect(export_.observedFacts).toBeDefined();
-    expect(export_.inferredFindings).toBeDefined();
-    expect(export_.manualChecks).toBeDefined();
     expect(export_.learningAids).toBeDefined();
     expect(export_.noiseEvents).toBeDefined();
-    expect(export_.notShownInTrace).toBeDefined();
+    expect(export_.whatThisFileDoesNotContain).toBeDefined();
+    expect(export_.supportSummary).toBeDefined();
   });
 
   it('includes key finding from errors', () => {
@@ -393,11 +399,11 @@ describe('buildEducationalExport', () => {
 
 describe('schema versioning', () => {
   it('exports correct schema version', () => {
-    expect(SCHEMA_VERSION).toBe('2.0.0');
+    expect(SCHEMA_VERSION).toBe('2.1.0');
   });
 
   it('exports correct export version', () => {
-    expect(EXPORT_VERSION).toBe('1.0.0');
+    expect(EXPORT_VERSION).toBe('1.1.0');
   });
 });
 
@@ -431,7 +437,7 @@ describe('failed SP-initiated example', () => {
 
     expect(export_.narrative.initiationModel).toBe('SP-initiated');
     expect(export_.narrative.flowOutcome).toBe('failure');
-    expect(export_.notShownInTrace.length).toBeGreaterThan(0);
+    expect(export_.whatThisFileDoesNotContain.length).toBeGreaterThan(0);
   });
 });
 

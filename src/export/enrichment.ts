@@ -16,12 +16,21 @@ import type {
   InitiatedBy,
   TracePerspective,
   InitiationModel,
-  FlowOutcome
+  FlowOutcome,
+  AboutThisFile,
+  QuickVerdict,
+  RecommendedPath,
+  WhatHappened,
+  WhatHappenedStep,
+  VisualCompare,
+  ComparisonRow,
+  FirstAction,
+  SupportSummary
 } from '../shared/models';
 import { isNoiseEvent } from './filtering';
 
-const EXPORT_VERSION = '1.0.0';
-const SCHEMA_VERSION: ExportSchemaVersion = '2.0.0';
+const EXPORT_VERSION = '1.1.0';
+const SCHEMA_VERSION: ExportSchemaVersion = '2.1.0';
 
 const isSamlEvent = (e: NormalizedEvent): e is NormalizedSamlEvent => e.protocol === 'SAML';
 
@@ -613,13 +622,392 @@ const buildProtocolGlossary = (): ProtocolGlossary => {
   };
 };
 
+const KZERO_ADMIN_PATHS = {
+  clientId: {
+    path: 'KZero Admin → Applications → [your app] → General tab → Details section → Client ID',
+    shortPath: 'KZero Admin → Applications → [app] → Client ID',
+    whatToFind: "Look for 'Client ID', 'Entity ID', or 'SP Entity ID'"
+  },
+  acsUrl: {
+    path: 'KZero Admin → Applications → [your app] → Settings tab → SAML Settings → Assertion Consumer Service URL',
+    shortPath: 'KZero Admin → Applications → [app] → SAML Settings → ACS URL',
+    whatToFind: "Look for 'ACS URL', 'Assertion Consumer Service URL', or 'SAML Reply URL'"
+  },
+  samlEndpoint: {
+    path: 'KZero Admin → Applications → [your app] → Settings tab → SAML Settings → SAML endpoints',
+    shortPath: 'KZero Admin → Applications → [app] → SAML Settings → Endpoints',
+    whatToFind: "Look for 'SAML Endpoint', 'SSO URL', or 'SingleSignOn Service URL'"
+  },
+  wantSignedRequests: {
+    path: 'KZero Admin → Applications → [your app] → Settings tab → SAML Settings → Want AuthnRequests Signed',
+    shortPath: 'KZero Admin → Applications → [app] → Want AuthnRequests Signed',
+    whatToFind: "Look for 'Want AuthnRequests Signed' or 'Signed Request' toggle"
+  }
+};
+
+const buildAboutThisFile = (): AboutThisFile => ({
+  whatIsThis:
+    'A record of a login attempt showing what happened step by step when a user tried to sign in through KZero.',
+  whatThisShows:
+    'The requests exchanged between your application and KZero, plus any problems that were detected along the way.',
+  howToUse:
+    "Start with 'quickVerdict' below to see the outcome. Then follow 'recommendedPath' based on whether you need to fix something or learn what happened.",
+  estimatedReadTime: '2 minutes'
+});
+
+const buildQuickVerdict = (
+  narrative: FlowNarrative,
+  keyFinding: EnrichedFinding | undefined
+): QuickVerdict => {
+  const status = narrative.flowOutcome;
+
+  let severityLabel: string;
+  let oneSentenceSummary: string;
+
+  if (status === 'success') {
+    severityLabel = '✅ SUCCESS';
+    oneSentenceSummary = keyFinding
+      ? 'Login succeeded. ' + keyFinding.plainEnglishExplanation
+      : 'Login appears to have succeeded.';
+  } else if (status === 'failure') {
+    severityLabel = '🔴 LOGIN FAILED';
+    oneSentenceSummary = keyFinding
+      ? keyFinding.plainEnglishExplanation
+      : 'Login failed - check the findings below for details.';
+  } else {
+    severityLabel = '⚠️ INCOMPLETE';
+    oneSentenceSummary = 'The trace may not have captured the full login flow.';
+  }
+
+  return {
+    overallStatus: status,
+    severityLabel,
+    oneSentenceSummary,
+    mostCriticalIssue: status === 'failure' ? keyFinding?.plainEnglishTitle : undefined,
+    confidence: keyFinding?.confidenceLevel ?? 'medium'
+  };
+};
+
+const buildRecommendedPath = (narrative: FlowNarrative, findingsCount: number): RecommendedPath => {
+  const isFailure = narrative.flowOutcome === 'failure';
+  const hasFindings = findingsCount > 0;
+
+  const forNewUsers = hasFindings
+    ? [
+        "1. Read 'quickVerdict' to see if login worked",
+        "2. Read 'whatHappened' to see what steps happened",
+        "3. Read 'whatWentWrong[0]' to understand the main issue",
+        "4. Check 'whatToCompare' to see what values need verification"
+      ]
+    : [
+        "1. Read 'quickVerdict' to see if login worked",
+        "2. Read 'whatHappened' to see what steps happened",
+        "3. If login failed, check 'firstAction' for next steps"
+      ];
+
+  const forFixers = isFailure
+    ? [
+        "1. Read 'whatWentWrong[0]' for the main issue",
+        "2. Check 'firstAction' for what to do next",
+        "3. Verify values in 'whatToCompare' against KZero Admin",
+        '4. Retest the login flow'
+      ]
+    : [
+        "1. Review 'whatHappened' to confirm flow is working",
+        "2. Check 'whatToCompare' if configuration changes are needed",
+        '3. Retest after making changes'
+      ];
+
+  const forLearners = [
+    "1. Read 'whatHappened.plainEnglishSummary' for the big picture",
+    "2. Read 'whatHappened.stepByStep' for detailed flow",
+    "3. Browse 'learningAids.protocolGlossary' for term definitions",
+    "4. Look at 'learningAids.enrichedEvents' for technical details"
+  ];
+
+  return { forNewUsers, forFixers, forLearners };
+};
+
+const buildWhatHappened = (events: NormalizedEvent[], narrative: FlowNarrative): WhatHappened => {
+  const samlEvents = events.filter(isSamlEvent).sort((a, b) => a.timestamp - b.timestamp);
+
+  const initiationModelPlain =
+    narrative.initiationModel === 'SP-initiated'
+      ? 'App started the login (SP-initiated)'
+      : narrative.initiationModel === 'IdP-initiated'
+        ? 'KZero started the login (IdP-initiated)'
+        : 'Unknown how login started';
+
+  let plainEnglishSummary: string;
+  if (narrative.flowOutcome === 'success') {
+    plainEnglishSummary =
+      narrative.initiationModel === 'SP-initiated'
+        ? 'The app asked KZero to log you in. KZero confirmed your identity and let you in.'
+        : 'You were logged in through KZero. The app received confirmation that you are who you say you are.';
+  } else if (narrative.flowOutcome === 'failure') {
+    plainEnglishSummary =
+      narrative.initiationModel === 'SP-initiated'
+        ? 'The app asked KZero to log you in, but KZero said no. Something in the configuration does not match.'
+        : 'KZero attempted to log you in, but something went wrong. The login was not completed.';
+  } else {
+    plainEnglishSummary = 'The trace may not have captured the complete login flow.';
+  }
+
+  const stepByStep: WhatHappenedStep[] = samlEvents.map((e, idx) => {
+    let plainLabel: string;
+    let plainDetail: string;
+
+    if (e.samlRequest) {
+      const req = e.samlRequest!;
+      plainLabel = 'App asked KZero to log you in';
+      plainDetail = req.issuer
+        ? `App identified as: "${req.issuer}"`
+        : 'App sent a login request to KZero';
+      if (req.assertionConsumerServiceURL) {
+        plainDetail += `, requesting reply to: "${req.assertionConsumerServiceURL}"`;
+      }
+    } else if (e.samlResponse) {
+      const resp = e.samlResponse!;
+      if (e.statusCode && e.statusCode >= 400) {
+        plainLabel = 'KZero rejected the login request';
+        plainDetail = `KZero returned HTTP ${e.statusCode}`;
+      } else {
+        plainLabel = 'KZero responded with login result';
+        plainDetail = resp.nameId
+          ? `User logged in as: ${resp.nameId}`
+          : `KZero returned HTTP ${e.statusCode ?? 'unknown'}`;
+      }
+    } else {
+      plainLabel = 'Request captured';
+      plainDetail = `To ${e.host}`;
+    }
+
+    return {
+      stepNumber: idx + 1,
+      timestamp: e.timestamp,
+      plainLabel,
+      plainDetail,
+      isAuthRelevant: true
+    };
+  });
+
+  return {
+    initiationModel: narrative.initiationModel,
+    initiationModelPlain,
+    plainEnglishSummary,
+    stepByStep
+  };
+};
+
+const buildVisualCompare = (events: NormalizedEvent[]): VisualCompare => {
+  const requestEvent = events.find((e) => isSamlEvent(e) && (e as NormalizedSamlEvent).samlRequest);
+  const req = requestEvent ? (requestEvent as NormalizedSamlEvent).samlRequest : undefined;
+
+  const comparisonTable: ComparisonRow[] = [];
+
+  if (req?.issuer) {
+    comparisonTable.push({
+      fieldName: 'issuer',
+      plainFieldName: 'Entity ID (who the app says it is)',
+      kzeroExpects: null,
+      kzeroExpectsNote: `Check ${KZERO_ADMIN_PATHS.clientId.shortPath}`,
+      spSent: req.issuer,
+      matchResult: 'unknown',
+      matchReason: "Can't verify match - KZero config not shown in trace. Must check KZero Admin."
+    });
+  }
+
+  if (req?.assertionConsumerServiceURL) {
+    comparisonTable.push({
+      fieldName: 'assertionConsumerServiceURL',
+      plainFieldName: 'Reply URL (where login replies go)',
+      kzeroExpects: null,
+      kzeroExpectsNote: `Check ${KZERO_ADMIN_PATHS.acsUrl.shortPath}`,
+      spSent: req.assertionConsumerServiceURL,
+      matchResult: 'unknown',
+      matchReason: "Can't verify match - KZero config not shown in trace. Must check KZero Admin."
+    });
+  }
+
+  if (req?.destination) {
+    const isKzeroEndpoint = isKzeroHost(new URL(req.destination).host);
+    comparisonTable.push({
+      fieldName: 'destination',
+      plainFieldName: 'Login endpoint (where request was sent)',
+      kzeroExpects: isKzeroEndpoint ? '(configured)' : null,
+      kzeroExpectsNote: isKzeroEndpoint
+        ? 'Verified KZero endpoint'
+        : 'Verify this matches your realm',
+      spSent: req.destination,
+      matchResult: isKzeroEndpoint ? 'match' : 'unknown',
+      matchReason: isKzeroEndpoint
+        ? 'Destination targets a known KZero endpoint'
+        : 'Verify this matches your realm endpoint'
+    });
+  }
+
+  if (req?.documentSigned !== undefined) {
+    comparisonTable.push({
+      fieldName: 'documentSigned',
+      plainFieldName: 'Request signed (digital signature)',
+      kzeroExpects: null,
+      kzeroExpectsNote: `Check ${KZERO_ADMIN_PATHS.wantSignedRequests.shortPath}`,
+      spSent: req.documentSigned ? 'Yes - signed' : 'No - not signed',
+      matchResult: 'unknown',
+      matchReason: "Can't verify if KZero requires signed requests - check KZero Admin"
+    });
+  }
+
+  const unknownCount = comparisonTable.filter((r) => r.matchResult === 'unknown').length;
+  const matchSummary =
+    unknownCount === 0
+      ? 'All visible values match'
+      : `${unknownCount} value(s) need verification against KZero Admin`;
+
+  return {
+    quickSummary:
+      unknownCount > 0
+        ? 'One or more values sent by the app need verification against KZero Admin.'
+        : 'All visible values appear correct.',
+    comparisonTable,
+    matchSummary
+  };
+};
+
+const buildFirstAction = (
+  keyFinding: EnrichedFinding | undefined,
+  manualChecks: ComparisonChecklist
+): FirstAction => {
+  const findingTitle = keyFinding?.plainEnglishTitle ?? 'Configuration mismatch detected';
+
+  if (manualChecks.spIdentity.length > 0) {
+    const issuer = manualChecks.spIdentity[0].observedValue;
+    return {
+      stepNumber: 1 as const,
+      findingThisRelatesTo: findingTitle,
+      kzeroAdminPath: KZERO_ADMIN_PATHS.clientId.path,
+      kzeroAdminPathDetailed: KZERO_ADMIN_PATHS.clientId.path,
+      whatToFind: KZERO_ADMIN_PATHS.clientId.whatToFind,
+      whatToCompare: `Compare to: ${issuer ?? '[value shown in whatToCompare]'}`,
+      whyThisMatters:
+        "If the app's Entity ID does not match what KZero expects, KZero will reject the login request before even checking the user's password."
+    };
+  }
+
+  if (manualChecks.acsUrl.length > 0) {
+    const acsUrl = manualChecks.acsUrl[0].observedValue;
+    return {
+      stepNumber: 1 as const,
+      findingThisRelatesTo: findingTitle,
+      kzeroAdminPath: KZERO_ADMIN_PATHS.acsUrl.path,
+      kzeroAdminPathDetailed: KZERO_ADMIN_PATHS.acsUrl.path,
+      whatToFind: KZERO_ADMIN_PATHS.acsUrl.whatToFind,
+      whatToCompare: `Compare to: ${acsUrl ?? '[value shown in whatToCompare]'}`,
+      whyThisMatters:
+        'If the Reply URL does not match, KZero will not be able to send the login confirmation to the correct place.'
+    };
+  }
+
+  return {
+    stepNumber: 1 as const,
+    findingThisRelatesTo: findingTitle,
+    kzeroAdminPath: KZERO_ADMIN_PATHS.clientId.path,
+    kzeroAdminPathDetailed: KZERO_ADMIN_PATHS.clientId.path,
+    whatToFind: KZERO_ADMIN_PATHS.clientId.whatToFind,
+    whatToCompare: 'Check the values in whatToCompare section',
+    whyThisMatters:
+      'A configuration mismatch between the app and KZero is preventing login from working.'
+  };
+};
+
+const buildSupportSummary = (
+  events: NormalizedEvent[],
+  findings: EnrichedFinding[],
+  quickVerdict: QuickVerdict,
+  narrative: FlowNarrative
+): SupportSummary => {
+  const requestEvent = events.find((e) => isSamlEvent(e) && (e as NormalizedSamlEvent).samlRequest);
+  const responseEvent = events.find(
+    (e) => isSamlEvent(e) && (e as NormalizedSamlEvent).samlResponse
+  );
+  const req = requestEvent ? (requestEvent as NormalizedSamlEvent).samlRequest : undefined;
+
+  let appInvolved: string | undefined;
+  let realmInvolved: string | undefined;
+
+  if (requestEvent) {
+    appInvolved = requestEvent.host;
+  }
+  if (req?.destination) {
+    try {
+      const url = new URL(req.destination);
+      realmInvolved = url.host + url.pathname;
+    } catch {
+      realmInvolved = req.destination;
+    }
+  }
+
+  const valuesToShare: Array<{ name: string; value: string }> = [];
+  if (req?.issuer) {
+    valuesToShare.push({ name: 'Issuer observed in request', value: req.issuer });
+  }
+  if (req?.assertionConsumerServiceURL) {
+    valuesToShare.push({ name: 'ACS URL in request', value: req.assertionConsumerServiceURL });
+  }
+  if (req?.destination) {
+    valuesToShare.push({ name: 'Destination', value: req.destination });
+  }
+  if (responseEvent?.statusCode) {
+    valuesToShare.push({ name: 'HTTP response', value: String(responseEvent.statusCode) });
+  }
+
+  const timestamp = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+
+  const primaryIssue = findings[0]
+    ? findings[0].plainEnglishTitle
+    : quickVerdict.oneSentenceSummary;
+
+  let copyPasteSummary = `SAML login ${quickVerdict.overallStatus === 'success' ? 'succeeded' : 'failed'} on ${timestamp}.\n\n`;
+
+  if (appInvolved) {
+    copyPasteSummary += `App: ${appInvolved}\n`;
+  }
+  if (realmInvolved) {
+    copyPasteSummary += `Realm: ${realmInvolved}\n`;
+  }
+  copyPasteSummary += `Status: ${quickVerdict.severityLabel}\n\n`;
+
+  if (quickVerdict.overallStatus === 'failure') {
+    copyPasteSummary += 'What happened:\n';
+    copyPasteSummary += `${narrative.plainEnglishFlow.split('\n').slice(0, 3).join('\n')}\n\n`;
+    copyPasteSummary += 'Primary issue:\n';
+    copyPasteSummary += `${primaryIssue}\n\n`;
+    copyPasteSummary += 'What to check:\n';
+    copyPasteSummary += `Verify the values in the trace against KZero Admin settings.\n`;
+  }
+
+  return {
+    timestamp: new Date().toISOString(),
+    appInvolved,
+    realmInvolved,
+    status: quickVerdict.severityLabel,
+    primaryIssue,
+    valuesToShare,
+    copyPasteSummary
+  };
+};
+
 const buildEducationalExport = (
   events: NormalizedEvent[],
   findings: Finding[]
 ): EducationalExport => {
   const samlFindings = findings.filter((f) => f.protocol === 'SAML');
-  const errorFindings = samlFindings.filter((f) => f.severity === 'error');
-  const warningFindings = samlFindings.filter((f) => f.severity === 'warning');
 
   const narrative = buildFlowNarrative(events, findings);
   const enrichedEvents = events.map(enrichEvent);
@@ -629,8 +1017,12 @@ const buildEducationalExport = (
   const notShown = getNotShownInTrace(events, findings);
   const glossary = buildProtocolGlossary();
 
-  const keyFinding = errorFindings[0] ?? warningFindings[0];
-  const keyFindingSeverity = keyFinding?.severity;
+  const sortedFindings = [...enrichedFindings].sort((a, b) => {
+    const severityOrder = { error: 0, warning: 1, info: 2 };
+    return severityOrder[a.severity] - severityOrder[b.severity];
+  });
+
+  const keyFinding = sortedFindings[0];
 
   const title =
     narrative.flowOutcome === 'success'
@@ -644,12 +1036,11 @@ const buildEducationalExport = (
     protocol: 'SAML',
     flowOutcome: narrative.flowOutcome,
     initiationModel: narrative.initiationModel,
-    keyFinding: keyFinding?.title,
-    keyFindingSeverity
+    keyFinding: keyFinding?.plainEnglishTitle,
+    keyFindingSeverity: keyFinding?.severity
   };
 
   const observedFacts: string[] = [];
-
   const requestEvent = events.find((e) => isSamlEvent(e) && (e as NormalizedSamlEvent).samlRequest);
   if (requestEvent) {
     const req = (requestEvent as NormalizedSamlEvent).samlRequest!;
@@ -688,15 +1079,32 @@ const buildEducationalExport = (
     observedFacts.push('No SAML-specific events detected in trace');
   }
 
+  const aboutThisFile = buildAboutThisFile();
+  const quickVerdict = buildQuickVerdict(narrative, keyFinding);
+  const recommendedPath = buildRecommendedPath(narrative, sortedFindings.length);
+  const whatHappened = buildWhatHappened(events, narrative);
+  const visualCompare = buildVisualCompare(events);
+  const firstAction = buildFirstAction(keyFinding, manualChecks);
+  const supportSummary = buildSupportSummary(events, sortedFindings, quickVerdict, narrative);
+
   return {
     schemaVersion: SCHEMA_VERSION,
     exportVersion: EXPORT_VERSION,
     generatedAt: new Date().toISOString(),
+    aboutThisFile,
+    quickVerdict,
+    recommendedPath,
+    whatHappened,
+    whatWentWrong: sortedFindings,
+    whatToCompare: {
+      summary: visualCompare.quickSummary,
+      visual: visualCompare,
+      detailed: manualChecks
+    },
+    firstAction,
     educational,
     narrative,
     observedFacts,
-    inferredFindings: enrichedFindings,
-    manualChecks,
     learningAids: {
       enrichedEvents,
       protocolGlossary: glossary
@@ -705,7 +1113,8 @@ const buildEducationalExport = (
       totalCount: noise.totalCount,
       explanation: noise.explanation
     },
-    notShownInTrace: notShown
+    whatThisFileDoesNotContain: notShown,
+    supportSummary
   };
 };
 

@@ -297,7 +297,7 @@ export interface SummaryExportBundle {
   education?: EducationalExport;
 }
 
-export type ExportSchemaVersion = '1.0.0' | '2.0.0';
+export type ExportSchemaVersion = '1.0.0' | '2.0.0' | '2.1.0';
 
 export interface EducationalExportMetadata {
   schemaVersion: ExportSchemaVersion;
@@ -414,6 +414,88 @@ export interface ProtocolGlossary {
   whatIsIdpInitiated: string;
 }
 
+export interface AboutThisFile {
+  whatIsThis: string;
+  whatThisShows: string;
+  howToUse: string;
+  estimatedReadTime: string;
+}
+
+export type OverallStatus = 'success' | 'failure' | 'incomplete';
+
+export interface QuickVerdict {
+  overallStatus: OverallStatus;
+  severityLabel: string;
+  oneSentenceSummary: string;
+  mostCriticalIssue?: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface RecommendedPath {
+  forNewUsers: string[];
+  forFixers: string[];
+  forLearners: string[];
+}
+
+export interface WhatHappenedStep {
+  stepNumber: number;
+  timestamp: number;
+  plainLabel: string;
+  plainDetail: string;
+  isAuthRelevant: boolean;
+}
+
+export interface WhatHappened {
+  initiationModel: string;
+  initiationModelPlain: string;
+  plainEnglishSummary: string;
+  stepByStep: WhatHappenedStep[];
+}
+
+export type MatchResult = 'match' | 'mismatch' | 'unknown' | 'not-applicable';
+
+export interface ComparisonRow {
+  fieldName: string;
+  plainFieldName: string;
+  kzeroExpects: string | null;
+  kzeroExpectsNote: string;
+  spSent: string | null;
+  matchResult: MatchResult;
+  matchReason: string;
+}
+
+export interface VisualCompare {
+  quickSummary: string;
+  comparisonTable: ComparisonRow[];
+  matchSummary: string;
+}
+
+export interface WhatToCompare {
+  summary: string;
+  visual: VisualCompare;
+  detailed: ComparisonChecklist;
+}
+
+export interface FirstAction {
+  stepNumber: 1;
+  findingThisRelatesTo: string;
+  kzeroAdminPath: string;
+  kzeroAdminPathDetailed: string;
+  whatToFind: string;
+  whatToCompare: string;
+  whyThisMatters: string;
+}
+
+export interface SupportSummary {
+  timestamp: string;
+  appInvolved?: string;
+  realmInvolved?: string;
+  status: string;
+  primaryIssue: string;
+  valuesToShare: Array<{ name: string; value: string }>;
+  copyPasteSummary: string;
+}
+
 export interface EducationalSummary {
   title: string;
   protocol: string;
@@ -424,14 +506,19 @@ export interface EducationalSummary {
 }
 
 export interface EducationalExport {
-  schemaVersion: ExportSchemaVersion;
-  exportVersion: string;
+  schemaVersion: '2.1.0';
+  exportVersion: '1.1.0';
   generatedAt: string;
+  aboutThisFile: AboutThisFile;
+  quickVerdict: QuickVerdict;
+  recommendedPath: RecommendedPath;
+  whatHappened: WhatHappened;
+  whatWentWrong: EnrichedFinding[];
+  whatToCompare: WhatToCompare;
+  firstAction: FirstAction;
   educational: EducationalSummary;
   narrative: FlowNarrative;
   observedFacts: string[];
-  inferredFindings: EnrichedFinding[];
-  manualChecks: ComparisonChecklist;
   learningAids: {
     enrichedEvents: EnrichedEvent[];
     protocolGlossary: ProtocolGlossary;
@@ -440,5 +527,6 @@ export interface EducationalExport {
     totalCount: number;
     explanation: string;
   };
-  notShownInTrace: string[];
+  whatThisFileDoesNotContain: string[];
+  supportSummary: SupportSummary;
 }

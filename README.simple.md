@@ -87,6 +87,167 @@ When someone logs in, here's the basic flow:
 
 **The tracer records every step.** If step 4 says "No," our tool tries to explain why.
 
+---
+
+## Understanding the JSON Export
+
+If you export the trace as JSON (Export → Sanitized → JSON), you'll see a file with several sections. Here's what each one means:
+
+### Start Here: `quickVerdict` (Most Important!)
+
+This is the very first thing to read. It tells you in one sentence what happened:
+
+```json
+{
+  "quickVerdict": {
+    "overallStatus": "failure",
+    "severityLabel": "🔴 LOGIN FAILED",
+    "oneSentenceSummary": "Login failed because the app's Entity ID doesn't match what KZero expects."
+  }
+}
+```
+
+**What to do:** Read this first. It tells you immediately if login worked or not.
+
+---
+
+### Next: `recommendedPath`
+
+This tells you which sections to read based on what you need:
+
+```json
+{
+  "recommendedPath": {
+    "forNewUsers": [
+      "1. Read 'quickVerdict' to see if login worked",
+      "2. Read 'whatHappened' to see what steps happened",
+      "3. Read 'whatWentWrong[0]' to understand the main issue",
+      "4. Check 'whatToCompare' to see what values need verification"
+    ]
+  }
+}
+```
+
+**What to do:** Pick the path that matches your situation and follow the numbered steps.
+
+---
+
+### To Understand What Happened: `whatHappened`
+
+Plain-English summary of the login flow:
+
+```json
+{
+  "whatHappened": {
+    "initiationModelPlain": "App started the login (SP-initiated)",
+    "plainEnglishSummary": "The app asked KZero to log you in, but KZero said no.",
+    "stepByStep": [
+      {
+        "plainLabel": "App asked KZero to log you in",
+        "plainDetail": "App identified as: https://old-vendor.example.com/sp"
+      }
+    ]
+  }
+}
+```
+
+**What to do:** Read this to understand the story of what happened, in plain English.
+
+---
+
+### To See What's Wrong: `whatWentWrong`
+
+The problems we found, sorted by importance:
+
+```json
+{
+  "whatWentWrong": [
+    {
+      "plainEnglishTitle": "KZero rejected the sign-in request",
+      "plainEnglishExplanation": "The Entity ID sent by the app doesn't match KZero config.",
+      "whyThisIsLikely": "Observed in the trace: HTTP 400"
+    }
+  ]
+}
+```
+
+**What to do:** Read the first item (errors come first). It explains what went wrong in simple terms.
+
+---
+
+### To Fix It: `firstAction`
+
+Your first concrete action step with exact directions:
+
+```json
+{
+  "firstAction": {
+    "stepNumber": 1,
+    "kzeroAdminPath": "KZero Admin → Applications → [your app] → General tab → Details section → Client ID",
+    "whatToFind": "Look for 'Client ID' or 'Entity ID'",
+    "whatToCompare": "Compare to: https://old-vendor.example.com/sp",
+    "whyThisMatters": "If these don't match, KZero won't accept the login request"
+  }
+}
+```
+
+**What to do:** Follow these exact steps in your KZero admin panel.
+
+---
+
+### To Compare Values: `whatToCompare`
+
+Side-by-side comparison of what the app sent vs. what KZero expects:
+
+```json
+{
+  "whatToCompare": {
+    "visual": {
+      "comparisonTable": [
+        {
+          "plainFieldName": "Entity ID (who the app says it is)",
+          "spSent": "https://old-vendor.example.com/sp",
+          "kzeroExpectsNote": "Check KZero Admin → Applications → [app] → Client ID",
+          "matchResult": "unknown"
+        }
+      ]
+    }
+  }
+}
+```
+
+**What to do:** This shows you exactly what values to check in KZero Admin. "unknown" means you need to verify in KZero.
+
+---
+
+### For Support: `supportSummary`
+
+Ready-to-copy text you can share with your team or KZero support:
+
+```json
+{
+  "supportSummary": {
+    "copyPasteSummary": "SAML login failed on 2026-04-24 at 4:30 PM.\n\nApp: vendor-sp.example.com\nStatus: 🔴 LOGIN FAILED\n\nWhat to check:\nIn KZero Admin → Applications → [app] → Client ID..."
+  }
+}
+```
+
+**What to do:** Copy this text to share with your team or support.
+
+---
+
+### Quick Reading Order
+
+If you're not sure where to start, read in this order:
+
+1. **`quickVerdidct`** → Did login work or not?
+2. **`whatHappened`** → What happened step by step?
+3. **`whatWentWrong[0]`** → What went wrong?
+4. **`firstAction`** → What do I do next?
+5. **`whatToCompare`** → What values do I check?
+
+That's it! You don't need to read the whole file — just follow these sections in order.
+
 ### Example: "ACS URL Mismatch" — In Plain English
 
 _This finding means:_ Your app told KZero to send the login confirmation to the wrong address. It's like giving someone the wrong mailing address — the package (login confirmation) gets returned.

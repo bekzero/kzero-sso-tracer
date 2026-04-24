@@ -4,33 +4,46 @@ All notable changes to **KZero Passwordless SSO Tracer** are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.3.0] — 2026-04-21
+## [0.3.0] — 2026-04-24
 
 ### Added
 
-- **Educational export (SAML)** — Optional enriched export block with plain-English explanations:
-  - New `schemaVersion: "2.0.0"` and `exportVersion: "1.0.0"` for downstream detection
-  - `education` block available on sanitized and summary exports (opt-in via `includeEducational: true`)
-  - `narrative` section: story of the SAML flow with initiation model explanation
-  - `observedFacts`: literal values seen on the wire, clearly distinguished from inferences
-  - `inferredFindings`: findings with `basedOnObservedFields`, `notShownInTrace`, `unsupportedAssumptions`
-  - `manualChecks`: structured comparison checklist mapping observed values to common KZero field names
-  - `learningAids.enrichedEvents`: each SAML event with plain-English summaries and field explanations
-  - `learningAids.protocolGlossary`: reusable explainers for Issuer, ACS URL, Destination, etc.
-  - `noiseEvents`: non-auth requests labeled with `authRelevance` and `noiseReason`
-  - `notShownInTrace`: explicit list of KZero config values NOT visible in the trace
+- **Educational export (SAML)** — Optional enriched export block with plain-English explanations (schema `2.1.0`):
+  - New `schemaVersion: "2.1.0"` and `exportVersion: "1.1.0"` for downstream detection
+  - `aboutThisFile`: "What is this file?" section explaining the export in plain terms
+  - `quickVerdict`: Immediate verdict with emoji indicators (🔴/✅) and one-sentence summary
+  - `recommendedPath`: Navigation guides for different user types (new users, fixers, learners)
+  - `whatHappened`: Plain-English step-by-step narrative (parallel to raw events)
+  - `whatWentWrong`: Findings sorted errors-first with plain titles and severity labels
+  - `whatToCompare`: Visual side-by-side comparison table + detailed checklist
+  - `firstAction`: Concrete first step with exact KZero admin path navigation
+  - `supportSummary`: Auto-generated copy-paste text block for escalation
+  - `whatThisFileDoesNotContain`: Renamed from notShownInTrace, clearer naming
+  - KZero Admin paths included: "KZero Admin → Applications → [app] → Client ID" etc.
   - Guards against implying knowledge of KZero configured values without explicit capture
 
-### Example educational export usage:
+### Example new sections:
 
-```typescript
-const export = buildSanitizedExport(session, { includeEducational: true });
-// export.education contains:
-//   - educational.title: "SAML login failed"
-//   - narrative.initiationModel: "SP-initiated" | "IdP-initiated"
-//   - narrative.plainEnglishFlow: "1. App started SSO login..."
-//   - observedFacts: ["SAML AuthnRequest received from vendor-sp.example.com", ...]
-//   - manualChecks: [{ fieldGroup: "SP Entity ID", observedValue: "...", commonKZeroFieldNames: [...] }]
+```json
+{
+  "quickVerdict": {
+    "overallStatus": "failure",
+    "severityLabel": "🔴 LOGIN FAILED",
+    "oneSentenceSummary": "Login failed because the app's Entity ID doesn't match what KZero expects.",
+    "mostCriticalIssue": "Entity ID mismatch",
+    "confidence": "high"
+  },
+  "firstAction": {
+    "stepNumber": 1,
+    "kzeroAdminPath": "KZero Admin → Applications → [your app] → General tab → Details section → Client ID",
+    "whatToFind": "Look for 'Client ID' or 'Entity ID'",
+    "whatToCompare": "Compare to: https://old-vendor.example.com/sp",
+    "whyThisMatters": "If these don't match, KZero won't accept the login request"
+  },
+  "supportSummary": {
+    "copyPasteSummary": "SAML login failed on 2026-04-24..."
+  }
+}
 ```
 
 ## [0.2.0] — 2026-03-31
