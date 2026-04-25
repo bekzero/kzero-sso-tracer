@@ -287,8 +287,8 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
   const [pendingInjection, setPendingInjection] = useState<{ labels: string[] } | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [exportMode, setExportMode] = useState<ExportMode>('sanitized');
-  const [includePostLogin, setIncludePostLogin] = useState(false);
   const [showRawWarning, setShowRawWarning] = useState(false);
   const [historyNotice, setHistoryNotice] = useState<'' | 'saved'>('');
   const [showAssistant, setShowAssistant] = useState(false);
@@ -2199,68 +2199,102 @@ export const App = ({ mode = 'sidepanel' }: AppProps): JSX.Element => {
               </button>
               {exportMenuOpen && (
                 <div className="export-dropdown">
-                  <div className="export-mode-selector">
-                    <label className="export-mode-label">Export format:</label>
-                    <select
-                      className="export-mode-select"
-                      value={exportMode}
-                      onChange={(e) => {
-                        const mode = e.target.value as ExportMode;
-                        if (mode === 'raw') {
-                          setShowRawWarning(true);
-                        } else {
-                          setExportMode(mode);
+                  <div className="export-dropdown-header">WHAT DO YOU NEED?</div>
+
+                  <div className="export-btn-group">
+                    <button
+                      className="export-btn export-btn-primary"
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        if (session) {
+                          emailSessionToSupport(session);
                         }
                       }}
+                      disabled={!session}
                     >
-                      <option value="summary">Quick Fix - for IT admins to get started</option>
-                      <option value="sanitized">Full Report - complete technical details</option>
-                      <option value="raw">Debug Data - raw info for developers</option>
-                    </select>
+                      <span className="export-btn-icon">📧</span>
+                      <span className="export-btn-text">
+                        <span className="export-btn-label">SEND TO SUPPORT</span>
+                        <span className="export-btn-hint">Opens email with trace</span>
+                      </span>
+                    </button>
+
+                    <button
+                      className="export-btn export-btn-secondary"
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        setPendingExport('json');
+                      }}
+                      disabled={!session}
+                    >
+                      <span className="export-btn-icon">💾</span>
+                      <span className="export-btn-text">
+                        <span className="export-btn-label">SAVE FOR LATER</span>
+                        <span className="export-btn-hint">Download trace as file</span>
+                      </span>
+                    </button>
                   </div>
-                  {exportMode === 'sanitized' && (
-                    <label className="export-option">
-                      <input
-                        type="checkbox"
-                        checked={includePostLogin}
-                        onChange={(e) => setIncludePostLogin(e.target.checked)}
-                      />
-                      Include post-login activity
-                    </label>
+
+                  <div className="export-dropdown-divider" />
+
+                  <button
+                    className="export-btn export-btn-tertiary"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                  >
+                    <span className="export-btn-icon">{showAdvanced ? '▲' : '▼'}</span>
+                    <span className="export-btn-text">
+                      <span className="export-btn-label">MORE OPTIONS</span>
+                    </span>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="export-btn-group" style={{ marginTop: '8px' }}>
+                      <button
+                        className="export-btn"
+                        onClick={() => {
+                          setExportMenuOpen(false);
+                          setPendingExport('json');
+                        }}
+                        disabled={!session}
+                      >
+                        <span className="export-btn-icon">📄</span>
+                        <span className="export-btn-text">
+                          <span className="export-btn-label">VIEW TECHNICAL</span>
+                          <span className="export-btn-hint">Full detailed trace</span>
+                        </span>
+                      </button>
+
+                      <button
+                        className="export-btn"
+                        onClick={() => {
+                          setExportMenuOpen(false);
+                          setPendingExport('csv');
+                        }}
+                        disabled={!session}
+                      >
+                        <span className="export-btn-icon">📊</span>
+                        <span className="export-btn-text">
+                          <span className="export-btn-label">PROBLEMS LIST</span>
+                          <span className="export-btn-hint">Spreadsheet of issues</span>
+                        </span>
+                      </button>
+
+                      <button
+                        className="export-btn"
+                        onClick={() => {
+                          setExportMenuOpen(false);
+                          setPendingExport('har');
+                        }}
+                        disabled={!session}
+                      >
+                        <span className="export-btn-icon">🔌</span>
+                        <span className="export-btn-text">
+                          <span className="export-btn-label">NETWORK TRACE</span>
+                          <span className="export-btn-hint">For browser DevTools</span>
+                        </span>
+                      </button>
+                    </div>
                   )}
-                  <div className="export-divider" />
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      setPendingExport('json');
-                    }}
-                  >
-                    Download - for support email
-                  </button>
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      setPendingExport('har');
-                    }}
-                  >
-                    Network Data - for browser DevTools
-                  </button>
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      setPendingExport('csv');
-                    }}
-                  >
-                    Problems Only - spreadsheet
-                  </button>
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      setPendingExport('csv-summary');
-                    }}
-                  >
-                    Summary Only - spreadsheet
-                  </button>
                 </div>
               )}
             </div>

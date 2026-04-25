@@ -41,6 +41,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Contact Support button** — Replaced confusing "?" button with prominent "Contact Support" button directly in toolbar
 - **Non-technical UX** — Support contact is now prominent and discoverable, not hidden in dropdown menus
 
+### UX Improvements
+
+- **Export dropdown redesign** — Completely redesigned for non-technical users:
+  - "WHAT DO YOU NEED?" header guides user purpose-first
+  - Primary button: "SEND TO SUPPORT" with orange highlight
+  - Secondary button: "SAVE FOR LATER" with subtle styling
+  - Advanced options collapsed under "MORE OPTIONS"
+  - Emoji icons for visual clarity
+  - Larger, more readable text and buttons
+  - Clear visual hierarchy between primary/secondary/tertiary
+
 ### Example new friendly export structure:
 
 ```json
