@@ -1470,6 +1470,1736 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         nextEvidence: ['RelayState in request', 'RelayState in response', 'Post-login redirect']
       };
     }
+    case 'SAML_PREAUTHN_CONFIG_ISSUE': {
+      return {
+        title: 'Configuration issue before login',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'KZero returned an error before generating a SAMLResponse.',
+              'This typically indicates a client configuration issue in one of these areas:',
+              '',
+              '1️⃣ Client ID / SP Entity ID mismatch',
+              "   - The Entity ID in the AuthnRequest doesn't match KZero",
+              '',
+              '2️⃣ ACS URL mismatch',
+              "   - The callback URL doesn't match KZero configuration",
+              '',
+              '3️⃣ Client configuration issue',
+              '   - Wrong client settings, disabled client, etc.'
+            ],
+            kzeroFields: map.kzeroFields,
+            tooltip:
+              "When KZero rejects before login, it's usually a configuration mismatch between the vendor app and KZero."
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              'Verify these three values match exactly:',
+              '   1. Client ID / SP Entity ID',
+              '   2. ACS URL / Valid Redirect URIs',
+              '   3. Client is enabled and configured correctly'
+            ],
+            kzeroFields: ['Client ID', 'Valid Redirect URIs', 'Entity ID']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              'Open the SAML settings in your vendor app',
+              'Verify these match your KZero configuration:',
+              '   - SP Entity ID / Client ID (exact match, case-sensitive)',
+              '   - ACS URL / Reply URL (exact match, including https:// and trailing slash)',
+              "   - Ensure you're using the correct KZero tenant (not test vs prod)"
+            ],
+            vendorFields: ['SP Entity ID', 'ACS URL', 'Reply URL']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.samlClients]
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, KZero returns 2xx/3xx and generates a SAMLResponse.'
+        ],
+        nextEvidence: ['AuthnRequest Entity ID', 'ACS URL', 'KZero client configuration']
+      };
+    }
+    case 'SAML_MISSING_RESPONSE': {
+      return {
+        title: 'No SAML Response captured',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'No SAML Response was captured after the AuthnRequest.',
+              'This could mean:',
+              '   - The flow failed before generating a response',
+              '   - The response was sent but not captured (late capture)',
+              '   - The flow is IdP-initiated (no AuthnRequest expected)'
+            ],
+            tooltip: 'Missing SAML Response can indicate a failed login or a capture timing issue.'
+          },
+          {
+            title: 'What to check',
+            owner: 'KZero',
+            bullets: [
+              'Check if KZero generated a SAMLResponse:',
+              '   - Look for successful HTTP status (200/302) at SAML endpoint',
+              '   - Check KZero logs for SAMLResponse generation',
+              '',
+              'If using IdP-initiated flow:',
+              '   - No AuthnRequest is expected',
+              '   - Response should still be captured'
+            ],
+            kzeroFields: ['SSO endpoint', 'Client status']
+          },
+          {
+            title: 'Fix capture timing',
+            owner: 'browser',
+            bullets: [
+              '> For next test:',
+              '   1. Clear browser cache and cookies',
+              '   2. Start capture BEFORE clicking login',
+              '   3. Capture the ENTIRE flow from start to finish',
+              '   4. Include all redirects in the trace'
+            ]
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.samlClients]
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, a SAMLResponse is captured after the AuthnRequest.'
+        ],
+        nextEvidence: ['SAMLResponse in trace', 'KZero SSO endpoint status', 'Full redirect chain']
+      };
+    }
+    case 'SAML_MISSING_REQUEST': {
+      return {
+        title: 'No SAML AuthnRequest captured',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'No SAML AuthnRequest was captured in the trace.',
+              'This usually means one of these:',
+              '',
+              '1️⃣ IdP-initiated flow (expected - no request)',
+              '   - User starts at KZero, not vendor app',
+              '   - This is normal for IdP-initiated SSO',
+              '',
+              '2️⃣ Capture started late',
+              '   - AuthnRequest happened before trace started',
+              '   - Need to recapture from the beginning'
+            ],
+            tooltip:
+              'Missing AuthnRequest is normal for IdP-initiated flows, or indicates late capture.'
+          },
+          {
+            title: 'If this should be SP-initiated',
+            owner: 'vendor SP',
+            bullets: [
+              '> The flow should start from the vendor app:',
+              '   1. Go to vendor app login page',
+              '   2. Click SSO/Login button',
+              '   3. Vendor sends AuthnRequest to KZero',
+              '',
+              '> For testing:',
+              '   - Start trace BEFORE going to vendor app',
+              '   - Capture the full flow from vendor app to KZero'
+            ],
+            vendorFields: ['SSO initiation', 'IdP-Initiated settings']
+          },
+          {
+            title: 'If this is IdP-initiated',
+            owner: 'KZero',
+            bullets: [
+              '> This is normal - no AuthnRequest expected',
+              '> KZero sends response directly to vendor ACS',
+              '> Verify vendor ACS URL is configured correctly in KZero'
+            ],
+            kzeroFields: ['IDP-Initiated SSO URL Name', 'ACS URL']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, capture the full flow from beginning.'],
+        nextEvidence: ['AuthnRequest in trace', 'Flow initiation type', 'Vendor app login page']
+      };
+    }
+    case 'SAML_UNPARSEABLE_ARTIFACT': {
+      return {
+        title: 'SAML artifact could not be parsed',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'The SAML message could not be decoded or parsed.',
+              'This usually indicates:',
+              '   - Corrupted or truncated SAML message',
+              '   - Wrong encoding (not base64)',
+              '   - Not actually SAML (could be other protocol)',
+              '   - Malformed XML in the SAML message'
+            ],
+            tooltip:
+              'Unparseable SAML usually means the message is corrupted or using the wrong format.'
+          },
+          {
+            title: 'What to check',
+            owner: 'KZero',
+            bullets: [
+              '> Check KZero SAML settings:',
+              '   - Is the SAML endpoint correct?',
+              '   - Is the binding correct (POST vs Redirect)?',
+              '   - Are there any special characters in the config?',
+              '',
+              '> Try re-exporting metadata:',
+              '   - Go to Realm Settings > General > Endpoints',
+              '   - Download fresh SAML metadata',
+              '   - Share with vendor'
+            ],
+            kzeroFields: ['SAML endpoint', 'Client configuration']
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor SAML configuration:',
+              '   - Using correct KZero metadata/endpoint',
+              '   - SAML binding matches KZero (POST/Redirect)',
+              '   - No proxy/firewall modifying the SAML message'
+            ],
+            vendorFields: ['SAML endpoint', 'SAML binding', 'Metadata URL']
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, SAML message is properly encoded and parseable.'
+        ],
+        nextEvidence: ['SAMLRequest/Response value', 'Encoding format', 'XML structure']
+      };
+    }
+    case 'SAML_CAPTURE_STARTED_LATE': {
+      return {
+        title: 'Trace capture started after flow began',
+        owner: 'browser',
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'The trace capture appears to have started after the SAML flow began.',
+              'This means some SAML messages may be missing from the trace.',
+              '',
+              'Impact:',
+              '   - May be missing AuthnRequest',
+              '   - May be missing parts of the redirect chain',
+              '   - Harder to diagnose the full flow'
+            ],
+            tooltip:
+              'Late capture means you started tracing after the login flow began. This is a timing issue, not a configuration error.'
+          },
+          {
+            title: 'How to fix for next test',
+            owner: 'browser',
+            bullets: [
+              '> Proper capture sequence:',
+              '   1. Open a NEW incognito/private browser window',
+              '   2. Start trace capture FIRST',
+              '   3. THEN go to vendor app and click login',
+              '   4. Capture the ENTIRE flow including all redirects',
+              '   5. Stop capture only after returning to vendor app',
+              '',
+              '> Tips:',
+              '   - Clear cache/cookies before starting',
+              '   - Make sure all redirects are captured',
+              '   - Include the final landing page too'
+            ]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, capture from BEFORE the login flow starts.'],
+        nextEvidence: ['Full redirect chain', 'AuthnRequest timing', 'Capture start time']
+      };
+    }
+    case 'SAML_ISSUER_MISMATCH': {
+      const fixSteps = buildSamlIssuerFix(finding.observed, finding.expected);
+      return {
+        title: 'Issuer mismatch',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              ...fixSteps.map(formatStep),
+              '',
+              '⚠️ The Issuer/Entity ID must match exactly - this is case-sensitive'
+            ],
+            kzeroFields: map.kzeroFields,
+            fieldExpectations: [
+              { field: 'Identity provider entity ID', expected: finding.expected }
+            ],
+            copySnippets: [{ label: 'Expected Issuer', value: finding.expected }],
+            tooltip:
+              'The Issuer identifies KZero to the vendor. Both sides must agree on the exact Issuer value (case-sensitive).'
+          },
+          {
+            title: 'Fix in vendor app (SP)',
+            owner: 'vendor SP',
+            bullets: [
+              `Set vendor "Issuer" / "IdP Entity ID" to exactly: ${finding.expected}`,
+              'If vendor imported metadata, re-import to avoid stale values.',
+              '⚠️ Issuer values are case-sensitive - verify exact casing'
+            ],
+            vendorFields: map.vendorFields,
+            copySnippets: [{ label: 'Expected Issuer', value: finding.expected }],
+            tooltip:
+              'The vendor app needs to know the exact Issuer of KZero. This must match exactly on both sides.'
+          },
+          {
+            title: 'What we observed',
+            owner: 'browser',
+            bullets: [
+              `Observed Issuer: ${finding.observed}`,
+              `Expected Issuer: ${finding.expected}`
+            ]
+          },
+          ...(vendorNotice
+            ? [
+                {
+                  title: 'Vendor Guide',
+                  owner: 'docs',
+                  bullets: [vendorNotice]
+                }
+              ]
+            : []),
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.samlClients]
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, Issuer matches exactly between request and response.'
+        ],
+        nextEvidence: ['SAMLRequest Issuer', 'SAMLResponse Issuer', 'KZero Entity ID setting']
+      };
+    }
+    case 'SAML_POLICY_MISMATCH_CLUE': {
+      return {
+        title: 'Authentication policy mismatch',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding SAML policies',
+            owner: 'KZero',
+            bullets: [
+              'The AuthnRequest may request specific authentication policies:',
+              '   - Password authentication',
+              '   - Multi-factor authentication (MFA)',
+              '   - Specific authentication context classes',
+              '',
+              'The issue:',
+              '   - KZero may not support the requested policy',
+              '   - Vendor may require MFA but KZero is not configured for it',
+              '   - Policy format may not be supported'
+            ],
+            kzeroFields: ['Authentication policies', 'Required actions'],
+            tooltip:
+              'SAML policies tell KZero what type of authentication is required. Mismatch can cause auth failures.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Check authentication requirements:',
+              '   - Go to Authentication > Required Actions',
+              '   - Verify MFA/policies are properly configured',
+              '   - Check if specific context classes are supported',
+              '',
+              '> Check client settings:',
+              '   - Force MFA for this client if needed',
+              '   - Configure authentication flow correctly'
+            ],
+            kzeroFields: ['Authentication flows', 'Required actions', 'MFA settings']
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check what policies vendor requests:',
+              '   - Look for "RequestedAuthnContext" in SAML Request',
+              "   - Verify vendor's policy requirements",
+              '',
+              '> Common fixes:',
+              '   - Disable specific policy requirements if not needed',
+              '   - Configure KZero to support the requested policies'
+            ],
+            vendorFields: ['Requested Authentication Context', 'Authn policies']
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, authentication policies match between KZero and vendor.'
+        ],
+        nextEvidence: ['AuthnRequest RequestedAuthnContext', 'KZero authentication flows']
+      };
+    }
+    case 'SAML_AUTHNREQUEST_SIGN_EXPECTATION_MISMATCH': {
+      return {
+        title: 'AuthnRequest signing expectation mismatch',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding AuthnRequest signing',
+            owner: 'KZero',
+            bullets: [
+              'KZero can be configured to require signed AuthnRequests:',
+              '   - If ON: Vendor MUST sign the SAML request',
+              '   - If OFF: Vendor should NOT sign (or KZero ignores signature)',
+              '',
+              'The issue:',
+              "   - KZero expects signed request but vendor doesn't sign",
+              "   - KZero doesn't expect signed request but vendor signs",
+              '   - Both sides need to agree on signing'
+            ],
+            kzeroFields: ['Want AuthnRequests Signed'],
+            tooltip:
+              'AuthnRequest signing proves the request really came from the vendor. Both sides must agree on whether to sign.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "Go to 'Signature & Encryption' section",
+              '',
+              "> Check 'Want AuthnRequests Signed':",
+              '   - Turn ON if vendor signs requests',
+              "   - Turn OFF if vendor doesn't sign",
+              '',
+              '⚠️ This must match what the vendor actually does'
+            ],
+            kzeroFields: ['Want AuthnRequests Signed']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check if vendor signs AuthnRequests:',
+              '   - Look for "Sign AuthnRequest" setting',
+              '   - Check if vendor has a signing certificate configured',
+              '',
+              '> Match KZero setting:',
+              '   - If KZero expects signed: Enable signing in vendor',
+              "   - If KZero doesn't expect signed: Disable signing in vendor"
+            ],
+            vendorFields: ['Sign AuthnRequest', 'Request signing certificate']
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, signing settings match between KZero and vendor.'
+        ],
+        nextEvidence: ['AuthnRequest Signature', 'Want AuthnRequests Signed setting']
+      };
+    }
+
+    // ============ OIDC Discovery Issues ============
+    case 'OIDC_DISCOVERY_UNREACHABLE': {
+      return {
+        title: 'OIDC discovery endpoint unreachable',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Network connectivity check',
+            owner: 'network',
+            bullets: [
+              'The OIDC discovery endpoint could not be reached.',
+              '',
+              '> Test if the URL is accessible:',
+              '   1. Open a browser and try the discovery URL:',
+              `      https://ca.auth.kzero.com/realms/<TENANT_NAME>/.well-known/openid-configuration`,
+              '',
+              '> Check if blocked by:',
+              '   - Firewall (port 443)',
+              '   - WAF (Web Application Firewall)',
+              '   - VPN (must be public, not private network)',
+              '   - DNS resolution issues'
+            ],
+            tooltip: 'The discovery endpoint must be publicly accessible for OIDC flows to work.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              'Navigate to: Configure > Realm settings > General tab',
+              "Scroll to the 'Endpoints' section at the bottom",
+              '',
+              'Verify these URLs are accessible from the internet:',
+              '   - OpenID Endpoint Configuration (discovery document)',
+              '   - ⚠️ Endpoints must be publicly accessible'
+            ],
+            kzeroFields: ['Discovery Endpoint', 'Issuer'],
+            tooltip:
+              'KZero discovery endpoint must be publicly accessible for vendors to fetch OIDC configuration.'
+          },
+          {
+            title: 'Check vendor configuration',
+            owner: 'vendor SP',
+            bullets: [
+              'Ask the vendor to check their network connectivity to KZero',
+              "Request their server's outbound IPs if you need to whitelist them",
+              "Verify they're using the correct tenant name in the discovery URL"
+            ],
+            vendorFields: ['Discovery URL', 'Outbound connectivity']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.realmSettings, docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, discovery endpoint returns HTTP 200.'],
+        nextEvidence: ['Discovery URL', 'HTTP status', 'Network/firewall logs']
+      };
+    }
+    case 'OIDC_DISCOVERY_MALFORMED': {
+      return {
+        title: 'OIDC discovery document malformed',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The OIDC discovery document is invalid or incomplete.',
+              'This prevents vendors from properly configuring OIDC clients.',
+              '',
+              'Common issues:',
+              '   - Truncated JSON response',
+              '   - Invalid JSON syntax',
+              '   - Missing required fields (issuer, endpoints)'
+            ],
+            kzeroFields: ['Discovery Endpoint'],
+            tooltip: 'A malformed discovery document breaks OIDC client configuration for vendors.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Verify the discovery endpoint returns valid JSON:',
+              '   1. Open browser to discovery URL',
+              '   2. Validate JSON structure',
+              '   3. Check for required fields: issuer, authorization_endpoint, token_endpoint',
+              '',
+              '> If malformed, try:',
+              '   - Refresh realm settings',
+              '   - Re-check realm configuration',
+              '   - Contact KZero support if persists'
+            ],
+            kzeroFields: ['Discovery Endpoint', 'Realm settings']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.realmSettings, docLinks.oidcOverview]
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, discovery document is valid JSON with all required fields.'
+        ],
+        nextEvidence: ['Discovery document JSON', 'Missing required fields']
+      };
+    }
+    case 'OIDC_DISCOVERY_PUBLIC_REACHABILITY_CLUE': {
+      return {
+        title: 'Discovery endpoint may not be publicly reachable',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: 'Public reachability check',
+            owner: 'network',
+            bullets: [
+              'KZero discovery endpoint should be publicly accessible.',
+              '',
+              '> Test from different networks:',
+              '   - Try from vendor server',
+              '   - Try from mobile network (not corporate)',
+              '   - Use online HTTP tester tools',
+              '',
+              '> If not reachable:',
+              '   - Check firewall rules',
+              '   - Verify DNS resolution',
+              '   - Check if endpoint is behind VPN'
+            ]
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Verify tenant is active and not in maintenance mode.',
+              'Check if any IP restrictions are configured.',
+              'Ensure endpoints are not restricted to specific networks.'
+            ],
+            kzeroFields: ['Tenant status', 'Discovery Endpoint']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.realmSettings]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, discovery endpoint is publicly reachable.'],
+        nextEvidence: ['Discovery URL', 'Network test results', 'Firewall logs']
+      };
+    }
+    case 'OIDC_DISCOVERY_ENDPOINT_HOST_SUSPICIOUS': {
+      return {
+        title: 'Discovery endpoint host mismatch',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The discovery endpoint host does not match expected KZero tenant host.',
+              '',
+              'Expected host: ca.auth.kzero.com',
+              'Check if vendor is using:',
+              '   - Wrong environment (test vs prod)',
+              '   - Wrong tenant name',
+              '   - Old/cached discovery URL'
+            ],
+            kzeroFields: ['Discovery Endpoint', 'Tenant alias'],
+            tooltip: 'Using wrong host in discovery URL indicates wrong environment or tenant.'
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor is using correct discovery URL:',
+              '   - Correct tenant name in URL',
+              '   - Correct environment (prod vs test)',
+              '   - Re-import metadata if needed',
+              '',
+              '> Expected format:',
+              '   https://ca.auth.kzero.com/realms/<TENANT_NAME>/.well-known/openid-configuration'
+            ],
+            vendorFields: ['Discovery URL', 'OIDC configuration']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, discovery host matches expected KZero host.'],
+        nextEvidence: ['Discovery URL', 'Tenant name', 'Expected host']
+      };
+    }
+    case 'OIDC_DISCOVERY_ENDPOINT_INCONSISTENT': {
+      return {
+        title: 'Discovery endpoint values inconsistent',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding the issue',
+            owner: 'KZero',
+            bullets: [
+              'Values in the discovery document are inconsistent.',
+              '',
+              'Common inconsistencies:',
+              '   - issuer does not match discovery URL host',
+              '   - endpoints use different hosts',
+              '   - tenant casing differs across fields',
+              '',
+              'This breaks token validation and causes auth failures.'
+            ],
+            kzeroFields: ['Discovery Endpoint', 'Issuer', 'Tenant alias'],
+            tooltip: 'Inconsistent discovery values cause validation failures in OIDC flows.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Verify these match across discovery document:',
+              '   1. issuer URL',
+              '   2. discovery URL host',
+              '   3. All endpoint URLs host',
+              '',
+              '> Check tenant casing:',
+              '   - All references should use same casing',
+              "   - 'ABCMSP' ≠ 'abcmasp'"
+            ],
+            kzeroFields: ['Issuer', 'Discovery Endpoint', 'Realm settings']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.realmSettings, docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, all discovery values are consistent.'],
+        nextEvidence: ['Discovery document', 'issuer', 'endpoint URLs']
+      };
+    }
+
+    // ============ OIDC PKCE Issues ============
+    case 'OIDC_PKCE_MISSING_WHEN_CODE_FLOW': {
+      return {
+        title: 'PKCE missing for authorization code flow',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding PKCE',
+            owner: 'KZero',
+            bullets: [
+              'PKCE (Proof Key for Code Exchange) is recommended for all code flows.',
+              '',
+              'Why it matters:',
+              '   - Prevents authorization code interception attacks',
+              '   - Required for public clients (SPAs, mobile apps)',
+              '   - Adds an extra layer of security'
+            ],
+            kzeroFields: ['PKCE Method'],
+            tooltip:
+              'PKCE is recommended for all authorization code flows to prevent code interception attacks.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "Go to 'Capability Config' section",
+              '',
+              "> Enable PKCE by setting 'PKCE Method' to S256",
+              '> S256 is the recommended secure option'
+            ],
+            kzeroFields: ['PKCE Method'],
+            tooltip:
+              'Enabling PKCE in KZero requires the vendor to send code_verifier with token exchange.'
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Enable PKCE in vendor OIDC settings:',
+              '   - Generate code_verifier before login',
+              '   - Send code_challenge (S256 hash) with authorize request',
+              '   - Send code_verifier with token exchange',
+              '',
+              '> PKCE is required for:',
+              '   - Single Page Applications (SPAs)',
+              '   - Mobile applications',
+              '   - Any public client'
+            ],
+            vendorFields: ['PKCE', 'Code Challenge Method']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, PKCE is used for authorization code flow.'],
+        nextEvidence: ['code_challenge in authorize', 'PKCE method setting']
+      };
+    }
+    case 'OIDC_PKCE_METHOD_WEAK_OR_UNEXPECTED': {
+      return {
+        title: 'PKCE method weak or unexpected',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding PKCE methods',
+            owner: 'KZero',
+            bullets: [
+              'PKCE supports two challenge methods:',
+              '',
+              '1️⃣ S256 (recommended):',
+              '   - Uses SHA-256 hash',
+              '   - Secure and widely supported',
+              '',
+              '2️⃣ Plain (deprecated):',
+              '   - Uses plain text challenge',
+              '   - Less secure, may be rejected'
+            ],
+            kzeroFields: ['PKCE Method'],
+            tooltip: 'S256 is the recommended PKCE method. Plain is deprecated and less secure.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              "Set 'PKCE Method' to S256 in client Capability Config.",
+              'S256 is the industry standard and most secure option.'
+            ],
+            kzeroFields: ['PKCE Method']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Use S256 for code_challenge_method:',
+              '   - Generate SHA-256 hash of code_verifier',
+              '   - Send method=S256 with authorize request',
+              '',
+              '> If vendor only supports plain:',
+              '   - Consider upgrading vendor OIDC library',
+              '   - Plain is less secure but may work temporarily'
+            ],
+            vendorFields: ['PKCE Method', 'Code Challenge Method']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, PKCE method is S256.'],
+        nextEvidence: ['code_challenge_method', 'PKCE method setting']
+      };
+    }
+
+    // ============ OIDC Token Issues ============
+    case 'OIDC_TOKEN_ISSUER_MISMATCH': {
+      return {
+        title: 'Token issuer mismatch',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The issuer in the token does not match what the vendor expects.',
+              '',
+              'This causes token validation to fail at the vendor.',
+              '',
+              'Common causes:',
+              '   - Wrong tenant in token issuer',
+              '   - Vendor configured with wrong issuer URL',
+              '   - Tenant casing mismatch'
+            ],
+            kzeroFields: ['Issuer', 'Discovery Endpoint'],
+            tooltip:
+              'Token issuer must match exactly what the vendor expects for validation to succeed.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Verify the issuer in Realm Settings > General:',
+              '   - Should be: https://ca.auth.kzero.com/realms/<TENANT_NAME>',
+              '   - Check for correct casing',
+              '',
+              'Verify discovery endpoint returns same issuer.'
+            ],
+            kzeroFields: ['Issuer', 'Discovery Endpoint']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Set vendor issuer to exactly match KZero:',
+              '   - Check vendor OIDC configuration',
+              '   - Update issuer URL if needed',
+              '   - Re-import discovery document if available'
+            ],
+            vendorFields: ['Issuer', 'Discovery URL']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcOverview, docLinks.realmSettings]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, token iss matches expected issuer exactly.'],
+        nextEvidence: ['Token iss claim', 'Expected issuer', 'Discovery document issuer']
+      };
+    }
+    case 'OIDC_TOKEN_AUTH_METHOD_MISMATCH_CLUE': {
+      return {
+        title: 'Token endpoint auth method may not match',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding token endpoint auth',
+            owner: 'KZero',
+            bullets: [
+              'The client authentication method at token endpoint may not match.',
+              '',
+              'Common methods:',
+              '   - client_secret_basic (default, in Authorization header)',
+              '   - client_secret_post (in POST body)',
+              '   - none (for public clients)',
+              '   - private_key_jwt (for advanced scenarios)'
+            ],
+            kzeroFields: ['Client authentication', 'Token endpoint'],
+            tooltip:
+              'Client auth method must match between KZero and vendor for token exchange to succeed.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "Go to 'Capability Config' section",
+              '',
+              '> Check "Client Authentication" setting:',
+              '   - Should match what vendor sends',
+              '   - Most vendors use client_secret_basic'
+            ],
+            kzeroFields: ['Client authentication']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check vendor token endpoint configuration:',
+              '   - What auth method does vendor use?',
+              '   - Does it match KZero setting?',
+              '',
+              '> Common fixes:',
+              '   - Set vendor to use client_secret_basic',
+              '   - Or update KZero to match vendor method'
+            ],
+            vendorFields: ['Token endpoint auth method', 'Client credentials']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, token endpoint auth method matches.'],
+        nextEvidence: ['Token request auth method', 'KZero client auth setting']
+      };
+    }
+    case 'OIDC_LOGOUT_REDIRECT_MISMATCH_CLUE': {
+      return {
+        title: 'Logout redirect URI may not match',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The post-logout redirect URI may not be whitelisted.',
+              '',
+              'After logout, KZero redirects to this URI.',
+              'It must be whitelisted in client configuration.'
+            ],
+            kzeroFields: ['Post-logout redirect URIs', 'Client settings'],
+            tooltip:
+              'Post-logout redirect URIs must be whitelisted for logout to complete successfully.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "Go to 'Settings' or 'Access settings' section",
+              '',
+              '> Add post-logout redirect URI to whitelist:',
+              '   - Must match exactly what vendor sends',
+              '   - Include https:// and trailing slash if used'
+            ],
+            kzeroFields: ['Post-logout redirect URIs']
+          },
+          {
+            title: 'Check vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor logout configuration:',
+              '   - What URI does vendor send for post-logout?',
+              '   - Is it whitelisted in KZero?',
+              '',
+              '> If vendor does not use post-logout redirect:',
+              '   - That is OK, this is just a clue'
+            ],
+            vendorFields: ['Post-logout redirect URI', 'Logout settings']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, post-logout redirect works correctly.'],
+        nextEvidence: ['Logout request post_logout_redirect_uri', 'Whitelisted URIs']
+      };
+    }
+    case 'OIDC_ACCESS_TOKEN_OPAQUE': {
+      return {
+        title: 'Access token is opaque (not JWT)',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The access token is opaque (not a JWT that can be decoded).',
+              '',
+              'This is normal for some configurations:',
+              '   - Opaque tokens cannot be introspected by vendor',
+              '   - Vendor should use /userinfo endpoint to get claims',
+              '   - Or use the ID token for user information'
+            ],
+            kzeroFields: ['Token type setting', 'Client settings'],
+            tooltip:
+              'Opaque access tokens are normal for some configurations. They cannot be decoded like JWTs.'
+          },
+          {
+            title: 'What to check',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor expectations:',
+              '   - Does vendor need to decode access token?',
+              '   - If yes, vendor should use /userinfo endpoint',
+              '   - Or switch to JWT access tokens if supported',
+              '',
+              '> This is usually NOT an error, just informational'
+            ],
+            vendorFields: ['Access token type', 'UserInfo endpoint usage']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, vendor handles opaque token correctly.'],
+        nextEvidence: ['Access token format', 'Vendor token handling']
+      };
+    }
+
+    // ============ OIDC Capture/Flow Issues ============
+    case 'OIDC_LATE_CAPTURE_CLUE': {
+      return {
+        title: 'Capture may have started after authorize request',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'The trace capture appears to have started after the OIDC authorize request.',
+              '',
+              'Impact:',
+              '   - Authorize request may be missing from trace',
+              '   - Harder to diagnose the full flow',
+              '   - Some OIDC parameters may be missing'
+            ],
+            tooltip:
+              'Late capture means you started tracing after the login flow began. This is a timing issue.'
+          },
+          {
+            title: 'How to fix for next test',
+            owner: 'browser',
+            bullets: [
+              '> Proper capture sequence:',
+              '   1. Open a NEW incognito/private browser window',
+              '   2. Start trace capture FIRST',
+              '   3. THEN go to vendor app and click login',
+              '   4. Capture the ENTIRE flow including all redirects',
+              '   5. Stop capture only after returning to vendor app'
+            ]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, capture from BEFORE the login flow starts.'],
+        nextEvidence: ['Full redirect chain', 'Authorize request', 'Capture start time']
+      };
+    }
+    case 'OIDC_MISSING_AUTHORIZE_REQUEST_CLUE': {
+      return {
+        title: 'No OIDC authorize request captured',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'No OIDC authorize request was captured in the trace.',
+              '',
+              'This usually means:',
+              '   - Capture started after the authorize request',
+              '   - The flow may be using a different protocol (SAML)',
+              '   - Vendor may not be using OIDC for this login'
+            ],
+            tooltip:
+              'Missing authorize request is usually a capture timing issue or wrong protocol.'
+          },
+          {
+            title: 'What to check',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor is using OIDC (not SAML):',
+              '   - Check vendor SSO configuration',
+              '   - Look for OIDC/OAuth2 settings',
+              '',
+              '> If using OIDC, recapture with proper timing:',
+              '   1. Start trace BEFORE going to vendor app',
+              '   2. Capture the full login flow',
+              '   3. Include all redirects'
+            ],
+            vendorFields: ['SSO protocol', 'OIDC settings']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, OIDC authorize request is captured.'],
+        nextEvidence: ['Authorize request URL', 'Vendor SSO protocol', 'Full redirect chain']
+      };
+    }
+    case 'OIDC_MISSING_CALLBACK': {
+      return {
+        title: 'No OIDC callback captured',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'No OIDC callback was captured after the authorize request.',
+              '',
+              'This suggests:',
+              '   - The flow was interrupted before callback',
+              '   - Vendor did not redirect back to callback URI',
+              '   - Possible error occurred at KZero'
+            ],
+            tooltip:
+              'Missing callback suggests the flow failed before reaching the vendor callback.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Check KZero logs for errors:',
+              '   - Did the authorize request succeed?',
+              '   - Was there an error at KZero?',
+              '   - Is the client enabled?',
+              '',
+              '> Verify client configuration:',
+              '   - Client is enabled',
+              '   - Redirect URI is whitelisted'
+            ],
+            kzeroFields: ['Client status', 'Redirect URIs']
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor callback handling:',
+              '   - Does vendor have a callback endpoint?',
+              '   - Is it correctly configured?',
+              '   - Check vendor logs for errors'
+            ],
+            vendorFields: ['Callback endpoint', 'Redirect URI']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, OIDC callback is captured after authorize.'],
+        nextEvidence: ['Callback request', 'KZero logs', 'Vendor logs']
+      };
+    }
+    case 'OIDC_USERINFO_FAILED': {
+      return {
+        title: 'UserInfo endpoint request failed',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'network',
+            bullets: [
+              'The OIDC UserInfo endpoint request failed.',
+              '',
+              'Impact:',
+              '   - Vendor cannot retrieve user claims after login',
+              '   - User profile information may be missing',
+              '',
+              'Common causes:',
+              '   - Invalid or expired access token',
+              '   - UserInfo endpoint not accessible',
+              '   - Missing required scopes (openid, profile)'
+            ],
+            tooltip:
+              'UserInfo endpoint failure prevents vendor from getting user profile information.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Verify UserInfo endpoint is accessible:',
+              '   - Test URL: https://ca.auth.kzero.com/realms/<TENANT>/protocol/openid-connect/userinfo',
+              '   - Should return 200 with valid access token',
+              '',
+              '> Check client scopes:',
+              '   - Ensure "openid" and "profile" scopes are allowed',
+              '   - Vendor must request these scopes'
+            ],
+            kzeroFields: ['Client Scopes', 'UserInfo endpoint']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor uses correct access token:',
+              '   - Token must be valid and not expired',
+              '   - Include "Bearer" prefix in Authorization header',
+              '',
+              '> Check vendor scopes:',
+              '   - Request "openid" and "profile" scopes',
+              '   - Handle missing claims gracefully'
+            ],
+            vendorFields: ['UserInfo endpoint', 'Required scopes', 'Access token usage']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients, docLinks.oidcOverview]
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, UserInfo endpoint returns HTTP 200 with user claims.'
+        ],
+        nextEvidence: ['UserInfo request/response', 'Access token', 'Requested scopes']
+      };
+    }
+    case 'OIDC_BROWSER_STORAGE_OR_COOKIE_BLOCKING_CLUE': {
+      return {
+        title: 'Browser may be blocking storage or cookies',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'browser',
+            bullets: [
+              'OIDC flows often require cookies or session storage.',
+              '',
+              'Browser blocking can cause:',
+              '   - Login session not maintained',
+              '   - State/nonce parameters lost',
+              '   - Redirect loops or failures'
+            ],
+            tooltip: 'Blocking cookies or storage breaks OIDC flows that rely on session state.'
+          },
+          {
+            title: 'What to check',
+            owner: 'browser',
+            bullets: [
+              '> Test in a clean browser environment:',
+              '   1. Use incognito/private window',
+              '   2. Disable extensions that block cookies/trackers',
+              '   3. Allow third-party cookies temporarily',
+              '',
+              '> Check vendor requirements:',
+              '   - Does vendor require cookies?',
+              '   - Does vendor use localStorage or sessionStorage?',
+              '   - Any CSP (Content Security Policy) restrictions?'
+            ],
+            vendorFields: ['Cookie policy', 'Storage requirements', 'CSP settings']
+          }
+        ],
+        verify: [
+          ...baseVerify,
+          'In the new trace, OIDC flow completes without storage/cookie issues.'
+        ],
+        nextEvidence: ['Browser console errors', 'Cookie/Storage API access', 'CSP headers']
+      };
+    }
+    case 'OIDC_CALLBACK_SEEN_BUT_NO_APP_LANDING_CLUE': {
+      return {
+        title: 'Callback succeeded but app did not complete login',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'vendor SP',
+            bullets: [
+              'Token exchange succeeded but the app did not complete login.',
+              '',
+              'This suggests:',
+              '   - Vendor app failed to process the tokens',
+              '   - App may have crashed or encountered an error',
+              '   - Redirect after login may have failed'
+            ],
+            tooltip: 'Tokens were received but the vendor app did not complete the login sequence.'
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check vendor app logs:',
+              '   - Any errors after token exchange?',
+              '   - Did app validate tokens correctly?',
+              '   - Was user session created?',
+              '',
+              '> Verify post-login flow:',
+              '   - App should redirect after successful login',
+              '   - Check for JavaScript errors on the page',
+              '   - Verify app handles token response correctly'
+            ],
+            vendorFields: ['Post-login redirect', 'Token validation', 'App logs']
+          },
+          {
+            title: 'Check KZero configuration',
+            owner: 'KZero',
+            bullets: [
+              'Verify client configuration is correct.',
+              'Check that tokens contain required claims.',
+              'Ensure redirect URIs are correctly configured.'
+            ],
+            kzeroFields: ['Client settings', 'Redirect URIs', 'Token claims']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, app completes login after callback.'],
+        nextEvidence: ['App landing page', 'Vendor logs', 'Token validation result']
+      };
+    }
+
+    // ============ Cross-Protocol Rules ============
+    case 'WRONG_HOST_OR_ENVIRONMENT': {
+      return {
+        title: 'Wrong host or environment detected',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding the issue',
+            owner: 'KZero',
+            bullets: [
+              'URL points to wrong host or environment.',
+              '',
+              'Common scenarios:',
+              '   - Using production tenant URL in test environment',
+              '   - Using test tenant URL in production',
+              '   - Wrong KZero region/host',
+              '',
+              'This causes endpoint and issuer mismatches.'
+            ],
+            kzeroFields: ['Tenant alias', 'Endpoint URLs'],
+            tooltip: 'Using URLs from wrong environment causes tenant/issuer mismatches.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Verify correct environment:',
+              '   - Production: ca.auth.kzero.com',
+              '   - Test: Check your test tenant URL',
+              '',
+              '> Check tenant name in URLs:',
+              '   - Should match your actual tenant',
+              '   - Case-sensitive!'
+            ],
+            kzeroFields: ['Tenant alias', 'Endpoint URLs', 'Issuer']
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor is using correct KZero URLs:',
+              '   - Discovery URL',
+              '   - SSO URL / SAML endpoint',
+              '   - All KZero-related endpoints',
+              '',
+              '> Check for copied values from wrong environment:',
+              '   - Production vs test tenant',
+              '   - Old/stale configuration values'
+            ],
+            vendorFields: ['KZero endpoints', 'Environment configuration']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, all URLs point to correct environment.'],
+        nextEvidence: ['Tenant URL', 'Environment setting', 'Endpoint host']
+      };
+    }
+    case 'WRONG_REALM_ENDPOINT_FAMILY': {
+      return {
+        title: 'Endpoint does not match realm/tenant family',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'Endpoint does not match expected realm/tenant family.',
+              '',
+              'This indicates:',
+              '   - Using endpoints from a different tenant',
+              '   - Realm configuration may be wrong',
+              '   - Token validation will fail'
+            ],
+            kzeroFields: ['Realm settings', 'Endpoint URLs'],
+            tooltip: 'Using endpoints from wrong realm breaks token validation and discovery.'
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Verify realm/tenant configuration:',
+              '   - All endpoints should use same tenant name',
+              '   - Check realm settings > General > Endpoints',
+              '',
+              '> Common mistake:',
+              '   - Copying endpoints from different tenant',
+              '   - Mixing production and test endpoints'
+            ],
+            kzeroFields: ['Realm settings', 'Endpoint URLs', 'Tenant alias']
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor uses consistent endpoints:',
+              '   - All KZero URLs should reference same tenant',
+              '   - Discovery URL, SSO URL, etc.',
+              '',
+              '> Re-import metadata if needed:',
+              '   - Fresh metadata ensures consistency'
+            ],
+            vendorFields: ['KZero endpoints', 'Metadata URL']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, all endpoints belong to same realm/tenant.'],
+        nextEvidence: ['Endpoint URLs', 'Tenant name', 'Discovery document']
+      };
+    }
+    case 'METADATA_COPY_PASTE_TRUNCATION': {
+      return {
+        title: 'Metadata may have been truncated during copy-paste',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'vendor SP',
+            bullets: [
+              'Metadata may have been truncated when copying from browser.',
+              '',
+              'Common issues:',
+              '   - Copying from browser address bar truncates long URLs',
+              '   - Copying from PDF or Word document may add line breaks',
+              '   - Special characters may be lost',
+              '',
+              'Result: Incomplete or corrupted metadata'
+            ],
+            vendorFields: ['Metadata URL', 'Entity ID'],
+            tooltip: 'Truncated metadata causes parsing failures and missing configuration values.'
+          },
+          {
+            title: 'How to fix',
+            owner: 'vendor SP',
+            bullets: [
+              '> Proper way to copy metadata:',
+              '   1. Download XML file from KZero (do not copy-paste)',
+              '   2. Or use "View Source" and save complete file',
+              '   3. Avoid copying from rendered browser view',
+              '',
+              '> Re-import metadata:',
+              '   - Delete old configuration',
+              '   - Import fresh metadata XML from KZero'
+            ],
+            vendorFields: ['Metadata import', 'Entity ID', 'Endpoints']
+          },
+          {
+            title: 'Get fresh metadata from KZero',
+            owner: 'KZero',
+            bullets: [
+              '> Go to: Configure > Realm settings > General tab',
+              "> Scroll to 'Endpoints' section",
+              "> Click 'SAML 2.0 Identity Provider Metadata'",
+              '> Download the XML file',
+              '> Share with vendor to re-import'
+            ],
+            kzeroFields: ['Metadata endpoint', 'Realm settings']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, metadata is complete and valid.'],
+        nextEvidence: ['Metadata XML', 'Entity ID', 'Truncation indicators']
+      };
+    }
+    case 'VENDOR_VALIDATION_REJECTING_METADATA_CLUE': {
+      return {
+        title: 'Vendor may be rejecting metadata due to validation rules',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'vendor SP',
+            bullets: [
+              'Vendor may have strict metadata validation rules.',
+              '',
+              'This can cause rejection of valid metadata if:',
+              '   - Format differs slightly from vendor expectation',
+              '   - Vendor expects specific XML structure',
+              '   - Vendor does not support all SAML/OIDC features',
+              '',
+              'Result: Metadata import fails or is rejected'
+            ],
+            vendorFields: ['Metadata validation', 'Import settings'],
+            tooltip: 'Strict vendor validation can reject valid metadata if format differs.'
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check vendor metadata requirements:',
+              '   - What format does vendor expect?',
+              '   - Any specific XML elements required?',
+              '   - Does vendor support the full SAML/OIDC spec?',
+              '',
+              '> Try manual configuration:',
+              '   - Instead of metadata import, configure manually',
+              '   - Copy individual values (Entity ID, endpoints, etc.)'
+            ],
+            vendorFields: ['Metadata format', 'Manual configuration']
+          },
+          {
+            title: 'Check KZero metadata',
+            owner: 'KZero',
+            bullets: [
+              'Verify KZero metadata is standards-compliant.',
+              'Download fresh metadata and validate against vendor requirements.',
+              'Contact KZero support if metadata format needs adjustment.'
+            ],
+            kzeroFields: ['Metadata endpoint', 'Realm settings']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, metadata is accepted by vendor.'],
+        nextEvidence: ['Vendor validation errors', 'Metadata XML', 'Vendor documentation']
+      };
+    }
+    case 'CLIENT_SIDE_VS_BACKEND_VALIDATION_DISTINCTION': {
+      return {
+        title: 'Validation error may be client-side vs backend',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Understanding the distinction',
+            owner: 'analysis',
+            bullets: [
+              'Validation errors can happen at different levels:',
+              '',
+              '1️⃣ Client-side (browser):',
+              '   - Form validation before submit',
+              '   - JavaScript validation errors',
+              '   - Browser extension interference',
+              '',
+              '2️⃣ Backend (KZero or vendor server):',
+              '   - Server-side validation of SAML/OIDC messages',
+              '   - Configuration validation',
+              '   - Token/certificate validation'
+            ],
+            tooltip: 'Distinguishing where validation fails helps focus troubleshooting efforts.'
+          },
+          {
+            title: 'What to check',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check browser console for client-side errors:',
+              '   - JavaScript errors',
+              '   - Form validation messages',
+              '   - Network errors',
+              '',
+              '> Check server logs for backend errors:',
+              '   - KZero logs (if accessible)',
+              '   - Vendor server logs',
+              '   - Token validation errors'
+            ],
+            vendorFields: ['Client-side validation', 'Server logs']
+          },
+          {
+            title: 'Check KZero configuration',
+            owner: 'KZero',
+            bullets: [
+              'Verify all KZero settings are correct.',
+              'Check that client configuration matches vendor requirements.',
+              'Look for validation errors in KZero admin console.'
+            ],
+            kzeroFields: ['Client settings', 'Validation rules']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, identify where validation is failing.'],
+        nextEvidence: ['Browser console', 'Server logs', 'Validation error messages']
+      };
+    }
+    case 'NETWORK_TLS_REACHABILITY_SUSPECTED': {
+      return {
+        title: 'Network, TLS, or reachability issue suspected',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 Network connectivity check',
+            owner: 'network',
+            bullets: [
+              'Connection failures often indicate network issues:',
+              '',
+              'Common causes:',
+              '   - Firewall blocking connections',
+              '   - TLS version mismatch',
+              '   - Certificate validation failure',
+              '   - Endpoint not accessible (wrong URL, down)',
+              '',
+              'Result: OIDC/OIDC flows cannot complete'
+            ],
+            tooltip: 'Network, TLS, or reachability issues prevent successful authentication flows.'
+          },
+          {
+            title: 'What to check',
+            owner: 'network',
+            bullets: [
+              '> Test endpoint accessibility:',
+              '   - Try reaching URLs from different networks',
+              '   - Check TLS version (should be TLS 1.2+)',
+              '   - Verify certificate is valid and trusted',
+              '',
+              '> Check firewall/proxy settings:',
+              '   - Ensure outbound HTTPS (443) is allowed',
+              '   - Check for proxy interference',
+              '   - Whitelist KZero IPs if needed'
+            ],
+            vendorFields: ['Firewall settings', 'TLS version', 'Proxy configuration']
+          },
+          {
+            title: 'Check KZero status',
+            owner: 'KZero',
+            bullets: [
+              'Verify KZero tenant is active and endpoints are up.',
+              'Check KZero status page or contact support if outages.'
+            ],
+            kzeroFields: ['Tenant status', 'Endpoint URLs']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, all endpoints are reachable with valid TLS.'],
+        nextEvidence: ['HTTP status codes', 'TLS handshake', 'Network logs']
+      };
+    }
+    case 'STALE_VALUES_FROM_ANOTHER_ENVIRONMENT': {
+      return {
+        title: 'Configuration values may be from different environment',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'vendor SP',
+            bullets: [
+              'Configuration values may be from a different environment.',
+              '',
+              'Common scenario:',
+              '   - Copied production values to test environment',
+              '   - Or vice versa',
+              '   - Using wrong tenant URLs',
+              '',
+              'Result: Endpoint, issuer, and tenant mismatches'
+            ],
+            vendorFields: ['Environment configuration', 'Endpoint URLs'],
+            tooltip: 'Using values from wrong environment causes tenant and endpoint mismatches.'
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify environment consistency:',
+              '   - Production app → Production KZero tenant',
+              '   - Test app → Test KZero tenant',
+              '   - Do NOT mix environments!',
+              '',
+              '> Check all KZero-related values:',
+              '   - Discovery URL',
+              '   - Entity ID / Issuer',
+              '   - All endpoint URLs',
+              '   - Should all reference same environment'
+            ],
+            vendorFields: ['Environment', 'KZero endpoints', 'Tenant name']
+          },
+          {
+            title: 'What to check in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Verify you are configuring the correct tenant.',
+              'Double-check tenant name and environment.',
+              'Ensure you are not in the wrong tenant dashboard.'
+            ],
+            kzeroFields: ['Tenant alias', 'Endpoint URLs', 'Issuer']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, all values belong to same environment.'],
+        nextEvidence: ['Tenant name', 'Endpoint URLs', 'Environment indicators']
+      };
+    }
 
     case 'OIDC_MISSING_OPENID_SCOPE': {
       return {
