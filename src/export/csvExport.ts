@@ -1,7 +1,5 @@
 import type { CaptureSession } from '../shared/models';
 import { getRuleDoc } from '../shared/ruleCatalog';
-import { buildFixRecipe } from '../recipes/buildRecipe';
-import type { TraceContext, TraceContextOidc } from '../recipes/context';
 
 const escape = (value: string): string => {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -34,36 +32,7 @@ export const buildFindingsCsv = (session: CaptureSession | null): string => {
 
   for (const f of session.findings) {
     const ruleDoc = getRuleDoc(f.ruleId);
-    const oidcCorrelation = {
-      stateRoundTrip: false,
-      pkcePresent: false,
-      pkceVerified: false,
-      redirectUriMatch: false,
-      issuerMatch: false,
-      discoveryVisible: false,
-      flowCorrelated: false,
-      flowType: 'unknown' as const,
-      tokenVisible: false,
-      lateCapture: false
-    };
-    const ctx: TraceContext = {
-      kzeroHosts: [],
-      tenants: [],
-      saml: {},
-      oidc: { correlation: oidcCorrelation } as TraceContextOidc
-    };
-    let fixAction = f.likelyFix?.action ?? '';
-    try {
-      const recipe = buildFixRecipe(f, ctx);
-      if (recipe?.sections) {
-        const kzeroSection = recipe.sections.find((s: any) => s.owner === 'KZero');
-        if (kzeroSection?.bullets?.length) {
-          fixAction = kzeroSection.bullets.join('; ');
-        }
-      }
-    } catch {
-      // recipe build may fail for missing context, ignore
-    }
+    const fixAction = f.likelyFix?.action ?? '';
 
     lines.push(
       escapeRow([

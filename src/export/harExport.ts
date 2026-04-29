@@ -37,8 +37,18 @@ interface HarLog {
   entries: HarEntry[];
 }
 
+interface HarFinding {
+  ruleId: string;
+  severity: string;
+  title: string;
+  explanation: string;
+  confidence: number;
+  likelyOwner: string;
+}
+
 interface Har {
   log: HarLog;
+  _kzeroFindings?: HarFinding[];
 }
 
 const SENSITIVE_HEADERS = [/authorization|cookie|x-api-key|secret|token|bearer/i];
@@ -150,7 +160,15 @@ export const buildHarExport = (
         version: chrome.runtime.getManifest().version
       },
       entries: entriesFromSession(session, mode)
-    }
+    },
+    _kzeroFindings: session?.findings.map((f) => ({
+      ruleId: f.ruleId,
+      severity: f.severity,
+      title: f.title,
+      explanation: f.explanation,
+      confidence: f.confidence,
+      likelyOwner: f.likelyOwner
+    }))
   };
   return JSON.stringify(har, null, 2);
 };

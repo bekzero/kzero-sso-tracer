@@ -11,12 +11,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Complete rule catalog** — All 25 SAML, 30 OIDC, and 8 cross-protocol rules now have entries in `ruleCatalog.ts` with explanations, why-it-matters, and KZero/vendor check fields
 - **Complete recipe coverage** — All SAML and OIDC rules now have detailed fix recipes in `buildRecipe.ts` with KZero admin paths, vendor fields, fix steps, and verification instructions
 - **Enhanced CSV export** — Findings CSV now includes `Likely Fix Action`, `KZero Fields to Check`, and `Vendor Fields to Check` columns
+- **HAR export now includes findings** — `_kzeroFindings` array added to HAR output so network captures include diagnostic data
+- **Email export includes all findings** — Now lists ALL findings (not just top finding) with actions and field references
 
 ### Fixed
 
 - **Missing recipe cases** — Added recipes for `SAML_PREAUTHN_CONFIG_ISSUE`, `SAML_MISSING_RESPONSE`, `SAML_MISSING_REQUEST`, `SAML_UNPARSEABLE_ARTIFACT`, `SAML_CAPTURE_STARTED_LATE`, `SAML_ISSUER_MISMATCH`, `SAML_POLICY_MISMATCH_CLUE`, `SAML_AUTHNREQUEST_SIGN_EXPECTATION_MISMATCH`
 - **Missing OIDC recipes** — Added recipes for `OIDC_DISCOVERY_UNREACHABLE`, `OIDC_DISCOVERY_MALFORMED`, `OIDC_DISCOVERY_PUBLIC_REACHABILITY_CLUE`, `OIDC_DISCOVERY_ENDPOINT_HOST_SUSPICIOUS`, `OIDC_DISCOVERY_ENDPOINT_INCONSISTENT`, `OIDC_PKCE_MISSING_WHEN_CODE_FLOW`, `OIDC_PKCE_METHOD_WEAK_OR_UNEXPECTED`, `OIDC_TOKEN_ISSUER_MISMATCH`, `OIDC_TOKEN_AUTH_METHOD_MISMATCH_CLUE`, `OIDC_LOGOUT_REDIRECT_MISMATCH_CLUE`, `OIDC_ACCESS_TOKEN_OPAQUE`, `OIDC_LATE_CAPTURE_CLUE`, `OIDC_MISSING_AUTHORIZE_REQUEST_CLUE`, `OIDC_MISSING_CALLBACK`, `OIDC_USERINFO_FAILED`, `OIDC_BROWSER_STORAGE_OR_COOKIE_BLOCKING_CLUE`, `OIDC_CALLBACK_SEEN_BUT_NO_APP_LANDING_CLUE`
 - **Missing cross-protocol recipes** — Added recipes for `WRONG_HOST_OR_ENVIRONMENT`, `WRONG_REALM_ENDPOINT_FAMILY`, `METADATA_COPY_PASTE_TRUNCATION`, `VENDOR_VALIDATION_REJECTING_METADATA_CLUE`, `CLIENT_SIDE_VS_BACKEND_VALIDATION_DISTINCTION`, `NETWORK_TLS_REACHABILITY_SUSPECTED`, `STALE_VALUES_FROM_ANOTHER_ENVIRONMENT`
+- **Missing OIDC rules in catalog** — Added `OIDC_UNAUTHORIZED_CLIENT`, `OIDC_UNSUPPORTED_RESPONSE_TYPE`, `OIDC_UNSUPPORTED_RESPONSE_MODE`, `OIDC_CALLBACK_ERROR` to `ruleCatalog.ts` and `buildRecipe.ts`
+- **Duplicate SAML rule consolidated** — Merged duplicate `SAML_MISSING_REQUEST` logic in `samlRules.ts`
+- **Bundle size optimized** — Split `buildRecipe.ts` into modules (`samlRecipes.ts`, `oidcRecipes.ts`), reduced `panel.js` from 1.8MB to 1.6MB
+- **CSV export fixed** — Removed heavy `buildFixRecipe` import to prevent runtime crashes and bundle bloat
 
 ## [0.4.0] — 2026-04-24
 

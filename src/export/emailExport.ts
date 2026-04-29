@@ -1,5 +1,6 @@
 import type { CaptureSession } from '../shared/models';
 import { buildSanitizedExportFriendly } from './sanitizedExport';
+import { getRuleDoc } from '../shared/ruleCatalog';
 
 const formatFixSteps = (
   friendly: NonNullable<ReturnType<typeof buildSanitizedExportFriendly>>
@@ -28,6 +29,28 @@ const formatWhatWentWrong = (
   return result;
 };
 
+const formatAllFindings = (session: CaptureSession | null): string => {
+  if (!session || !session.findings || session.findings.length === 0) {
+    return 'No findings.';
+  }
+
+  return session.findings
+    .map((f, i) => {
+      const ruleDoc = getRuleDoc(f.ruleId);
+      const owner = f.likelyOwner ? ` [${f.likelyOwner.toUpperCase()}]` : '';
+      const severity = f.severity ? ` [${f.severity.toUpperCase()}]` : '';
+      const kzeroFields = ruleDoc?.kzeroChecks.join(', ') ?? '';
+      const vendorFields = ruleDoc?.vendorChecks.join(', ') ?? '';
+      return `${i + 1}.${owner}${severity} ${f.title}
+   Rule ID: ${f.ruleId}
+   ${f.explanation || ''}
+   ${f.likelyFix?.action ? `   Action: ${f.likelyFix.action}` : ''}
+   ${kzeroFields ? `   KZero fields: ${kzeroFields}` : ''}
+   ${vendorFields ? `   Vendor fields: ${vendorFields}` : ''}`;
+    })
+    .join('\n\n');
+};
+
 export const emailSessionToSupport = (session: CaptureSession | null): void => {
   const friendly = buildSanitizedExportFriendly(session);
 
@@ -38,7 +61,7 @@ export const emailSessionToSupport = (session: CaptureSession | null): void => {
   const subject = `KZero SSO Tracer - ${friendly.didTheLoginWork} - ${timestamp}`;
 
   const body = `KZero SSO Tracer - Support Request
-===========================================
+==========================================
 
 Status: ${friendly.didTheLoginWork}
 Date: ${timestamp}
@@ -50,7 +73,7 @@ PROBLEM SUMMARY
 ${friendly.whyItFailedOneSentence}
 
 ---
-READY-TO-SEND SUMMARY
+READ-Y-TO-SEND SUMMARY
 ---
 ${friendly.copyThisTextToSendToSomeone}
 
@@ -63,6 +86,11 @@ ${formatWhatWentWrong(friendly)}
 HOW TO FIX THIS
 ---
 ${formatFixSteps(friendly)}
+
+---
+ALL FINDINGS (${session?.findings?.length ?? 0} total)
+---
+${formatAllFindings(session)}
 
 ---
 READING THIS TRACE
@@ -93,7 +121,7 @@ export const getEmailBody = (session: CaptureSession | null): string | null => {
   const timestamp = new Date().toLocaleString();
 
   return `KZero SSO Tracer - Support Request
-===========================================
+==========================================
 
 Status: ${friendly.didTheLoginWork}
 Date: ${timestamp}
@@ -105,7 +133,7 @@ PROBLEM SUMMARY
 ${friendly.whyItFailedOneSentence}
 
 ---
-READY-TO-SEND SUMMARY
+READ-Y-TO-SEND SUMMARY
 ---
 ${friendly.copyThisTextToSendToSomeone}
 
@@ -120,6 +148,11 @@ HOW TO FIX THIS
 ${formatFixSteps(friendly)}
 
 ---
+ALL FINDINGS (${session?.findings?.length ?? 0} total)
+---
+${formatAllFindings(session)}
+
+---
 READING THIS TRACE
 ---
 ${friendly.howToReadThisFile.ifYouJustNeedToFixIt}
@@ -132,7 +165,7 @@ For Engineers Only
 The section "technicalDetailsForEngineers" in the JSON export contains raw trace data.
 
 ---
-Need more help? Contact KZero support at support@kzero.com
+  Need more help? Contact KZero support at support@kzero.com
 `;
 };
 
