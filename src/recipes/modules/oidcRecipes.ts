@@ -1,22 +1,9 @@
-import type { Finding, Owner } from '../../shared/models';
+import type { Finding } from '../../shared/models';
 import type { TraceContext } from '../context';
 import type { FixRecipe } from '../types';
-import type { FixLink } from '../types';
-import {
-  buildOidcNavigationSteps,
-  buildRedirectUriFix,
-  buildClientIdFix,
-  buildDiscoveryUrlFix,
-  buildIssuerFix,
-  buildClientAuthFix,
-  detectOidcVendor,
-  getOidcFieldTooltip
-} from '../guidance/oidc';
-import { getDocUrl, formatVendorNotice } from '../guidance';
+import { buildRedirectUriFix, detectOidcVendor } from '../guidance/oidc';
+import { formatVendorNotice } from '../guidance';
 import { getFieldMapping } from '../../mappings/fieldMappings';
-
-const urlExactMatchNote =
-  '⚠️ Exact match matters: scheme, host, path, query (if used), and trailing slash.';
 
 const baseVerify = [
   'Start capture, run login once, stop capture.',
@@ -24,30 +11,8 @@ const baseVerify = [
   'Export sanitized trace + attach to ticket if escalation is needed.'
 ];
 
-const formatStep = (step: {
-  text: string;
-  important?: boolean;
-  warning?: boolean;
-  field?: string;
-}): string => {
-  let prefix = '';
-  if (step.important && step.warning) prefix = '⚠️ ';
-  else if (step.important) prefix = '';
-  else if (step.warning) prefix = '⚠️ ';
-  return `${prefix}${step.text}`;
-};
-
-const docLinks = {
-  oidcClients: { label: 'OIDC Client Configuration', url: getDocUrl('oidcClients') },
-  realmSettings: { label: 'Realm Settings', url: getDocUrl('realmSettings') },
-  oidcOverview: { label: 'OIDC Overview', url: getDocUrl('oidcOverview') }
-};
-
 export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | null => {
   const map = getFieldMapping(finding.ruleId);
-  const kzeroTenantHint = ctx.tenants[0]
-    ? `Tenant: ${ctx.tenants[0]} (case-sensitive)`
-    : 'Tenant name is case-sensitive';
 
   const getVendorName = (): string | undefined => {
     if (ctx.oidc.authorize?.redirectUri) {
@@ -63,13 +28,13 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
 
   const vendorName = getVendorName();
   const vendorNotice = vendorName ? formatVendorNotice(vendorName, 'oidc') : '';
-  const docLink = getDocUrl('oidcClients');
 
   switch (finding.ruleId) {
     case 'OIDC_REDIRECT_URI_MISMATCH': {
       const expected = finding.expected;
       const observed = finding.observed;
       const fixSteps = buildRedirectUriFix(observed, expected, vendorName);
+      const fixBullets = fixSteps.map((s) => s.text);
 
       return {
         title: 'Redirect URI mismatch',
@@ -79,7 +44,7 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
           {
             title: 'Fix in KZero',
             owner: 'KZero',
-            bullets: fixSteps.map(formatStep),
+            bullets: fixBullets,
             kzeroFields: map.kzeroFields,
             fieldExpectations: [{ field: 'Valid Redirect URIs', expected }],
             copySnippets: [{ label: 'Expected Redirect URL', value: expected }],
@@ -91,7 +56,7 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
             owner: 'vendor SP',
             bullets: [
               `Update vendor "Redirect URI / Callback URL" to exactly: ${expected}`,
-              urlExactMatchNote,
+              'Exact match matters: scheme, host, path, query (if used), and trailing slash.',
               'If the vendor supports multiple redirect URIs, remove stale ones from other environments.',
               'Retry login after saving changes.'
             ],
@@ -118,7 +83,9 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
             title: 'Documentation',
             owner: 'docs',
             bullets: [],
-            links: [docLinks.oidcClients]
+            links: [
+              { label: 'OIDC Client Configuration', url: 'https://docs.kzero.com/oidc-clients' }
+            ]
           }
         ],
         verify: [
@@ -132,7 +99,6 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
         ]
       };
     }
-    // Add more OIDC cases as needed
     default:
       return null;
   }

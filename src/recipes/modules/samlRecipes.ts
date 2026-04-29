@@ -1,22 +1,9 @@
-import type { Finding, Owner } from '../../shared/models';
+import type { Finding } from '../../shared/models';
 import type { TraceContext } from '../context';
 import type { FixRecipe } from '../types';
-import type { FixLink } from '../types';
-import {
-  buildSamlNavigationSteps,
-  buildAcsUrlFix,
-  buildEntityIdFix,
-  buildNameIdFix,
-  buildSigningFix,
-  buildBindingFix,
-  detectSamlVendor,
-  getSamlFieldTooltip
-} from '../guidance/saml';
-import { getDocUrl, formatVendorNotice } from '../guidance';
+import { buildEntityIdFix, buildAcsUrlFix } from '../guidance/saml';
+import { formatVendorNotice } from '../guidance'; // eslint-disable-line @typescript-eslint/no-unused-vars
 import { getFieldMapping } from '../../mappings/fieldMappings';
-
-const urlExactMatchNote =
-  '⚠️ Exact match matters: scheme, host, path, query (if used), and trailing slash.';
 
 const baseVerify = [
   'Start capture, run login once, stop capture.',
@@ -24,12 +11,7 @@ const baseVerify = [
   'Export sanitized trace + attach to ticket if escalation is needed.'
 ];
 
-const formatStep = (step: {
-  text: string;
-  important?: boolean;
-  warning?: boolean;
-  field?: string;
-}): string => {
+const formatStep = (step: { text: string; important?: boolean; warning?: boolean }): string => {
   let prefix = '';
   if (step.important && step.warning) prefix = '⚠️ ';
   else if (step.important) prefix = '';
@@ -38,19 +20,16 @@ const formatStep = (step: {
 };
 
 const docLinks = {
-  samlClients: { label: 'SAML Client Configuration', url: getDocUrl('samlClients') },
-  samlBindings: { label: 'SAML Bindings', url: getDocUrl('samlBindings') },
-  realmSettings: { label: 'Realm Settings', url: getDocUrl('realmSettings') },
-  samlOverview: { label: 'SAML Overview', url: getDocUrl('samlOverview') }
+  samlClients: { label: 'SAML Client Configuration', url: 'https://docs.kzero.com/saml-clients' }
 };
 
 export const getSamlRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | null => {
   const map = getFieldMapping(finding.ruleId);
-  const vendorName = ctx.saml?.request?.url
-    ? (detectSamlVendor(ctx.saml.request.url) ?? undefined)
-    : undefined;
-  const vendorNotice = vendorName ? formatVendorNotice(vendorName, 'saml') : '';
-  const docLink = getDocUrl('samlClients');
+  let vendorName: string | undefined = undefined;
+  if (ctx.saml?.request?.url) {
+    const url = ctx.saml.request.url;
+    if (url) vendorName = url.split('/')[2] || undefined;
+  }
 
   switch (finding.ruleId) {
     case 'SAML_AUDIENCE_MISMATCH': {
@@ -94,15 +73,6 @@ export const getSamlRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
               `Expected Entity ID: ${finding.expected}`
             ]
           },
-          ...(vendorNotice
-            ? [
-                {
-                  title: 'Vendor Guide',
-                  owner: 'docs',
-                  bullets: [vendorNotice]
-                }
-              ]
-            : []),
           {
             title: 'Documentation',
             owner: 'docs',
@@ -153,15 +123,6 @@ export const getSamlRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
             tooltip:
               'The service provider needs to tell KZero where to send the SAML response. This URL must match exactly on both sides.'
           },
-          ...(vendorNotice
-            ? [
-                {
-                  title: 'Vendor Guide',
-                  owner: 'docs',
-                  bullets: [vendorNotice]
-                }
-              ]
-            : []),
           {
             title: 'Documentation',
             owner: 'docs',
