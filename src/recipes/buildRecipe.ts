@@ -2823,6 +2823,250 @@ export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe =
         nextEvidence: ['App landing page', 'Vendor logs', 'Token validation result']
       };
     }
+    case 'OIDC_UNAUTHORIZED_CLIENT': {
+      return {
+        title: 'Client is not authorized for this request',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The client is not authorized to use this flow or grant type.',
+              '',
+              'Common causes:',
+              '   - Client is disabled',
+              '   - Grant type not enabled for this client',
+              '   - Client authentication failed (wrong secret)',
+              '   - Client not allowed to use this response_type'
+            ],
+            kzeroFields: ['Client authentication', 'Grant types', 'Client status'],
+            tooltip: 'The client is not authorized to use this specific flow or grant type.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              '> Check client status:',
+              '   - Ensure client is enabled',
+              '   - Check "Capability Config" for enabled grant types',
+              '',
+              '> Verify client authentication:',
+              '   - Check client secret is correct',
+              '   - Verify authentication method matches vendor'
+            ],
+            kzeroFields: ['Client status', 'Grant types', 'Client authentication']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Verify vendor is using correct grant type:',
+              '   - Authorization code flow: response_type=code',
+              '   - Implicit flow: response_type=id_token token',
+              '   - Hybrid flow: response_type=code id_token',
+              '',
+              '> Check vendor credentials:',
+              '   - Client ID matches KZero',
+              '   - Client secret is correct and not expired'
+            ],
+            vendorFields: ['Grant type', 'Response type', 'Client credentials']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, client is authorized and grant type matches.'],
+        nextEvidence: ['Token endpoint response', 'Client status', 'Enabled grant types']
+      };
+    }
+    case 'OIDC_UNSUPPORTED_RESPONSE_TYPE': {
+      return {
+        title: 'Response type is not supported',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The requested response_type is not enabled for this client.',
+              '',
+              'Common response types:',
+              '   - code (authorization code flow)',
+              '   - id_token (implicit flow)',
+              '   - token (implicit flow)',
+              '   - code id_token (hybrid flow)',
+              '',
+              'KZero must have this response_type enabled for the client.'
+            ],
+            kzeroFields: ['Response types', 'Grant types'],
+            tooltip: 'The response_type parameter is not supported by this client configuration.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "> Go to 'Capability Config' section",
+              '',
+              '> Enable the required response types:',
+              '   - For authorization code: Enable "Standard Flow"',
+              '   - For implicit: Enable "Implicit Flow"',
+              '   - For hybrid: Enable both'
+            ],
+            kzeroFields: ['Response types', 'Standard Flow', 'Implicit Flow']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check what response_type vendor is using:',
+              '   - Look at the authorize request URL',
+              '   - Common: response_type=code',
+              '',
+              '> If vendor uses unsupported type:',
+              '   - Either enable it in KZero, or',
+              '   - Change vendor to use supported response_type'
+            ],
+            vendorFields: ['Response type', 'OIDC settings']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients, docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, response_type is supported by client.'],
+        nextEvidence: ['Authorize request response_type', 'Client enabled response types']
+      };
+    }
+    case 'OIDC_UNSUPPORTED_RESPONSE_MODE': {
+      return {
+        title: 'Response mode is not supported',
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'KZero',
+            bullets: [
+              'The requested response_mode is not supported.',
+              '',
+              'Common response modes:',
+              '   - query (parameters in URL query string)',
+              '   - fragment (parameters in URL fragment)',
+              '   - form_post (parameters in POST body)',
+              '',
+              'KZero may not support the requested response_mode.'
+            ],
+            kzeroFields: ['Response modes', 'Client settings'],
+            tooltip: 'The response_mode parameter is not supported by the authorization server.'
+          },
+          {
+            title: 'Fix in KZero',
+            owner: 'KZero',
+            bullets: [
+              'Go to your KZero dashboard > Select your tenant',
+              "Click 'Advanced Console' > Select 'Clients' > Search for your app",
+              '',
+              "> Check 'Capability Config' for response mode settings",
+              '',
+              '> If response_mode is required:',
+              '   - Ensure KZero supports the mode',
+              '   - Consider using default mode (based on response_type)'
+            ],
+            kzeroFields: ['Response modes', 'Capability Config']
+          },
+          {
+            title: 'Fix in vendor app',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check if vendor specifies response_mode:',
+              '   - Look for response_mode in authorize request',
+              '   - Common modes: query, fragment, form_post',
+              '',
+              '> If KZero does not support the mode:',
+              '   - Remove response_mode parameter from vendor config',
+              '   - Let KZero use default mode based on response_type'
+            ],
+            vendorFields: ['Response mode', 'OIDC settings']
+          },
+          {
+            title: 'Documentation',
+            owner: 'docs',
+            bullets: [],
+            links: [docLinks.oidcClients, docLinks.oidcOverview]
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, response_mode is supported or not specified.'],
+        nextEvidence: ['Authorize request response_mode', 'Client response mode settings']
+      };
+    }
+    case 'OIDC_CALLBACK_ERROR': {
+      return {
+        title: `OIDC error: ${finding.observed}`,
+        owner: finding.likelyOwner,
+        confidence: finding.confidence,
+        sections: [
+          {
+            title: '🔧 What this means',
+            owner: 'vendor SP',
+            bullets: [
+              'The authorization or token endpoint returned an OAuth/OIDC error.',
+              '',
+              'Common errors:',
+              '   - invalid_request: Missing or invalid parameter',
+              '   - unauthorized_client: Client not authorized',
+              '   - access_denied: User or authorization server denied request',
+              '   - unsupported_response_type: Response type not supported',
+              '   - invalid_scope: Scope invalid or not supported',
+              '',
+              `Error details: ${finding.observed}`
+            ],
+            tooltip:
+              'An OAuth/OIDC error parameter was returned. This indicates a problem with the request.'
+          },
+          {
+            title: 'What to check in vendor',
+            owner: 'vendor SP',
+            bullets: [
+              '> Check the exact error returned:',
+              `   - Error: ${finding.observed}`,
+              '',
+              '> Common fixes:',
+              '   - Verify all required parameters are present',
+              '   - Check client ID and secret are correct',
+              '   - Ensure scopes are valid and allowed',
+              '   - Verify redirect URI matches exactly'
+            ],
+            vendorFields: ['OIDC error handling', 'Authorization parameters']
+          },
+          {
+            title: 'Check KZero configuration',
+            owner: 'KZero',
+            bullets: [
+              'Verify client configuration is correct.',
+              'Check that requested scopes are allowed for this client.',
+              'Ensure client is enabled and credentials are valid.'
+            ],
+            kzeroFields: ['Client settings', 'Client scopes', 'Client status']
+          }
+        ],
+        verify: [...baseVerify, 'In the new trace, no OAuth/OIDC error is returned.'],
+        nextEvidence: ['OAuth error parameter', 'Error description', 'Request parameters']
+      };
+    }
 
     // ============ Cross-Protocol Rules ============
     case 'WRONG_HOST_OR_ENVIRONMENT': {

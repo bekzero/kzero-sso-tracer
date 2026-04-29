@@ -233,6 +233,38 @@ export const RULE_CATALOG: RuleDoc[] = [
     kzeroChecks: ['Client scopes', 'Allowed scopes'],
     vendorChecks: ['Scope configuration', 'Supported scopes']
   },
+  {
+    ruleId: 'OIDC_UNAUTHORIZED_CLIENT',
+    protocol: 'OIDC',
+    short: 'Client is not authorized for this request.',
+    why: 'The client is not authorized to use this flow or grant type.',
+    kzeroChecks: ['Client authentication', 'Client settings'],
+    vendorChecks: ['Client authorization', 'Grant types']
+  },
+  {
+    ruleId: 'OIDC_UNSUPPORTED_RESPONSE_TYPE',
+    protocol: 'OIDC',
+    short: 'Response type is not supported.',
+    why: 'The requested response_type is not enabled for this client.',
+    kzeroChecks: ['Client settings', 'Response types'],
+    vendorChecks: ['Response type configuration']
+  },
+  {
+    ruleId: 'OIDC_UNSUPPORTED_RESPONSE_MODE',
+    protocol: 'OIDC',
+    short: 'Response mode is not supported.',
+    why: 'The requested response_mode is not supported by the authorization server.',
+    kzeroChecks: ['Client settings', 'Response modes'],
+    vendorChecks: ['Response mode configuration']
+  },
+  {
+    ruleId: 'OIDC_CALLBACK_ERROR',
+    protocol: 'OIDC',
+    short: 'OIDC callback returned an error.',
+    why: 'The authorization or token endpoint returned an OAuth/OIDC error parameter.',
+    kzeroChecks: ['Client settings', 'Redirect URI'],
+    vendorChecks: ['Error handling', 'OAuth error response']
+  },
 
   // SAML Rules
   {
