@@ -1,8 +1,6 @@
 import type { Finding } from '../shared/models';
 import type { TraceContext } from './context';
 import type { FixRecipe } from './types';
-import { getSamlRecipe } from './modules/samlRecipes';
-import { getOidcRecipe } from './modules/oidcRecipes';
 
 const baseVerify = [
   'Start capture, run login once, stop capture.',
@@ -11,14 +9,16 @@ const baseVerify = [
 ];
 
 export const buildFixRecipe = (finding: Finding, ctx: TraceContext): FixRecipe => {
-  // Try SAML recipes first
+  // Try SAML recipes first (lazy-loaded)
   if (finding.ruleId.startsWith('SAML_')) {
+    const { getSamlRecipe } = require('./modules/samlRecipes');
     const recipe = getSamlRecipe(finding, ctx);
     if (recipe) return recipe;
   }
 
-  // Try OIDC recipes
+  // Try OIDC recipes (lazy-loaded)
   if (finding.ruleId.startsWith('OIDC_')) {
+    const { getOidcRecipe } = require('./modules/oidcRecipes');
     const recipe = getOidcRecipe(finding, ctx);
     if (recipe) return recipe;
   }

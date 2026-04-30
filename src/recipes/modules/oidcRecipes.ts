@@ -15,11 +15,11 @@ export const getOidcRecipe = (finding: Finding, ctx: TraceContext): FixRecipe | 
   const map = getFieldMapping(finding.ruleId);
 
   const getVendorName = (): string | undefined => {
-    if (ctx.oidc.authorize?.redirectUri) {
+    if (ctx.oidc?.authorize?.redirectUri) {
       const detected = detectOidcVendor(ctx.oidc.authorize.redirectUri);
       if (detected) return detected;
     }
-    if (ctx.oidc.authorize?.clientId) {
+    if (ctx.oidc?.authorize?.clientId) {
       const detected = detectOidcVendor(undefined, ctx.oidc.authorize.clientId);
       if (detected) return detected;
     }

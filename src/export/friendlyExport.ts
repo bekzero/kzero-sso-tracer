@@ -1,4 +1,6 @@
 import type { SanitizedExportBundle, SummaryExportBundle } from '../shared/models';
+import { getRuleDoc } from '../shared/ruleCatalog';
+import { formatAllFindings } from './emailExport';
 
 export interface FriendlyStep {
   stepNumber: number;
@@ -11,6 +13,17 @@ export interface FriendlyHowToFix {
   step1_lookFor: string;
   step2_compareWith: string;
   step3_changeThis: string;
+  whyThisMatters: string;
+}
+
+export interface FriendlyFindingDetail {
+  ruleId: string;
+  severity: string;
+  shortDescription: string;
+  plainEnglishExplanation: string;
+  kzeroAdminPath: string;
+  whatToFind: string;
+  whatToCompare: string;
   whyThisMatters: string;
 }
 
@@ -32,6 +45,8 @@ export interface FriendlyExportBundle {
   howToFixIt: FriendlyHowToFix;
 
   whatWentWrong: FriendlyWhatWentWrong;
+
+  allFindings: FriendlyFindingDetail[];
 
   howToReadThisFile: {
     ifYouJustNeedToFixIt: string;
@@ -66,6 +81,24 @@ const buildHowToReadThis = (): FriendlyExportBundle['howToReadThisFile'] => ({
   ifYouWantToUnderstand: "Read 'whatWentWrong' - it explains what happened in plain English",
   forEngineersOnly: "Everything in 'technicalDetailsForEngineers' below is raw data for developers"
 });
+
+const buildAllFindings = (
+  findings: Array<{ ruleId: string; severity: string; plainEnglishExplanation?: string }>
+): FriendlyFindingDetail[] => {
+  return findings.map((f) => {
+    const ruleDoc = getRuleDoc(f.ruleId);
+    return {
+      ruleId: f.ruleId,
+      severity: f.severity,
+      shortDescription: ruleDoc?.short ?? f.ruleId,
+      plainEnglishExplanation: f.plainEnglishExplanation ?? ruleDoc?.why ?? '',
+      kzeroAdminPath: ruleDoc?.kzeroChecks?.join(', ') ?? '',
+      whatToFind: ruleDoc?.kzeroChecks?.[0] ?? '',
+      whatToCompare: ruleDoc?.vendorChecks?.[0] ?? '',
+      whyThisMatters: ruleDoc?.why ?? ''
+    };
+  });
+};
 
 const transformSanitizedToFriendly = (export_: SanitizedExportBundle): FriendlyExportBundle => {
   const education = export_.education;
@@ -121,6 +154,7 @@ const transformSanitizedToFriendly = (export_: SanitizedExportBundle): FriendlyE
     copyThisTextToSendToSomeone,
     howToFixIt,
     whatWentWrong,
+    allFindings: buildAllFindings(findings),
     howToReadThisFile: buildHowToReadThis(),
     technicalDetailsForEngineers: {
       note: 'STOP HERE if you are non-technical. The information above is what you need.',
@@ -185,6 +219,7 @@ const transformSummaryToFriendly = (export_: SummaryExportBundle): FriendlyExpor
     copyThisTextToSendToSomeone,
     howToFixIt,
     whatWentWrong,
+    allFindings: buildAllFindings(findings),
     howToReadThisFile: buildHowToReadThis(),
     technicalDetailsForEngineers: {
       note: 'STOP HERE if you are non-technical. The information above is what you need.',

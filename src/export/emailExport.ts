@@ -29,7 +29,7 @@ const formatWhatWentWrong = (
   return result;
 };
 
-const formatAllFindings = (session: CaptureSession | null): string => {
+export const formatAllFindings = (session: CaptureSession | null): string => {
   if (!session || !session.findings || session.findings.length === 0) {
     return 'No findings.';
   }
