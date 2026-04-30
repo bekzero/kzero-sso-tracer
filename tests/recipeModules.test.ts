@@ -227,5 +227,52 @@ describe('OIDC Recipe Module', () => {
       expect(kzeroSection!.copySnippets).toBeDefined();
       expect(kzeroSection!.copySnippets!.length).toBeGreaterThan(0);
     });
+
+    it('returns recipe for OIDC_UNAUTHORIZED_CLIENT', () => {
+      mockFinding.ruleId = 'OIDC_UNAUTHORIZED_CLIENT';
+      mockFinding.title = 'Unauthorized client';
+      mockFinding.explanation = 'The client is not authorized for this request.';
+
+      const recipe = getOidcRecipe(mockFinding, mockCtx);
+      expect(recipe).not.toBeNull();
+      expect(recipe!.title).toBe('Unauthorized client');
+      expect(recipe!.sections.length).toBeGreaterThan(0);
+    });
+
+    it('returns recipe for OIDC_UNSUPPORTED_RESPONSE_TYPE', () => {
+      mockFinding.ruleId = 'OIDC_UNSUPPORTED_RESPONSE_TYPE';
+      mockFinding.observed = 'token';
+      mockFinding.title = 'Unsupported response type';
+      mockFinding.explanation = 'The response_type is not supported.';
+
+      const recipe = getOidcRecipe(mockFinding, mockCtx);
+      expect(recipe).not.toBeNull();
+      expect(recipe!.title).toBe('Unsupported response type');
+      expect(recipe!.sections.length).toBeGreaterThan(0);
+    });
+
+    it('returns recipe for OIDC_UNSUPPORTED_RESPONSE_MODE', () => {
+      mockFinding.ruleId = 'OIDC_UNSUPPORTED_RESPONSE_MODE';
+      mockFinding.observed = 'fragment';
+      mockFinding.title = 'Unsupported response mode';
+      mockFinding.explanation = 'The response_mode is not supported.';
+
+      const recipe = getOidcRecipe(mockFinding, mockCtx);
+      expect(recipe).not.toBeNull();
+      expect(recipe!.title).toBe('Unsupported response mode');
+      expect(recipe!.sections.length).toBeGreaterThan(0);
+    });
+
+    it('returns recipe for OIDC_CALLBACK_ERROR', () => {
+      mockFinding.ruleId = 'OIDC_CALLBACK_ERROR';
+      mockFinding.observed = 'invalid_scope';
+      mockFinding.title = 'OIDC callback error';
+      mockFinding.explanation = 'An error occurred during callback.';
+
+      const recipe = getOidcRecipe(mockFinding, mockCtx);
+      expect(recipe).not.toBeNull();
+      expect(recipe!.title).toBe('OIDC callback error');
+      expect(recipe!.sections.length).toBeGreaterThan(0);
+    });
   });
 });

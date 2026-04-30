@@ -1,6 +1,5 @@
 import type { SanitizedExportBundle, SummaryExportBundle } from '../shared/models';
 import { getRuleDoc } from '../shared/ruleCatalog';
-import { formatAllFindings } from './emailExport';
 
 export interface FriendlyStep {
   stepNumber: number;
